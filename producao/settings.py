@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 
 from pathlib import Path
 import os
+import platform
+import sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -154,7 +156,12 @@ URL_REMOTO = '192.168.0.24'
 URL_PRODUCAO = '192.168.0.24'
 URL_SQLITE = '192.168.0.24'
 PAY = None
-DATABASE = "/home/suporte/prod/producao.db"
+nome_so = platform.system()
+if nome_so == "Linux":
+    DATABASE = "/home/suporte/prod/producao.db"
+elif nome_so == "Windows":
+    DATABASE = "C:\Clonar\projetos_python\PRODUCAO\producao.db"
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field

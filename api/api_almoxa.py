@@ -5,13 +5,15 @@ import json
 import requests
 import urllib3
 import urllib as ul
-import cx_Oracle
+import oracledb as cxo
+from oracle_connection import getOracleConnection
 import time
 from datetime import datetime, date, timedelta
 import json, requests
 from unicodedata import normalize
 from dateutil.relativedelta import *
-import cx_Oracle as cxo
+import oracledb as cxo
+from oracle_connection import getOracleConnection
 from producao import settings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 v_dirlog = '/home/admin/prod/log'
@@ -32,21 +34,6 @@ def geturlinv(funcao):
     url_remoto = settings.URL_SQLITE
     url_principal = 'http://'+url_remoto+'/inv/'+funcao
     return url_principal
-
-def getOracleConnection():
-    username = 'idp'
-    password = 'megamega'
-    #server   = '@192.168.0.8:1521/'
-    server   = '@10.101.235.105:1521/'
-    #databaseName = 'megag'
-    databaseName = 'ORCL_gru1x6.subnetskydbindu.vcnrootautoskyo.oraclevcn.com'
-    try:
-        conn = cxo.connect(username+'/'+password+server+databaseName)
-        #print ('Conectado: \n')
-    except cxo.DatabaseError:
-        print ('Falha ao conectar no banco de dados: \n')
-        exit (1)
-    return conn;
 
 class Baixas:
     def __init__(self):

@@ -1,0 +1,13 @@
+dbvis.sh
+prodenv/
+prodenv_old/
+venv/
+
+__pycache__/
+*.pyc
+*.py.save
+
+*.pyo
+*.pyd
+*.db
+key.txt

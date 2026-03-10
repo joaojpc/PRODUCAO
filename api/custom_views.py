@@ -4,27 +4,13 @@ import socket
 import json
 import sys
 import sqlite3
-import cx_Oracle as cxo
+import oracledb as cxo
+from oracle_connection import getOracleConnection
+
 
 from django.utils import timezone
 #from apontamento.Etiqueta_precorte import gera_etiqueta
 #from apontamento.custom_views_sqlite import Listar_opcoes_sqlite, User_logado_sqlite, Login_inicial_sqlite
-
-
-def getOracleConnection():
-    username = 'mgcustom'
-    password = 'supcustom'
-    #server   = '@192.168.0.8:1521/'
-    server   = '@10.101.235.105:1521/'
-    #databaseName = 'megag'
-    databaseName = 'ORCL_gru1x6.subnetskydbindu.vcnrootautoskyo.oraclevcn.com'
-    try:
-        conn = cxo.connect(username+'/'+password+server+databaseName)
-        #print ('Conectado: \n')
-    except cxo.DatabaseError:
-        print ('Falha ao conectar no banco de dados: \n')
-        exit (1)
-    return conn;
 
 '''def getSqliteConnection(dbname):
     try:
