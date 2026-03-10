@@ -8,23 +8,8 @@ import datetime
 from django.utils import timezone
 from producao import settings
 import requests
+from url_projeto import geturlapp, geturlapi, geturlprod, geturlest
 
-def geturlapp(funcao):
-    url_remoto = settings.URL_SQLITE
-    url_principal = 'http://'+url_remoto+'/app/'+funcao
-    return url_principal
-def geturlapi(funcao):
-    url_remoto = settings.URL_SQLITE
-    url_principal = 'http://'+url_remoto+'/api/'+funcao
-    return url_principal
-def geturlprod(funcao):
-    url_remoto = settings.URL_SQLITE
-    url_principal = 'http://'+url_remoto+'/prod/'+funcao
-    return url_principal
-def geturlest(funcao):
-    url_remoto = settings.URL_SQLITE
-    url_principal = 'http://'+url_remoto+'/est/'+funcao
-    return url_principal
 def formatar_ccusto(pParam):
         v_param = pParam
         v_tabela = None

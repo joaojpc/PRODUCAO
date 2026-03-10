@@ -6,13 +6,14 @@ import json
 import requests
 import urllib3
 import urllib as ul
-import cx_Oracle
+import oracledb as cxo
+from oracle_connection import getOracleConnection
+from url_projeto import geturlapp, geturlapi, geturlprod, geturlest
 import time
 from datetime import datetime, date, timedelta
 import json, requests
 from unicodedata import normalize
 from dateutil.relativedelta import *
-import cx_Oracle as cxo
 from api_view_oracle import *
 from api_almoxa_oracle import *
 
@@ -25,23 +26,6 @@ URL_REMOTO = '192.168.0.43'
 URL_PRODUCAO = '192.168.0.158'
 #URL_SQLITE = 'localhost:8000'
 URL_SQLITE = '192.168.0.158'
-
-def geturlapp(funcao):
-    url_remoto = URL_SQLITE
-    url_principal = 'http://'+url_remoto+'/app/'+funcao
-    return url_principal
-def geturlapi(funcao):
-    url_remoto = URL_SQLITE
-    url_principal = 'http://'+url_remoto+'/api/'+funcao
-    return url_principal
-def geturlprod(funcao):
-    url_remoto = URL_SQLITE
-    url_principal = 'http://'+url_remoto+'/prod/'+funcao
-    return url_principal
-def geturlest(funcao):
-    url_remoto = URL_SQLITE
-    url_principal = 'http://'+url_remoto+'/est/'+funcao
-    return url_principal
 
 class integrador:
     def __init__(self,pParams):

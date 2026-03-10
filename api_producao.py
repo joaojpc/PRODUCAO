@@ -5,13 +5,14 @@ import json
 import requests
 import urllib3
 import urllib as ul
-import cx_Oracle
+import oracledb as cxo
+from oracle_connection import getOracleConnection
+from url_projeto import geturlapp, geturlapi, geturlprod, geturlest
 import time
 from datetime import datetime, date, timedelta
 import json, requests
 from unicodedata import normalize
 from dateutil.relativedelta import *
-import cx_Oracle as cxo
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 v_dirlog = '/home/admin/prod/log'
@@ -21,22 +22,6 @@ URL_LOCAL = 'localhost'
 URL_REMOTO = '192.168.0.24'
 URL_PRODUCAO = '192.168.0.24'
 URL_SQLITE = '127.0.0.1:8000'
-
-def geturlapi(funcao):
-    url_remoto = URL_PRODUCAO
-    url_principal = 'http://'+url_remoto+'/api/'+funcao
-    #print (url_principal)
-    return url_principal
-def geturlapp(funcao):
-    url_remoto = URL_PRODUCAO
-    url_principal = 'http://'+url_remoto+'/app/'+funcao
-    #print (url_principal)
-    return url_principal
-def geturl_producao(funcao):
-    url_producao = URL_PRODUCAO
-    url_principal = 'http://'+url_producao+'/prod/'+funcao
-    #print (url_principal)
-    return url_principal
 
 def trata_data(pDATA):
     str_date = pDATA    
@@ -62,21 +47,6 @@ def trata_data_sqlite(pDATA):
     else:
         date = str_date    
     return date
-
-def getOracleConnection():
-    username = 'idp'
-    password = 'megamega'
-    #server   = '@192.168.0.8:1521/'
-    server   = '@10.101.235.105:1521/'
-    #databaseName = 'megag'
-    databaseName = 'ORCL_gru1x6.subnetskydbindu.vcnrootautoskyo.oraclevcn.com'
-    try:
-        conn = cxo.connect(username+'/'+password+server+databaseName)
-        print ('Conectado: \n')
-    except cxo.DatabaseError:
-        print ('Falha ao conectar no banco de dados: \n')
-        exit (1)
-    return conn;
 
 def separa_string(pString, vINI, vFIM):    
     return (pString[vINI:vFIM])
@@ -114,7 +84,7 @@ class integrador:
         tem_ordem = 'N'
         tem_demanda = 'N'
         self.funcao = 'controleApt/'
-        self.get_urlprod = geturl_producao(self.funcao)
+        self.get_urlprod = geturlprod(self.funcao)
         self.payload = {'fil_in_codigo': self.fil_in,'status': 'A'}
         try:
             #Busca os apontamentos em aberto                        
@@ -338,7 +308,7 @@ class integrador:
         print('Bucando dados de controle')
         #busca Ordens Pendentes
         self.funcao = 'controleApt/'
-        self.get_urlprod = geturl_producao(self.funcao)
+        self.get_urlprod = geturlprod(self.funcao)
         if self.ord_in is not None:
             self.payload = {'fil_in_codigo': self.fil_in,'status': 'A', 'ord_in_codigo':self.ord_in}
         else:

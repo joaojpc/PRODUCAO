@@ -14,6 +14,8 @@ from unicodedata import normalize
 from dateutil.relativedelta import *
 import oracledb as cxo
 from oracle_connection import getOracleConnection
+from url_projeto import geturlapp, geturlapi, geturlprod, geturlest, geturlinv
+
 from producao import settings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 v_dirlog = '/home/admin/prod/log'
@@ -23,17 +25,6 @@ URL_LOCAL = 'localhost'
 URL_REMOTO = '192.168.0.24'
 URL_PRODUCAO = '192.168.0.24'
 URL_SQLITE = 'localhost:8000'
-
-
-def geturlest(funcao):
-    url_remoto = settings.URL_SQLITE
-    url_principal = 'http://'+url_remoto+'/est/'+funcao
-    return url_principal
-
-def geturlinv(funcao):
-    url_remoto = settings.URL_SQLITE
-    url_principal = 'http://'+url_remoto+'/inv/'+funcao
-    return url_principal
 
 class Baixas:
     def __init__(self):

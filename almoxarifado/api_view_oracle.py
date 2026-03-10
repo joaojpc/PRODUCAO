@@ -4,23 +4,13 @@ import socket
 import json
 import sys
 import sqlite3
-import cx_Oracle as cxo
+import oracledb as cxo
+from oracle_connection import getOracleConnection
+from url_projeto import geturlapp, geturlapi, geturlprod, geturlest
 import requests
 
 from django.utils import timezone
 
-def getOracleConnection():
-    username = 'mgcustom/'
-    password = 'supcustom'
-    server   = '@10.101.235.105:1521/'
-    databaseName = 'ORCL_gru1x6.subnetskydbindu.vcnrootautoskyo.oraclevcn.com'
-    try:
-        conn = cxo.connect(username+password+server+databaseName)
-        #print ('Conectado: \n')
-    except cxo.DatabaseError:
-        print ('Falha ao conectar no banco de dados: \n')
-        exit (1)
-    return conn;
 
 class IntApi:
     def __init__(self,pparams):

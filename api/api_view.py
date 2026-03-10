@@ -536,7 +536,7 @@ class GetDadosProducao:
         json_itens = json.dumps(lista)
         #print(json_itens)
         return json_itens
-    def get_centro_custos(self):
+    def get_centro_custos(self,pParams):
         lista = []
         self.fil_in = pParams['filial']
         selectSQL =('''select lpad(cc.cus_tab_in_codigo,3,0)|| 

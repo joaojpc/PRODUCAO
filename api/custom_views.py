@@ -6,9 +6,11 @@ import sys
 import sqlite3
 import oracledb as cxo
 from oracle_connection import getOracleConnection
-
+import requests
 
 from django.utils import timezone
+
+from url_projeto import geturlprod
 #from apontamento.Etiqueta_precorte import gera_etiqueta
 #from apontamento.custom_views_sqlite import Listar_opcoes_sqlite, User_logado_sqlite, Login_inicial_sqlite
 
@@ -256,8 +258,14 @@ class IntProd:
     def __init__(self):
         self.equip_logado = 'N'
         self.dbname = 'Producao.db'
-        v_lista = Listar_opcoes_sqlite()
-        c_controle = json.loads(v_lista.lis_controle_sqlite())
+        self.controle = 0
+        funcao = 'controleApt/'
+        app_url = geturlprod(funcao)
+        payload = {'ctl_in_codigo': self.controle}
+        try:
+            c_controle = requests.get(app_url, params=payload).json()
+        except:
+            pass
         for v_controle in c_controle:
             self.fil_in = v_controle['eqp_in_filial']
             self.ordem_in = v_controle['ord_in_codigo']
