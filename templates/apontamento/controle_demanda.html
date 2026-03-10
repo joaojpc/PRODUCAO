@@ -1,0 +1,21 @@
+{% extends 'apontamento/base.html' %}
+{% block content %}
+{% load widget_tweaks %}
+	<h1>Controle de demanda</h1>
+		<!--h3>Welcome you are signed in as {{ usuario }}</h3-->
+		<h1>
+			<div class="alert alert-primary" role="alert">
+				 Ordem em Execução: {{ ord_in_codigo }}
+			</div>
+		</h1>
+		<a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url "insDemandaslocal" %}?action=apontamento">Continuar</a>
+		<button type="button" class="btn btn-light" disabled></button>
+	    <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url "demos_sessions" %}?action=logout">Encerrar</a>
+		<button type="button" class="btn btn-light" disabled></button>
+        <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url "demos_sessions" %}?action=trocar">Trocar Ordem</a>
+		<button type="button" class="btn btn-light" disabled></button>
+        <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url "menu" %}?action=retornar">Voltar</a>
+{% endblock %}
+{% block js %}
+    {% include "apontamento/js_html/js_onEnter.html" %}
+{% endblock %}

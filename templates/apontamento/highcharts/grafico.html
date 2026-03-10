@@ -1,0 +1,10 @@
+{% load staticfiles %}
+
+<script src="{% static '/highcharts/Highcharts-6.0.3/code/highcharts.js'%}"></script>
+<script src="{% static '/highcharts/Highcharts-6.0.3/code/modules/exporting.js'%}"></script>
+
+<div id="container" style="min-width: 310px; height: 400px; max-width: 600px; margin: 0 auto"></div>
+
+{% block js %}
+    {% include "apontamento/highcharts/example_1.html" %}
+{% endblock %}

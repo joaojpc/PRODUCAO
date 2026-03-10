@@ -1,0 +1,213 @@
+<script>
+    //DECLARAÇÃO DE VARIÁVEIS GLOBAIS;
+    var total_lotes;
+    var v_endereco = 'http://192.168.0.24/';
+    var v_texto;
+    var v_postdata;
+    var v_http;
+    var v_Return;
+    var v_json;
+    litens = {{lotes | safe}};    
+    $(document).ready(function() {
+        $(document).on("click",".editable",function(){
+            var value=$(this).text();
+            var data_type=$(this).data("type");
+            var input_type="text";
+            if(data_type=="created_at")
+            {
+                input_type="datetime-local";
+            }
+            var input="<input type='"+input_type+"' class='input-data' value='"+value+"' class='form-control'>";
+            $(this).html(input);
+            $(this).removeClass("editable")
+        });
+        /*v_Return = contar_lotes(2482);
+        alert(v_Return);*/   
+    });
+    function ler_Lotes() {        
+        $.each(litens, function(key,value){            
+            itn = value;
+            alert(itn.PRO_IN_CODIGO);
+        });        
+    }
+    function contar_lotes(pItem) {        
+        var pro_id;
+        var ord_id;
+        var pro_tt = 0;
+        $.each(litens, function(key,value){
+            itn = value;                        
+            if (itn.PRO_IN_CODIGO == pItem) {                
+                pro_id = itn.PRO_ST_ID;
+                ord_id = itn.ORD_ST_ID;
+                pro_tt = (pro_tt+1);                
+            }
+        });
+        var retorno =[pro_id, ord_id, pro_tt]
+        return  retorno;
+    };   
+    function gera_rateio(pItem, pQtde, pFator, ResId, Reg_tt) {
+        var v_saldo;
+        var v_qtdeAjustada;
+        var v_ajuste;
+        var v_contador;
+        v_saldo = Math.abs(pQtde);
+        v_contador = 0;
+        $.each(litens, function(key,value){
+            itn = value;
+            v_qtdeAjustada = 0;
+            v_ajuste = 0;            
+            if (itn.PRO_IN_CODIGO == pItem) {
+                v_contador = (v_contador+1);
+                if (v_contador == Reg_tt){
+                   v_ajuste = v_saldo.toFixed(3);
+                }
+                else {
+                    v_ajuste = (itn.ORL_RE_QTDLOTE*pFator).toFixed(3);
+                    v_saldo = (v_saldo-v_ajuste);
+                }
+                if (pQtde > 0) {
+                    v_qtdeAjustada = (parseFloat(itn.ORL_RE_QTDLOTE)+parseFloat(v_ajuste)).toFixed(3);
+                }
+                else {
+                    v_qtdeAjustada = (parseFloat(itn.ORL_RE_QTDLOTE)-parseFloat(v_ajuste)).toFixed(3);
+                }
+                v_texto = '{';
+                v_texto = v_texto+'"ordem": '+itn.ORD_IN_CODIGO;
+                v_texto = v_texto+', "filial": '+itn.FIL_IN_CODIGO;
+                v_texto = v_texto+', "ctl_in_codigo": '+itn.CTL_IN_CODIGO;
+                v_texto = v_texto+', "sequencia": '+itn.APT_IN_SEQUENCIA;
+                v_texto = v_texto+', "qtde_re_ajustada": '+v_qtdeAjustada;
+                v_texto = v_texto+', "res_st_id": '+ResId;
+                v_texto = v_texto+', "status": "N"';
+                v_texto = v_texto+'}';
+                v_postdata = JSON.parse(v_texto);
+                v_http = v_endereco+'app/apontamentos/';
+                v_Return = httpPut(v_http, v_postdata);
+            }
+        });
+        var retorno ='Resumo Gerado com sucesso!';
+        return  retorno;
+    }        
+    $(document).on("blur",".input-data",function(){
+                var value=$(this).val();
+                var td=$(this).parent("td");
+                $(this).remove();
+                td.html(value);
+                td.addClass("editable");
+                var type=td.data("type");
+            });
+    function showTableData() {
+        //DECLARAÇÃO DE VARIÁVEIS LOCAIS;        
+        var v_ReturnSeq;
+        var v_sequencia;
+        var v_sequencia_last;
+        var myTab;
+        var v_RES_ST_ID;
+        var v_RES_COD;
+        var v_RES_SEQ;
+        var v_RES_IN_SEQUENCIA;
+        var v_ORD_ST_ID;
+        var v_PRO_ST_ID;
+        var v_PRO_RE_QTDINFORMADA;
+        var v_TOTAL_PROD;
+        var v_Dif;
+        var v_Fator;
+        var v_PRO_COD;
+        var v_resItem;
+        var v_QtdeLotes;
+        var v_descricao;
+        //BUSCA A PRÓXIMA SEQUENCIA DE APONTAMENTO;        
+        v_sequencia = SequenciaApto();        
+        v_RES_COD = addZeros(v_sequencia,7);        
+        document.getElementById('info').innerHTML = "";
+        myTab = document.getElementById('table_resumo');        
+        // PERCORRE CADA LINHA DA TABELA DEPOIS DO CABEÇALHO.
+        for (i = 1; i < myTab.rows.length; i++) {
+             v_RES_SEQ = addZeros(i,3);
+             alert(v_RES_SEQ);        
+             v_RES_ST_ID = '"'+v_RES_COD+v_RES_SEQ+'"';
+            // OBTER A COLEÇÃO DE CÉLULAS DA LINHA ATUAL.
+            var objCells = myTab.rows.item(i).cells;
+            v_PRO_COD = myTab.rows[i].cells[0].innerHTML;
+            v_descricao = '"'+myTab.rows[i].cells[1].innerHTML+'"';
+            v_resItem = contar_lotes(v_PRO_COD);
+             //PEGAR O VALOR DE CADA COLUNA;
+            v_PRO_ST_ID = '"'+v_resItem[0]+'"';
+            v_ORD_ST_ID = '"'+v_resItem[1]+'"';
+            v_QtdeLotes = v_resItem[2];
+            v_TOTAL_PROD = (myTab.rows[i].cells[2].innerHTML).replace(',','.');
+            v_PRO_RE_QTDINFORMADA = (myTab.rows[i].cells[3].innerHTML).replace(',','.');
+            v_Dif = (v_PRO_RE_QTDINFORMADA-v_TOTAL_PROD).toFixed(3);
+            v_Fator = Math.abs(v_Dif/v_TOTAL_PROD);
+            v_texto = '{"RES_ST_ID": '+v_RES_ST_ID;
+            v_texto = v_texto+', "RES_IN_CODIGO": '+v_sequencia;
+            v_texto = v_texto+', "RES_IN_SEQUENCIA": '+i;
+            v_texto = v_texto+', "ORD_ST_ID": '+v_ORD_ST_ID;
+            v_texto = v_texto+', "PRO_ST_ID": '+v_PRO_ST_ID;
+            v_texto = v_texto+', "PRO_RE_QTDINFORMADA": '+v_PRO_RE_QTDINFORMADA;
+            v_texto = v_texto+', "RES_ST_STATUS": '+'"A"';
+            v_texto = v_texto+', "PRO_IN_CODIGO": '+v_PRO_COD;
+            v_texto = v_texto+', "PRO_ST_DESCRICAO": '+v_descricao;
+            v_texto = v_texto+', "PRO_RE_QTDORIGINAL": '+v_TOTAL_PROD;
+            v_texto =v_texto+'}';
+            alert(v_texto);
+            //v_sequencia_last = v_sequencia;
+            v_http = v_endereco+'app/resordens/';
+            v_postdata = JSON.parse(v_texto);
+            v_Return = httpPost(v_http, data=v_postdata);
+            //Gera o rateio nos lotes
+            v_Return = gera_rateio(v_PRO_COD, v_Dif, v_Fator, v_RES_ST_ID, v_QtdeLotes);
+            //alert(v_Return);
+            info.innerHTML = info.innerHTML + v_Return+': '+v_PRO_COD;
+            info.innerHTML = info.innerHTML + '<br />';
+            // PERCORRE CADA CÉLULA DA LINHA ATUAL PARA LER OS VALORES DA CÉLULA.
+            /*for (var j = 0; j < objCells.length; j++) {
+                info.innerHTML = info.innerHTML + ' ' + objCells.item(j).innerHTML;
+            }
+            info.innerHTML = info.innerHTML + '<br />';
+            // ADD A BREAK (TAG).*/
+        }
+        window.location.reload();
+    }
+    function httpPost(theUrl,data) {
+        let xmlHttpReq = new XMLHttpRequest();
+        xmlHttpReq.open("POST", theUrl, false);
+        xmlHttpReq.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+        xmlHttpReq.send(JSON.stringify(data));
+        return xmlHttpReq.responseText;
+    }
+    function httpGet(theUrl) {
+        let xmlHttpReq = new XMLHttpRequest();
+        xmlHttpReq.open("GET", theUrl, false);
+        xmlHttpReq.send(null);
+        return xmlHttpReq.responseText;
+    }
+    function httpPut(theUrl,data) {
+        let xmlHttpReq = new XMLHttpRequest();
+        xmlHttpReq.open("PUT", theUrl, true);
+        xmlHttpReq.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+        xmlHttpReq.send(JSON.stringify(data));
+        return xmlHttpReq.responseText;
+    }
+    function SequenciaApto() {
+        var v_sequencia;
+        var v_ReturnSeq;
+        v_http = v_endereco+'app/resordens/?res_st_id=S';
+        v_json = httpGet(v_http);
+        v_Return = JSON.parse(v_json);
+        v_ReturnSeq = JSON.parse(v_Return);
+        $.each(v_ReturnSeq, function( key, value ) {
+            v_sequencia = value+1;
+        });
+        return v_sequencia;
+    }
+    function addZeros(num, len) {
+        var numberWithZeros = String(num);
+        var counter = numberWithZeros.length;
+        while(counter < len) {
+           numberWithZeros = "0" + numberWithZeros;
+           counter++;
+        }
+        return numberWithZeros;
+    }
+ </script>

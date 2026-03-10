@@ -1,0 +1,85 @@
+{% extends 'apontamento/base.html' %}
+{% load widget_tweaks %}
+{% load bootstrap_icons %}
+{% block content %}
+<div>
+    <form role="form" method="post">
+        {% csrf_token %}
+        <p class="pull-center">
+            <a href="{% url 'incluir_lote' %}" class="btn btn-primary" style="width:150">Adicionar</a>
+            <button type="button" class="btn btn-light" disabled style="width:50" ></button>
+            <a href="{% url 'testar_impressao' %}" class="btn btn-primary" style="width:150">Imprimir Etiqueta</a>
+            <button type="button" class="btn btn-light" disabled style="width:50" ></button>            
+            <a href="{% url 'integraraponta' %}" class="btn btn-primary" style="width:150">Integrar</a>
+        </p>
+
+
+    {% for field in form.visible_fields %}
+    <div class="form-group">
+      {{ field.label_tag }}
+
+      {% if lote_form.is_bound %}
+        {% if field.errors %}
+          {% render_field field class="form-control is-invalid" %}
+          {% for error in field.errors %}
+            <div class="invalid-feedback">
+              {{ error }}
+            </div>
+          {% endfor %}
+        {% else %}
+          {% render_field field class="form-control is-valid" %}
+        {% endif %}
+      {% else %}
+        {% render_field field class="form-control" %}
+      {% endif %}
+
+      {% if field.help_text %}
+        <small class="form-text text-muted">{{ field.help_text }}</small>
+      {% endif %}
+    </div>
+  {% endfor %}
+    <h3 align="center">Lista de lotes</h3>
+   </form>
+</div>
+<div class="table-responsive">
+<table class="table table-hover table-bordered table-striped" width="100%" id="list_lotes">
+    <thead>
+        <tr class="info">
+            <th class="info">sequencial</th>
+            <th class="info">Item</th>
+            <th class="info">Descrição</th>
+            <th class="info">Quantidade</th>            
+            <th class="info">Referência</th>
+            <th class="info">Lote</th>
+            <th class="info">Status</th>
+            <th class="info">Del</th>    
+        </tr>
+    </thead>
+    <tbody>
+        {{ listLotes.as_p}}
+        {% for lotes in listLotes %}
+        <tr>
+            <td>{{ lotes.APT_IN_SEQUENCIA }}</td>
+            <td>{{ lotes.PRO_IN_CODIGO }}</td>
+            <td>{{ lotes.PRO_ST_DESCRICAO }}</td>
+            <td>{{ lotes.PRO_RE_QTDCONV }}</td>            
+            <td>{{ lotes.RFC_ST_DESCRICAO }}</td>
+            <td>{{ lotes.PRO_ST_SEQUENCIAL }}</td>
+            <td>{{ lotes.APT_CH_STATUS }}</td>
+            {% ifequal lotes.APT_CH_STATUS 'A' %}
+                <td><a href="{% url 'deleteapt' lotes.APT_IN_SEQUENCIA %}"><i class={% bs_icon 'trash' color='red' %} </i></a></td>
+            {% endifequal %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+ </div>
+{% for hidden_field in form.hidden_fields %}
+    {{ hidden_field }}
+{% endfor %}
+
+{% endblock %}
+
+{% block js %}
+    {% include "apontamento/js_html/page.html" %}
+{% endblock %}

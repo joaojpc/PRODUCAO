@@ -1,0 +1,94 @@
+<script>
+      $(document).ready(function() {
+          criaButton();
+          function criaButton() {
+            var html  = '<span class="input-group-btn">';			
+            html += '<button class="btn btn-default nmpd-target" id="id_orl_re_qtdlote" type="button" readonly="readonly" data-numpad="nmpd3"><i class="glyphicon glyphicon-th"></i></button>'
+            html += '</span>';
+            $("#id_dem_re_qtdlote").append(html)
+	      };
+          //$('[data-toggle="tooltip"]').tooltip();
+          //$('[data-toggle="popover"]').popover();
+          //$('#search').keynumpad({
+          //   trigger:  '#search'
+          //   }
+          //);
+          $.fn.numpad.defaults.gridTpl = '<table class="table modal-content"></table>';
+		  $.fn.numpad.defaults.backgroundTpl = '<div class="modal-backdrop in"></div>';
+		  $.fn.numpad.defaults.displayTpl = '<input type="text" class="form-control" />';
+		  $.fn.numpad.defaults.buttonNumberTpl =  '<button type="button" class="btn btn-default"></button>';
+		  $.fn.numpad.defaults.buttonFunctionTpl = '<button type="button" class="btn" style="width: 100%;"></button>';
+		  $.fn.numpad.defaults.onKeypadCreate = function(){$(this).find('.done').addClass('btn-primary');};
+
+		  $.fn.numKey.defaults.gridTpl = '<table class="table modal-content"></table>';
+		  $.fn.numKey.defaults.backgroundTpl = '<div class="modal-backdrop in"></div>';
+		  $.fn.numKey.defaults.displayTpl = '<input type="text" class="form-control" />';
+		  $.fn.numKey.defaults.buttonNumberTpl =  '<button type="button" class="btn btn-default"></button>';
+		  $.fn.numKey.defaults.buttonFunctionTpl = '<button type="button" class="btn" style="width: 100%;"></button>';
+		  $.fn.numKey.defaults.onKeypadCreate = function(){$(this).find('.done').addClass('btn-primary');};
+
+		  $('#numpadButton-btn').numpad({
+		      target: $('#numpadButton')
+		  });
+		  $('#search-btn').numKey({
+		      target: $('#search')
+		  });
+
+          //$('#id_dem_re_qtdlote').numpad();
+          //$('#search').numpad();
+           $('#search').keyup(function(){		   
+                var term = $(this).val();
+				//alert("Hello! I am an alert box!!");
+               if(term =='')
+                     {
+                          term = '@';
+                     }
+               search_table(term);
+           });
+           $('#search').on('change', function() {
+               search_table($(this).val());
+           });
+           function search_table(value){
+                $('#table_demanda tr').each(function(){
+                     var found = 'false';					 
+                     $(this).each(function(){
+                          if($(this).text().toLowerCase().indexOf(value.toLowerCase()) >= 0)
+                          {
+                               found = 'true';
+                          }
+                     });
+                     if(found == 'true')
+                     {
+                          $(this).show();
+                     }
+                     else
+                     {
+                          $(this).hide();
+                     }
+                });
+           }
+           $('input').keypress(function (e) {
+                var code = null;
+                code = (e.keyCode ? e.keyCode : e.which);
+                return (code == 13) ? false : true;
+            });
+      });
+
+      $("#table_demanda td").on('click', function(){
+          var row_num;
+          var v_float;
+          var v_lote;
+          var v_codigo;
+          row_num = parseInt( $(this).parent().index() )+1;
+          v_float = document.getElementById("table_demanda").rows[row_num].cells[2].innerHTML;
+          v_lote  = document.getElementById("table_demanda").rows[row_num].cells[3].innerHTML;
+          v_codigo = document.getElementById("table_demanda").rows[row_num].cells[0].innerHTML;
+          $("#id_dem_in_codigo").val(v_codigo);
+          $("#numpadButton").val(v_float);
+          $("#id_dem_re_qtdlote").val(v_float);
+          $("#id_dem_st_lote").val(v_lote);
+      });
+      $('#numpadButton').on('change', function() {
+         $("#id_dem_re_qtdlote").val($(this).val());
+      });
+ </script>

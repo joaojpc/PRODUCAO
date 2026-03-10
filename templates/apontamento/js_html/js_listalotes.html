@@ -1,0 +1,16 @@
+<script>
+      $(document).ready(function(){
+          sequencia = {{apt_in_sequencia | safe}};
+          $("#id_lote_st_sequencial").val(sequencia);
+          $('#list_lotes').DataTable();
+        });
+      $("#list_lotes td").on('click', function(){
+          var row_num;
+          var v_lote;
+          //row_num = parseInt( $(this).parent().index() )+1;
+          //v_lote = document.getElementById("list_lotes").rows[row_num].cells[0].innerHTML;
+          //$("#id_lote_st_sequencial").val(v_lote);
+      });
+
+
+ </script>

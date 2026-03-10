@@ -1,0 +1,47 @@
+{% load static %}
+{% include "almoxarifado/menu_almoxa.html" %}
+<html>
+    <head>
+        <title>{{request.session.title}}</title>
+        <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap.min.css' %}">
+        <link rel="stylesheet" href="{% static 'bootstrap/css/bootstrap-theme.min.css' %}">
+        <link rel="stylesheet" href="{% static 'bootstrap/css/dataTables.bootstrap.min.css' %}">
+        <link rel="stylesheet" href="{% static 'jquery.virtual_keyboard/virtual_keyboard.css' %}">
+        <link rel="stylesheet" href="{% static 'jquery.virtual_keyboard/jquery.numpad.css' %}">
+        <link href='//fonts.googleapis.com/css?family=Lobster&subset=latin,latin-ext' rel='stylesheet' type='text/css'>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script src="{% static 'bootstrap/js/jquery.min.js'%}"></script>
+        <script src="{% static 'bootstrap/js/bootstrap.min.js'%}"></script>
+        <script src="{% static 'jquery/js/jquery.dataTables.min.js'%}"></script>
+        <script src="{% static 'jquery/js/dataTables.bootstrap.min.js'%}"></script>
+        <script src="{% static 'jquery.virtual_keyboard/virtual_keyboard.js'%}"></script>
+        <script src="{% static 'jquery.virtual_keyboard/jquery.numpad.js'%}"></script>
+        <script src="{% static 'jquery.virtual_keyboard/digitalKeyboard.js'%}"></script>
+        <script src="{% static 'jquery.virtual_keyboard/virtual_numpad.js'%}"></script>
+        <!--script src="{% static 'jquery/js/jquery.table2excel.js'%}"></script-->
+        <script type="text/javascript" src="{% static 'barcode/js/JsBarcode.all.min.js' %}"></script>
+
+    </head>
+    <body>
+        <div class="page-header">
+            <li> </li>
+            <h3 class="pull-center" align="center" top="100"><a href="{% url 'almoxarifado' %}">Controle de Almoxarifado</a></h3>
+            <h4 class="pull-center" align="center" top="100">
+                  <div class="alert alert-dark" role="alert">
+                      Filial: {{request.session.filial}}
+                      Usuário: {{request.session.usuario}}
+                  </div>
+                </h4>
+        </div>
+        </div>
+        <div class="content container">
+            <div class="row">
+                <div class="col-md-10">
+                {% block content %}
+                {% endblock %}
+                </div>
+            </div>
+        </div>
+    </body>
+    {% block js %}{% endblock %}
+</html>

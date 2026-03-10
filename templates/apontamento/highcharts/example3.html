@@ -1,0 +1,19 @@
+{% load staticfiles %} <!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Hello</title>
+    <script type="text/javascript" src="{% static '/jquery/js/jquery.min.js' %}"></script>
+    <script type="text/javascript" src="{% static '/highcharts/Highcharts-6.0.3/code/highcharts.js' %}"></script>
+    <script type="text/javascript">
+    $(function () {
+        $.getJSON("{% url 'bar' %}", function(data) {
+            $('#container').highcharts(data);
+        });
+    });
+    </script>
+</head>
+<body>
+<div id="container" style="height: 300px"></div>
+</body>
+</html>

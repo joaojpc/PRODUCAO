@@ -1,0 +1,20 @@
+{% extends "apontamento/base.html" %}
+{% load static %}
+{% block content %}
+    <div class="container-fluid">
+        <div class="panel panel-default">
+            <p><a class="btn btn-primary btn-lg btn-block" name = "demanda" href="{% url 'incluirdemanda' %}">Apontamento de Demandas</a></p>
+            <p><a class="btn btn-primary btn-lg btn-block" href="{% url 'apontamento' %}">Apontamento de Produção</a></p>
+            <!--p><a class="btn btn-primary btn-lg pull-center" href="/listarlotes/">Apontamento de Produção</a></p-->
+            <!--p><a class="btn btn-primary btn-lg btn-block" href="{% url 'insOcorrencia' %}">Apontamento de paradas</a></p-->
+	        <p><a class="btn btn-primary btn-lg btn-block" href="{% url 'manutencao' %}">Integração</a></p>
+            <p><a class="btn btn-primary btn-lg btn-block" name = "Etiquetas" href="{% url 'lotesaviso' %}">Etiqueta Aviso de Recebimento</a></p>
+
+            <!--p><a class="btn btn-primary btn-lg btn-block" href="/grafico/">Trocar ordem de produção</a></p-->
+        </div>
+        <!--a class="btn btn-default" href="{% url 'login' %}">Encerrar</a-->
+{% endblock %}
+    </div>
+
+</body>
+</html>

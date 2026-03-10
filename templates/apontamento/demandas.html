@@ -1,0 +1,39 @@
+{% extends 'apontamento/base.html' %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div>
+    <p class="pull-center"><a href="{% url 'insDemanda' %}" class="btn btn-primary">Adicionar</a></p>
+    <h3 align="center">Lista de demandas</h3>
+</div>
+
+<div class="table-responsive">
+
+<table class="table table-hover table-bordered table-striped" cellspacing="0" width="100%" id="lista_demanda">
+    <thead>
+        <tr>
+            <th width="5%">Item</th>
+            <th width="35%">Status</th>
+            <th width="10%">Quantidade</th>
+            <th width="25%">Lote</th>
+            <th width="25%">Sequencia</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for lotes in dem %}
+        <tr>
+            <td>{{ lotes.PRO_IN_CODIGO }}</td>
+            <td>{{ lotes.MOV_ST_STATUS }}</td>
+            <td>{{ lotes.PRO_RE_QTDLOTE }}</td>
+            <td>{{ lotes.PRO_ST_LOTE }}</td>
+            <td>{{ lotes.MOV_IN_SEQUENCIA }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+
+{% endblock %}
+{% block js %}
+    {% include "apontamento/js_html/page.html" %}
+{% endblock %}

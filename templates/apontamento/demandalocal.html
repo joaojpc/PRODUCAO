@@ -1,0 +1,74 @@
+{% extends 'apontamento/base.html' %}
+{% load widget_tweaks %}
+{% load bootstrap_icons %}
+{% block content %}
+<div>
+    <form role="form" method="post">
+        {% csrf_token %}
+        <p class="pull-center">
+            <a href="{% url 'insDemandaslocal' %}" class="btn btn-primary" style="width:150">Adicionar</a>
+        </p>
+
+    {% for field in form.visible_fields %}
+    <div class="form-group">
+      {{ field.label_tag }}
+
+      {% if lote_form.is_bound %}
+        {% if field.errors %}
+          {% render_field field class="form-control is-invalid" %}
+          {% for error in field.errors %}
+            <div class="invalid-feedback">
+              {{ error }}
+            </div>
+          {% endfor %}
+        {% else %}
+          {% render_field field class="form-control is-valid" %}
+        {% endif %}
+      {% else %}
+        {% render_field field class="form-control" %}
+      {% endif %}
+
+      {% if field.help_text %}
+        <small class="form-text text-muted">{{ field.help_text }}</small>
+      {% endif %}
+    </div>
+  {% endfor %}
+    <h3 align="center">Lista de demandas</h3>
+   </form>
+</div>
+<div class="table-responsive">
+<table class="table table-hover table-bordered table-striped" width="100%" id="list_lotes">
+    <thead>
+        <tr class="info">
+            <th class="info">sequencial</th>
+            <th class="info">Lote</th>
+            <th class="info">Status</th>
+            <th class="info">Quantidade</th>
+            <th class="info">Delete</th>            
+        </tr>
+    </thead>
+    <tbody>
+        {{ dem.as_p}}
+        {% for lotes in dem %}
+        <tr>
+            <td>{{ lotes.MOV_IN_SEQUENCIA }}</td>
+            <td>{{ lotes.PRO_ST_LOTE }}</td>
+            <td>{{ lotes.MOV_ST_STATUS }}</td>
+            <td>{{ lotes.PRO_RE_QTDLOTE }}</td>
+            {% ifequal lotes.MOV_ST_STATUS 'A' %}
+                <td><a href="{% url 'deletedemanda' lotes.MOV_IN_SEQUENCIA %}"><i class={% bs_icon 'trash' color='red' %}</i></a></td>
+            {% endifequal %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+ </div>
+{% for hidden_field in form.hidden_fields %}
+    {{ hidden_field }}
+{% endfor %}
+
+{% endblock %}
+
+{% block js %}
+    {% include "apontamento/js_html/page.html" %}
+{% endblock %}

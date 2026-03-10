@@ -1,0 +1,23 @@
+{% extends 'almoxarifado/base_almoxa.html' %}
+{% block content %}
+    <body class=" app-auth model-user delete-confirmation" data-admin-utc-offset="-10800">
+    <!-- Container -->
+    <div id="container">
+    <div class="breadcrumbs">
+    </div>
+        <!-- Content -->
+        <div id="content" class="colM">
+            <h1>Confirma a exclusão?</h1>
+                <p>Você tem certeza que quer remover o item: {{ item.produto }} {{ item.Descrição }} quantidade: {{ item.Quantidade}}?</p>
+            <h1>Deletar?</h1>
+        {% if error_message %}
+           <p><strong>{{ error_message }}</strong></p>
+        {% endif %}
+        <form action="" method="post">{% csrf_token %}
+        {{ form.as_p }}
+        <input type="submit" value="Apagar">
+        <a class="button cancel-link" href="{% url "baixas" %}">Cancelar</a>
+    </form>
+</body>
+{% endblock  %}
+

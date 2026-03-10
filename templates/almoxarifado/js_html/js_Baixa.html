@@ -1,0 +1,191 @@
+<script>
+      var qtde_bxa = 0;
+      var v_float = 0;
+      $(document).ready(function() {
+          criaButton();
+          //atribui_valor();
+          function atribui_valor(){
+              v_float = 1.000
+              $("#numpadButton").val(v_float);
+              $("#id_pro_re_quantidade").val(value_default);
+          };
+          function criaButton() {
+            var html  = '<span class="input-group-btn">';
+            html += '<button class="btn btn-default nmpd-target" id="id_pro_re_quantidade" type="button" readonly="readonly" data-numpad="nmpd3"><i class="glyphicon glyphicon-th"></i></button>'
+            html += '</span>';
+            $("#id_pro_re_quantidade").append(html)
+	  };
+
+          $.fn.numpad.defaults.gridTpl = '<table class="table modal-content"></table>';
+		  $.fn.numpad.defaults.backgroundTpl = '<div class="modal-backdrop in"></div>';
+		  $.fn.numpad.defaults.displayTpl = '<input type="text" class="form-control" />';
+		  $.fn.numpad.defaults.buttonNumberTpl =  '<button type="button" class="btn btn-default"></button>';
+		  $.fn.numpad.defaults.buttonFunctionTpl = '<button type="button" class="btn" style="width: 100%;"></button>';
+		  $.fn.numpad.defaults.onKeypadCreate = function(){$(this).find('.done').addClass('btn-primary');};
+
+		  $.fn.numKey.defaults.gridTpl = '<table class="table modal-content"></table>';
+		  $.fn.numKey.defaults.backgroundTpl = '<div class="modal-backdrop in"></div>';
+		  $.fn.numKey.defaults.displayTpl = '<input type="text" class="form-control" />';
+		  $.fn.numKey.defaults.buttonNumberTpl =  '<button type="button" class="btn btn-default"></button>';
+		  $.fn.numKey.defaults.buttonFunctionTpl = '<button type="button" class="btn" style="width: 100%;"></button>';
+		  $.fn.numKey.defaults.onKeypadCreate = function(){$(this).find('.done').addClass('btn-primary');};
+
+		  $('#numpadButton-btn').numpad({
+		      target: $('#numpadButton')
+		  });
+		  $('#search-btn').numKey({
+		      target: $('#search')
+		  });
+
+          //$('#id_BXI_RE_QUANTIDADE').numpad();
+           $('input').keypress(function (e) {
+                var code = null;
+                code = (e.keyCode ? e.keyCode : e.which);
+                return (code == 13) ? false : true;
+            });
+      });
+
+      $('#numpadButton').on('change', function() {
+          $("#id_bxi_re_quantidade").val($(this).val());
+      });
+      function remInput() {
+          $("#localizacao").remove();
+	  };
+	  function criatag() {
+            var div = $("<div />", {
+                id: 'localizacao',
+                title: 'estilo',
+                class: 'module aligned'
+            });
+            $("#transferencias").append(div);
+      };
+      function myFunction() {	     
+          qtde_bxa = $("#numpadButton").val().replace(",", ".");
+	  $("#id_bxi_re_quantidade").val(qtde_bxa);
+          $("#id_bxi_id_almoxa").val($("#id_loc").val());
+      };
+      $('#submit').click(function(){
+          myFunction();
+      });
+      $('#id_bxi_id_produto').on('change', function() {
+          v_float = 1.000
+          $('#numpadButton').val(v_float);
+      });      
+      function criaselect(args) {
+	        var_nmId = 'id_'+args;
+	        var_IdVal = '#id_'+args;
+	        var destino = 'Local de Destino';
+            var html  = '<p><label for=\"name\">'+destino+'</label>';
+            html += '<select name='+args+' id="id_'+args+'" step="any" class="form-control is-invalid" required>';
+            //if (v_refpadrao == 'Indefinido'){
+            //   html += '<option value="" disabled selected>Selecionar o item</option>';
+            //}
+            html += '</select> </p>';
+            $("#localizacao").append(html)
+      };
+      function populateBrand(args) {
+	      console.log(args);
+	      var cod_prod;
+	      var v_almox;
+	      var v_local;
+	      var v_desc;
+	      var v_alm_nome;
+	      var v_loc_nome;
+            $('#id_loc').empty();
+            $.each(args, function(){
+                $.each(this, function (name, value) {
+                    if (name == 'LOC_ID_ALMOXA') {
+                       cod_prod = value;
+                    };
+                    if (name == 'ALM_IN_CODIGO') {
+                       v_almox = value;
+                    };
+                    if (name == 'LOC_IN_CODIGO') {
+                       v_local = value;
+                    };
+                    if (name == 'ALM_ST_DESCRICAO') {
+                       v_alm_nome = value;
+                    };
+                    if (name == 'LOC_ST_DESCRICAO') {
+                       v_loc_nome = value;
+                    };
+                    //v_desc = 'Almoxarifado: '+v_almox+' Localização: '+v_local;
+                    v_desc = 'Alm.: '+v_almox+' Loc.: '+v_local+' - '+v_loc_nome;
+                });
+                $('#id_loc').append( '<option value="'+cod_prod+'">'+v_desc+'</option>' );
+            });      
+      };
+      function getCheck() {
+          var checkBox = document.getElementById("myCheck");
+          var v_http;
+          var v_item;
+          var v_loc;
+          var v_get;
+          var v_json;
+          var v_args;
+          var v_Return;
+          var mydata;
+          var v_postdata;
+          var v_locp;          
+          var v_httpp;          
+          var v_texto;
+          var v_local;
+          var v_ip;
+          v_ip = '192.168.0.24';
+          if (checkBox.checked == true){              
+              v_http = 'http://'+v_ip+'/est/ItemAlmoxa/?item='
+              v_item = $("#id_bxi_id_produto").val();
+              v_get = v_http.concat(v_item);
+              v_json = httpGet(v_get);              
+              if (v_json == '[]') {
+                  //Busca as localizações do item;
+                  v_http = 'http://'+v_ip+'/api/GetItenslocalizacao/?id='
+                  v_loc = $("#id_bxi_id_produto").val();
+                  v_get = v_http.concat(v_loc);
+                  v_json = httpGet(v_get);
+                  mydata = JSON.parse(v_json);
+                  v_http = 'http://'+v_ip+'/est/ItemAlmoxa/'
+                  for (var i = 0, len = mydata.length; i < len; ++i) {
+                      v_postdata = mydata[i];
+                      v_Return = httpPost(v_http, v_postdata);
+                      //faz update na localizacao
+                      v_httpp = 'http://'+v_ip+'/api/GetItenslocalizacao/'
+                      v_local = '"'+mydata[i].LOC_ID_PROALMFIL+'"';
+                      v_texto = '{"LOC_ID_PROALMFIL": '+v_local+'}';
+                      v_locp = JSON.parse(v_texto);
+                      v_Return = httpPut(v_httpp, v_locp);
+                  }
+              }
+              if (v_json != '[]') {
+                  criatag();
+                  v_args = 'loc';
+                  criaselect(v_args);
+                  const data = JSON.parse(v_json);
+                  populateBrand(data);
+             }
+          }
+          else {
+              remInput();
+          }
+      }
+      function httpGet(theUrl) {
+          let xmlHttpReq = new XMLHttpRequest();
+           xmlHttpReq.open("GET", theUrl, false);
+           xmlHttpReq.send(null);
+           return xmlHttpReq.responseText;
+      }
+      function httpPost(theUrl,data) {
+          let xmlHttpReq = new XMLHttpRequest();
+           xmlHttpReq.open("POST", theUrl, true);
+           xmlHttpReq.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+           xmlHttpReq.send(JSON.stringify(data));
+           return xmlHttpReq.responseText;
+      }
+      function httpPut(theUrl,data) {
+          let xmlHttpReq = new XMLHttpRequest();
+           xmlHttpReq.open("PUT", theUrl, true);
+           xmlHttpReq.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+           xmlHttpReq.send(JSON.stringify(data));
+           return xmlHttpReq.responseText;
+      }
+ </script>

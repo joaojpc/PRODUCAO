@@ -1,0 +1,73 @@
+{% extends 'apontamento/base.html' %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div>
+    <form role="form" method="post" id="resumoprod" name="formresumoproducao">
+
+        {% csrf_token %}
+    {% for field in form.visible_fields %}
+    <div class="form-group">
+      {{ field.label_tag }}
+
+      {% if lote_form.is_bound %}
+        {% if field.errors %}
+          {% render_field field class="form-control is-invalid" %}
+          {% for error in field.errors %}
+            <div class="invalid-feedback">
+              {{ error }}
+            </div>
+          {% endfor %}
+        {% else %}
+          {% render_field field class="form-control is-valid" %}
+        {% endif %}
+      {% else %}
+        {% render_field field class="form-control" %}
+      {% endif %}
+
+      {% if field.help_text %}
+        <small class="form-text text-muted">{{ field.help_text }}</small>
+      {% endif %}
+    </div>
+  {% endfor %}
+    <h3 align="center">Resumo de Produção</h3>
+<div class="table-responsive">
+<table class="table table-hover table-bordered table-striped" width="100%" id="table_resprod">
+    <thead>
+        <tr class="info">
+            <th class="info">Sequencia</th>
+            <th class="info">Item</th>
+            <th class="info">Descrição</th>
+            <th class="info">Quantidade</th>
+            <th class="info">Qtde Original</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ resumo.as_p}}
+        {% for resprod in resumo %}
+        <tr>
+            <td>{{ resprod.RES_ST_ID }}</td>
+            <td>{{ resprod.PRO_IN_CODIGO }}</td>
+            <td>{{ resprod.PRO_ST_DESCRICAO }}</td>
+            <td>{{ resprod.PRO_RE_QTDCONV }}</td>
+            <td>{{ resprod.PRO_RE_QTDORIGINAL }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+ </div>
+    <p>
+        <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url 'menu' %}">Retornar</a>
+        <button type="button" class="btn btn-light" disabled></button>
+        <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url 'incluir_lote' %}">Apontamento</a>
+   </form>
+</div>
+{% for hidden_field in form.hidden_fields %}
+    {{ hidden_field }}
+{% endfor %}
+
+{% endblock %}
+
+{% block js %}
+    {% include "apontamento/js_html/resumo_producao.html" %}
+{% endblock %}

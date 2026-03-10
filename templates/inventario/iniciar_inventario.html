@@ -1,0 +1,74 @@
+{% extends 'inventario/base_inventario.html' %}
+{% block content %}
+{% load widget_tweaks %}
+
+	<h1>
+		<div class="alert alert-primary" role="alert">
+			Controle de Inventario
+		</div>
+	</h1>
+	{% if inventario is None %}
+		<form role="form" method="post">
+			{% csrf_token %}
+			{% for hidden_field in form.hidden_fields %}
+    			{{ hidden_field }}
+  			{% endfor %}
+
+  			{% if form.non_field_errors %}
+    			<div class="alert alert-danger" role="alert">
+					{% for error in form.non_field_errors %}
+						{{ error }}
+      				{% endfor %}
+    			</div>
+  			{% endif %}
+
+  			{% for field in form.visible_fields %}
+    			<div class="form-group">
+      				{{ field.label_tag }}
+      				{% if form.is_bound %}
+						{% if field.errors %}
+							{% render_field field class="form-control is-invalid" %}
+          					{% for error in field.errors %}
+            					<div class="invalid-feedback">
+              						{{ error }}
+            					</div>
+          					{% endfor %}
+        				{% else %}
+          					{% render_field field class="form-control is-valid" %}
+        				{% endif %}
+      				{% else %}
+        				{% render_field field class="form-control" %}
+      				{% endif %}
+
+      				{% if field.help_text %}
+        				<small class="form-text text-muted">{{ field.help_text }}</small>
+      				{% endif %}
+    			</div>
+  			{% endfor %}
+			<div id="control_invent" title="estilo" class="module aligned">
+  			</div>
+
+  			<button type="submit" class="btn btn-primary">Iniciar</button>
+		</form>
+	{% else %}
+		<!--h3>Welcome you are signed in as {{ usuario }}</h3-->
+		<h1>
+			<div class="alert alert-primary" role="alert">
+				Inventario em aberto: {{ inventario }}
+			</div>
+		</h1>
+		<div class="alert alert-primary" role="alert">
+			<a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url "invItens" %}?action=inventario">Continuar</a>
+			<button type="button" class="btn btn-light" disabled></button>
+	    	<a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url "iniciar_inventario" %}?action=logout">Encerrar</a>
+			<button type="button" class="btn btn-light" disabled></button>
+        	<a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url "iniciar_inventario" %}?action=trocar">Trocar Usuário</a>
+			<button type="button" class="btn btn-light" disabled></button>
+        	<a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url "inventario" %}?action=retornar">Menu</a>
+		</div>
+	{% endif %}
+{% endblock %}
+
+{% block js %}
+    {% include "inventario/js_html/js_loginInventario.html" %}
+{% endblock %}

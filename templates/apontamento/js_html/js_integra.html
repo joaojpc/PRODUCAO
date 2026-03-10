@@ -1,0 +1,164 @@
+{% block js %}
+    <script>
+        var v_endereco = 'http://192.168.0.24/';
+        var v_texto;
+        var v_postdata;
+        var v_http;
+        var v_Return;
+        var v_json;
+        var v_DataAtual;
+        var plf_in_sqoperacao;
+        lotes = {{lotes | safe}};        
+        demandas = {{baixas | safe}};
+        plf_in_sqoperacao = {{plf_in_sqoperacao}};
+        $(document).ready(function(){
+            $('#list_lotes').DataTable();
+
+        });
+        function gera_apontamento() {
+            var ret_apto;
+            retorno.innerHTML = "";
+            retorno.innerHTML = retorno.innerHTML + 'Integração Iniciada';
+            retorno.innerHTML = retorno.innerHTML + '<br />';
+            retorno.innerHTML = retorno.innerHTML + '<br />';
+            retorno.innerHTML = retorno.innerHTML + 'Integração dos apontamentos';
+            retorno.innerHTML = retorno.innerHTML + '<br />';
+            const timeElapsed = Date.now();
+            const today = new Date(timeElapsed);
+            v_DataAtual = today.toLocaleDateString();
+            v_formatDate = formatDate();
+            $.each(lotes, function(key,value){
+                itn = value;
+                //alert(itn.FIL_IN_CODIGO);
+                v_texto = '{"fil_in_codigo": '+itn.FIL_IN_CODIGO;
+                v_texto = v_texto+', "ord_in_codigo": '+itn.ORD_IN_CODIGO;
+                v_texto = v_texto+', "ctl_in_codigo": '+itn.CTL_IN_CODIGO;
+                v_texto = v_texto+', "plf_in_sqoperacao": '+plf_in_sqoperacao;
+                v_texto = v_texto+', "apt_dt_inclusao": '+'"'+v_formatDate+'"';
+                v_texto = v_texto+', "mvp_in_sequencia": '+itn.APT_IN_SEQUENCIA;
+				v_texto = v_texto+', "apt_re_quantidade": '+itn.ORL_RE_QTDLOTE;
+				v_texto = v_texto+', "apt_re_qtdeconvertida": '+itn.PRO_RE_QTDCONV;
+				v_texto = v_texto+', "apt_re_qtderefugo": '+itn.PRO_RE_QTDREFUGO;
+				v_texto = v_texto+', "pro_in_codigo": '+itn.PRO_IN_CODIGO;
+				v_texto = v_texto+', "pro_st_obs": '+'"'+'Lote integrado pelo ACB'+'"';
+				v_texto = v_texto+', "pro_st_docorigem": '+itn.ORD_IN_CODIGO;
+				v_texto = v_texto+', "pro_st_referencia": '+'"'+itn.ORL_ST_REFERENCIA+'"';
+				v_texto = v_texto+', "usu_in_codigo": '+'"'+ 1+'"';
+				v_texto = v_texto+', "pro_st_destino": '+'"'+ 'I'+'"';
+				v_texto = v_texto+', "pro_st_lote": '+'"'+itn.PRO_ST_LOTE+'"';
+				v_texto = v_texto+', "pro_st_conversor": '+'"'+0+'"';
+				v_texto = v_texto+', "apt_dt_lote": '+'"'+itn.APT_DT_APONTAMENTO+'"';
+				v_texto = v_texto+', "cmaq_st_id": '+'"'+itn.CMAQ_ST_ID+'"';
+				v_texto = v_texto+', "pro_st_id": '+'"'+itn.PRO_ST_ID+'"';
+				v_texto = v_texto+', "ord_st_id": '+'"'+itn.ORD_ST_ID+'"';
+                v_texto =v_texto+'}';
+                //alert(v_texto);
+                v_http = v_endereco+'api/post_integra/';
+                v_Return = httpPost(v_http, data=v_texto);
+                v_json = JSON.parse(v_Return);
+                // Faz update na transação
+                $.each(v_json, function( key, value ) {
+                    ret_apto = value;
+                    if (ret_apto.mensagem == 'Ok') {
+                            v_texto = '{';
+                            v_texto = v_texto+'"ctl_in_codigo": '+itn.CTL_IN_CODIGO;
+                            v_texto = v_texto+', "sequencia": '+itn.APT_IN_SEQUENCIA;
+                            v_texto = v_texto+', "status": "I"';
+                            v_texto = v_texto+'}';
+                            v_postdata = JSON.parse(v_texto);
+                            v_json = httpPut(v_http, v_postdata);
+                    }
+                });
+                retorno.innerHTML = retorno.innerHTML + 'Item: ';
+                retorno.innerHTML = retorno.innerHTML + itn.PRO_IN_CODIGO+' ';
+                retorno.innerHTML = retorno.innerHTML + 'Sequência: ';
+                retorno.innerHTML = retorno.innerHTML + itn.APT_IN_SEQUENCIA+' ';
+                retorno.innerHTML = retorno.innerHTML + 'Satus: ';
+                retorno.innerHTML = retorno.innerHTML + v_Return;
+                retorno.innerHTML = retorno.innerHTML + '<br />';
+            });
+            gera_baixas();
+            retorno.innerHTML = retorno.innerHTML + '<br />';
+            retorno.innerHTML = retorno.innerHTML + 'Integração Encerrada.';
+        }
+        function gera_baixas() {
+            var v_retorno;
+            var ret_demanda;
+            retorno.innerHTML = retorno.innerHTML + '<br />';
+            retorno.innerHTML = retorno.innerHTML + 'Integração das Baixas';
+            retorno.innerHTML = retorno.innerHTML + '<br />';
+            const timeElapsed = Date.now();
+            const today = new Date(timeElapsed);
+            v_DataAtual = today.toLocaleDateString();
+            $.each(demandas, function(key,value){
+                itn = value;
+                v_texto = '{"fil_in_codigo": '+itn.FIL_IN_CODIGO;
+                v_texto = v_texto+', "ord_in_codigo": '+itn.ORD_IN_CODIGO;
+                v_texto = v_texto+', "ctl_in_codigo": '+itn.CTL_IN_CODIGO;
+                v_texto = v_texto+', "plf_in_sqoperacao": '+plf_in_sqoperacao;
+                v_texto = v_texto+', "apt_dt_inclusao": '+'"'+v_formatDate+'"';
+                v_texto = v_texto+', "mvd_in_sequencia": '+itn.MOV_IN_SEQUENCIA;
+				v_texto = v_texto+', "pro_st_lote": '+'"'+itn.PRO_ST_LOTE+'"';
+				v_texto = v_texto+', "pro_re_qtdlote": '+itn.PRO_RE_QTDLOTE;
+				if ( itn.CMAQ_ST_ID === null ){
+				    v_texto = v_texto+', "cmaq_st_id": '+'""';
+				}
+				else{
+				    v_texto = v_texto+', "cmaq_st_id": '+'"'+itn.CMAQ_ST_ID+'"';
+				}
+				if ( itn.ORD_ST_ID === null ){
+				    v_texto = v_texto+', "ord_st_id": '+'""';
+				}
+				else {
+				    v_texto = v_texto+', "ord_st_id": '+'"'+itn.ORD_ST_ID+'"';
+				}
+                v_texto =v_texto+'}';
+                //alert(v_texto);
+                v_http = v_endereco+'api/post_demandas/';
+                v_Return = httpPost(v_http, data=v_texto);
+                v_json = JSON.parse(v_Return);
+                //alert(v_json);
+                // Faz update na transação
+                $.each(v_json, function( key, value ) {
+                    ret_demanda = value;
+                    if (ret_demanda.mensagem == 'Ok') {
+                            v_texto = '{';
+                            v_texto = v_texto+'"ctl_in_codigo": '+itn.CTL_IN_CODIGO;
+                            v_texto = v_texto+', "sequencia": '+itn.MOV_IN_SEQUENCIA;
+                            v_texto = v_texto+', "status": "I"';
+                            v_texto = v_texto+'}';
+                            v_postdata = JSON.parse(v_texto);
+                            v_json = httpPut(v_http, v_postdata);
+                    }
+                });
+                retorno.innerHTML = retorno.innerHTML + 'Lote: ';
+                retorno.innerHTML = retorno.innerHTML + itn.PRO_ST_LOTE+' ';
+                retorno.innerHTML = retorno.innerHTML + 'Sequência: ';
+                retorno.innerHTML = retorno.innerHTML + itn.MOV_IN_SEQUENCIA+' ';
+                retorno.innerHTML = retorno.innerHTML + 'Satus: ';
+                retorno.innerHTML = retorno.innerHTML + v_Return;
+                retorno.innerHTML = retorno.innerHTML + '<br />';
+
+            });
+        }
+        function httpPost(theUrl,data) {
+            let xmlHttpReq = new XMLHttpRequest();
+            xmlHttpReq.open("POST", theUrl, false);
+            xmlHttpReq.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            xmlHttpReq.send(JSON.stringify(data));
+            return xmlHttpReq.responseText;
+        }
+        function httpPut(theUrl,data) {
+            let xmlHttpReq = new XMLHttpRequest();
+            xmlHttpReq.open("PUT", theUrl, true);
+            xmlHttpReq.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            xmlHttpReq.send(JSON.stringify(data));
+            return xmlHttpReq.responseText;
+        }
+        function formatDate() {
+            var data = new Date();
+            var dataFormatada = data.getFullYear()+ "-" + ((data.getMonth() + 1))+"-"+data.getDate();
+            return dataFormatada
+        }
+    </script>
+{% endblock %}

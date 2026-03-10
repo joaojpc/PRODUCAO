@@ -1,0 +1,20 @@
+{% extends 'apontamento/base.html' %}
+{% load static %}
+
+{% block title %}
+    <title>Protected</title>
+{% endblock title %}
+
+{% block content %}
+    <h1>Controle do equipamento</h1>
+    {% for emp in controle %}
+            <h5 align="center">
+                <h3>Equipamento: <span class="label label-default">{{emp.eqp_st_ipaddress}}</span></h3>
+                <h3>Acesso: <span class="label label-default">{{ emp.ctl_login }}</span></h3>
+                <h3>Consumo de energia: <span class="label label-default">{{ emp.ctl_in_consenergia }}</span></h3>
+                <h3>Produtividade da máquina: <span class="label label-default">{{ emp.ctl_in_produtividade }}</span></h3>
+		<h3>ordem de produção ativa: <span class="label label-default">{{ emp.ord_in_codigo}}</span></h3>
+            </h5>
+        {% endfor %}
+{% endblock content %}
+

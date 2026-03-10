@@ -1,0 +1,17 @@
+{% extends "almoxarifado/base_almoxa.html" %}
+{% load static %}
+{% block content %}
+    <div class="container-fluid">
+        <div class="panel panel-default">
+            <p><a class="btn btn-primary btn-lg btn-block" name = "apontamentos" href="{% url 'baixas' %}">Requisição</a></p>
+            <p><a class="btn btn-primary btn-lg btn-block" name = "etiqueta" href="{% url 'etiquetaItem' %}">Impressão de etiqueta</a></p>
+            <p><a class="btn btn-primary btn-lg btn-block" name = "saldoitem" href="{% url 'saldo' %}">Consulta estoque</a></p>
+            <p><a class="btn btn-primary btn-lg btn-block" name = "inventario" href="{% url 'inventario' %}">Inventário</a></p>
+            <!--p><a class="btn btn-primary btn-lg btn-block" name = "demandas" href="{% url 'demandalocal' %}">Consulta Estoque</a></p-->
+        </div>
+        <!--a class="btn btn-default" href="{% url 'login' %}">Encerrar</a-->
+{% endblock %}
+    </div>
+
+</body>
+</html>

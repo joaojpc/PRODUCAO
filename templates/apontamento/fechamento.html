@@ -1,0 +1,82 @@
+{% extends 'apontamento/base.html' %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div>
+    <form role="form" method="post" id="resumolotes" name="formresumo">
+
+        {% csrf_token %}
+    {% for field in form.visible_fields %}
+    <div class="form-group">
+      {{ field.label_tag }}
+
+      {% if lote_form.is_bound %}
+        {% if field.errors %}
+          {% render_field field class="form-control is-invalid" %}
+          {% for error in field.errors %}
+            <div class="invalid-feedback">
+              {{ error }}
+            </div>
+          {% endfor %}
+        {% else %}
+          {% render_field field class="form-control is-valid" %}
+        {% endif %}
+      {% else %}
+        {% render_field field class="form-control" %}
+      {% endif %}
+
+      {% if field.help_text %}
+        <small class="form-text text-muted">{{ field.help_text }}</small>
+      {% endif %}
+    </div>
+  {% endfor %}
+    <h3 align="center">Geração de Resumo de Produção</h3>
+<div class="table-responsive">
+<table class="table table-hover table-bordered table-striped" width="100%" id="table_resumo">
+    <!--colgroup>
+    <col span="1" style="visibility: collapse">
+  </colgroup-->
+    <thead>
+        <tr class="info">
+            <!--th class="info ">Id. Ordem</th-->
+            <th class="info" >Item</th>
+            <th class="info">Descrição</th>
+            <th class="info">Quantidade</th>
+            <th id='qtde_informada'class="info">Quantidade Real</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ listLotes.as_p}}
+        {% for lotes in listLotes %}
+        <tr>
+            <!--td>{{ lotes.ORD_ST_ID }}</td-->
+            <td>{{ lotes.PRO_IN_CODIGO }}</td>
+            <td>{{ lotes.PRO_ST_DESCRICAO }}</td>
+            <td>{{ lotes.TOTAL_PROD }}</td>
+            <td class="editable" data-id="{{ lotes.APT_IN_SEQUENCIA }}"data-type="BXI_RE_QUANTIDADE">{{ lotes.TOTAL_PROD }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+ </div>
+    <p>
+        <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url 'menu' %}">Retornar</a>
+        <button type="button" class="btn btn-light" disabled></button>
+        <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url 'incluir_lote' %}">Apontamento</a>
+        <button type="button" class="btn btn-light" disabled></button>
+    <input class="btn btn-primary btn-lg active" style="width:200" type="button" id="bt" value="Gerar Fechamento" onclick="showTableData()" /></p>
+    <p id="info"></p>
+        <div id="seq_prod" hidden>
+            <p id="proximasequencia">{{ seq_prod.RES_IN_SEQUENCIA }}</p>
+        </div>
+   </form>
+</div>
+{% for hidden_field in form.hidden_fields %}
+    {{ hidden_field }}
+{% endfor %}
+
+{% endblock %}
+
+{% block js %}
+    {% include "apontamento/js_html/resumo.html" %}
+{% endblock %}

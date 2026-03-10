@@ -1,0 +1,73 @@
+{% extends 'almoxarifado/base_controle.html' %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div>
+    <form role="form" method="post">
+        <h3 align="center">Consulta Saldo</h3>
+        {% csrf_token %}
+        <p class="pull-center">
+        </p>
+    {% for field in form.visible_fields %}
+    <div class="form-group">
+      {{ field.label_tag }}
+
+      {% if lote_form.is_bound %}
+        {% if field.errors %}
+          {% render_field field class="form-control is-invalid" %}
+          {% for error in field.errors %}
+            <div class="invalid-feedback">
+              {{ error }}
+            </div>
+          {% endfor %}
+        {% else %}
+          {% render_field field class="form-control is-valid" %}
+        {% endif %}
+      {% else %}
+        {% render_field field class="form-control" %}
+      {% endif %}
+
+      {% if field.help_text %}
+        <small class="form-text text-muted">{{ field.help_text }}</small>
+      {% endif %}
+    </div>
+  {% endfor %}
+        <div class="table-responsive">
+<table class="table table-hover table-bordered table-striped" width="100%" id="list_saldo">
+    <thead>
+        <tr class="info">
+            <th class="info">Item</th>
+            <th class="info">Descricao</th>
+            <th class="info">Quantidade</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ saldoitem.as_p}}
+        {% for saldo in saldoitem %}
+        <tr>
+            <td>{{ saldo.pro_in_codigo }}</td>
+            <td>{{ saldo.pro_st_descricao }}</td>
+            <td>{{ saldo.mvs_re_quantidade }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+ </div>
+        <button type="submit" class="btn btn-primary" style="width:150">Consultar</button>
+			<button type="button" class="btn btn-light" disabled style="width:50" ></button>
+        <a href="{% url 'almoxarifado' %}" class="btn btn-primary" style="width:150">Voltar</a>
+            <button type="button" class="btn btn-light" disabled style="width:50" ></button>
+        <a href="{% url 'iniciar_inventario' %}" class="btn btn-primary" style="width:150">Inventario</a>
+   </form>
+
+</div>
+
+{% for hidden_field in form.hidden_fields %}
+    {{ hidden_field }}
+{% endfor %}
+
+{% endblock %}
+
+{% block js %}
+    {% include "apontamento/js_html/page.html" %}
+{% endblock %}

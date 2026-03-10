@@ -1,0 +1,16 @@
+{% extends 'apontamento/base.html' %}
+{% block content %}
+    <form role="form" method="post" id="gerar_integracao" name="formIntegra">
+        <h3>Integração dos apontamentos</h3>
+        <input class="btn btn-primary btn-lg active" style="width:200" type="button" id="bt" value="Integração" onclick="gera_apontamento()" /></p>
+        <body>
+            <p id="retorno"></p>
+        </body>
+    </form>
+{% endblock  %}
+{% block js %}
+    {% include "apontamento/js_html/js_integra.html" %}
+{% endblock %}
+
+
+

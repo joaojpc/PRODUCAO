@@ -1,0 +1,39 @@
+<script>
+    //DECLARAÇÃO DE VARIÁVEIS GLOBAIS;
+    var total_lotes;
+    var v_endereco = 'http://192.168.0.24/';
+    var v_texto;
+    var v_postdata;
+    var v_http;
+    var v_Return;
+    var v_json;
+    litens = {{resumo | safe}};
+    $(document).ready(function() {
+        $(document).on("click",".editable",function(){
+            var value=$(this).text();
+            var data_type=$(this).data("type");
+            var input_type="text";
+            if(data_type=="created_at")
+            {
+                input_type="datetime-local";
+            }
+            var input="<input type='"+input_type+"' class='input-data' value='"+value+"' class='form-control'>";
+            $(this).html(input);
+            $(this).removeClass("editable")
+        });
+        /*var v_buscalotes;
+        v_buscalotes =contar_lotes();*/
+    });
+
+    function contar_lotes(pItem) {
+        var pro_id;
+        var ord_id;
+        var pro_tt = 0;
+        $.each(litens, function(key,value){
+            itn = value;
+            alert(itn.PRO_ST_ID);
+        });
+        var retorno =[pro_id, ord_id, pro_tt]
+        return  retorno;
+    }
+     </script>

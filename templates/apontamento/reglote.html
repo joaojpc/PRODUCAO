@@ -1,0 +1,68 @@
+{% extends 'apontamento/base.html' %}
+
+{% block head %}
+{% load widget_tweaks %}
+    <meta charset="UTF-8">
+{% endblock %}
+
+{% block content %}
+    <h1> Inclusão de Lotes</h1>
+<form method="post" id="formlotes" name="formlotes">
+  {% csrf_token %}
+
+  {% for hidden_field in lote_form.hidden_fields %}
+    {{ hidden_field }}
+  {% endfor %}
+
+  {% if lote_form.non_field_errors %}
+    <div class="alert alert-danger" role="alert">
+      {% for error in lote_form.non_field_errors %}
+        {{ error }}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {% for field in lote_form.visible_fields %}
+    <div class="form-group">
+      {{ field.label_tag }}
+
+      {% if lote_form.is_bound %}
+        {% if field.errors %}
+          {% render_field field class="form-control is-invalid" %}
+          {% for error in field.errors %}
+            <div class="invalid-feedback">
+              {{ error }}
+            </div>
+          {% endfor %}
+        {% else %}
+          {% render_field field class="form-control is-valid" %}
+        {% endif %}
+      {% else %}
+        {% render_field field class="form-control" %}
+      {% endif %}
+
+      {% if field.help_text %}
+        <small class="form-text text-muted">{{ field.help_text }}</small>
+      {% endif %}
+    </div>
+  {% endfor %}  
+  <div class="btn-group btn-group-justified" role="group">
+  <div id="Itens" class="form-group">      
+  </div>
+  <div id="caracteristica" title="estilo" class="module aligned">
+      <li>
+          Referencias
+      </li>
+  </div>
+  <div>  
+     <a><input type="submit" value="Inserir lote" name="submit" id="submit" class="btn btn-primary" style="width:150"></a>
+     <button type="button" class="btn btn-light" style="width:100" disabled></button>
+     <a href="{% url 'testar_impressao' %}" class="btn btn-primary" style="width:150">Imprimir Etiqueta</a>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block js %}
+    {% include "apontamento/js_html/js_prod.html" %}
+{% endblock %}

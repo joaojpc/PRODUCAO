@@ -1,0 +1,22 @@
+{% block js %}
+    <script>
+        var filial = "{{fil_in_codigo}}";
+        var cod_inv = "{{inventario}}";
+        var cod_usuario = "{{id_usuario}}";
+        $(document).ready(function() {
+        });
+        criaButton();
+	    function criaButton() {
+	        var html = '';
+	        html  = '<div class="form-group">';
+            html += '<label for="id_operador">Operador:</label>';
+            html += '<input type="text" name="id_operador" maxlength="20" class="form-control" required="" id="id_operador">';
+            html += '</div>';
+            $("#control_invent").append(html)
+        }
+	    $('#id_operador').on('change', function() {
+            var v_operador = $("#id_operador").val();
+            $("#id_usuario").val(v_operador);
+        });
+    </script>
+{% endblock %}

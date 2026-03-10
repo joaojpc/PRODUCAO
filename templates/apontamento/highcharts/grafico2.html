@@ -1,0 +1,102 @@
+{% load staticfiles %}
+
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>Highcharts Example</title>
+		<style type="text/css">
+		</style>
+	</head>
+	<body>
+
+<script src="{% static 'highcharts/Highcharts-6.0.3/code/highcharts.js'%}"></script>
+<script src="{% static 'highcharts/Highcharts-6.0.3/code/modules/data.js'%}"></script>
+<script src="{% static 'highcharts/Highcharts-6.0.3/code/modules/drilldown.js'%}"></script>
+
+<div id="container" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
+
+
+<script type="text/javascript">
+
+// Create the chart
+Highcharts.chart('container', {
+    chart: {
+        type: 'column'
+    },
+    title: {
+        text: 'Browser market shares. January, 2015 to May, 2015'
+    },
+    subtitle: {
+        text: 'Click the columns to view versions. Source: <a href="http://netmarketshare.com">netmarketshare.com</a>.'
+    },
+    xAxis: {
+        type: 'category'
+    },
+    yAxis: {
+        title: {
+            text: 'Total percent market share'
+        }
+
+    },
+    legend: {
+        enabled: false
+    },
+    plotOptions: {
+        series: {
+            borderWidth: 0,
+            dataLabels: {
+                enabled: true,
+                format: '{point.y:.1f}%'
+            }
+        }
+    },
+
+    tooltip: {
+        headerFormat: '<span style="font-size:11px">{series.name}</span><br>',
+        pointFormat: '<span style="color:{point.color}">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br/>'
+    },
+        series: [{
+            id: 'toplevel',
+            name: 'Animals',
+            data: [
+                {name: 'Cats', y: 4, drilldown: 'level1'},
+                {name: 'Dogs', y: 2},
+                {name: 'Cows', y: 1},
+                {name: 'Sheep',y: 2},
+                {name: 'Pigs', y: 1}
+            ]
+        }],
+        drilldown: {
+            series: [ {
+                id:'level1',
+                name: 'Level 1',
+                data: [
+                    {name: 'Trees', y: 1},
+                    {name: 'Plants', y: 2},
+                    {name: 'Grass', y: 3},
+                    {name: 'Deeper', y: 4, drilldown: 'level2'}
+                ]
+            },{
+                id:'level2',
+                name: 'Level 2',
+                data: [
+                    {name: 'Green', y:1},
+                    {name: 'Red', y:2},
+                    {name: 'Blue', y:3},
+                    {name: 'Deeper', y: 4, drilldown: 'level3'}
+                ]
+            },{
+                id: 'level3',
+                name: 'Level 3',
+                data: [
+                    {name:'Yes', y:1},
+                    {name:'it',y:2},
+                    {name:'works', y:3}
+                ]
+            }]
+        }
+});
+		</script>
+	</body>
+</html>

@@ -1,0 +1,104 @@
+{% extends 'apontamento/base.html' %}
+{% block head %}
+{% load widget_tweaks %}
+    <meta charset="UTF-8">
+{% endblock %}
+
+{% block content %}
+    <h1> Inclusão de Lotes</h1>
+<form method="post" id="formlotes">
+    {% csrf_token %}
+    <!--div align="center">
+        <input type="text" name="search" id="search" class="form-control" />
+    </div-->
+    <div class="form-group input-group">
+        <span class="input-group-addon"><i class="glyphicon glyphicon-search"></i></span>
+        <input name="search" id="search" placeholder="Consultar" type="text" class="form-control">
+            <span class="input-group-btn">
+			    <button class="btn btn-default" id="search-btn" type="button"><i class="glyphicon glyphicon-th"></i></button>
+            </span>
+    </div>
+    <div class="table-responsive" >
+        <h3 align="center">Tabela de Demandas disponíveis</h3>
+            <table class="table table-bordered" id="table_demanda">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Descrição</th>
+                        <th>Qtde</th>
+                        <th>Lote</th>
+                        <th>Referência</th>
+                        <!--th>Qtde Convertida</th-->
+                        <th>Selecionar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lotes in dem %}
+                        <tr style="display: none;">
+                            <td >{{ lotes.pro_in_codigo }}</td>
+                            <td>{{ lotes.pro_st_descricao }}</td>
+                            <td>{{ lotes.mvs_re_quantidade }}</td>
+                            <td>{{ lotes.mvs_st_loteforne }}</td>
+                            <td>{{ lotes.mvs_st_referenciadesc }}</td>
+                            <!--td>{{ lotes.conversor }}</td-->
+                            <td class="text-center"><button type="button" class="btn">Selecionar</button></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+    </div>
+    {% for hidden_field in form.hidden_fields %}
+    {{ hidden_field }}
+    {% endfor %}
+
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger" role="alert">
+        {% for error in form.non_field_errors %}
+        {{ error }}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% for field in form.visible_fields %}
+        <div class="btn-group btn-group-justified" role="group">
+        {{ field.label_tag }}
+        {% if form.is_bound %}
+            {% if field.errors %}
+                {% render_field field class="form-control is-invalid" %}
+                {% for error in field.errors %}
+                    <div class="invalid-feedback">
+                        {{ error }}
+                    </div>
+                    {% endfor %}
+            {% else %}
+                {% render_field field class="form-control is-valid" %}
+
+            {% endif %}
+        {% else %}
+            {% render_field field class="form-control" %}
+        {% endif %}
+
+        {% if field.help_text %}
+            <small class="form-text text-muted">{{ field.help_text }}</small>
+        {% endif %}
+        </div>
+    {% endfor %}
+    <li>
+    </li>
+    <label for="numpadButton">Quantidade:</label>
+    <div class="input-group">
+        <input type="text" id="numpadButton" class="form-control" placeholder="Enter a number" aria-describedby="numpadButton-btn">
+		    <span class="input-group-btn">
+			    <button class="btn btn-default" id="numpadButton-btn" type="button"><i class="glyphicon glyphicon-th"></i></button>
+            </span>
+    </div>
+    <li>
+    </li>
+    <p><input type="submit" value="Inserir demanda" name="submit" id="submit" class="btn btn-primary"></p>
+</form>
+{% endblock %}
+
+{% block js %}
+    {% include "apontamento/js_html/js_demanda.html" %}
+    {% include "apontamento/js_html/page.html" %}
+{% endblock %}

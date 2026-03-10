@@ -1,0 +1,77 @@
+{% extends 'inventario/base_inventario.html' %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div>
+    <form role="form" method="post">
+        {% csrf_token %}
+    {% for field in form.visible_fields %}
+    <div class="form-group">
+      {{ field.label_tag }}
+
+      {% if lote_form.is_bound %}
+        {% if field.errors %}
+          {% render_field field class="form-control is-invalid" %}
+          {% for error in field.errors %}
+            <div class="invalid-feedback">
+              {{ error }}
+            </div>
+          {% endfor %}
+        {% else %}
+          {% render_field field class="form-control is-valid" %}
+        {% endif %}
+      {% else %}
+        {% render_field field class="form-control" %}
+      {% endif %}
+
+      {% if field.help_text %}
+        <small class="form-text text-muted">{{ field.help_text }}</small>
+      {% endif %}
+    </div>
+  {% endfor %}
+    <h3 align="center">Lista de Itens para Inventário</h3>
+<div>
+    <!--button class="exportToExcel">Export to XLS</button-->
+<div class="table-responsive">
+    <table class="table2excel table2excel_with_colors table table-hover table-bordered table-striped " width="100%" id="list_lotes">
+    <thead>
+        <tr class="info">
+            <th class="info">sequencial</th>
+            <th class="info">Item</th>
+            <th class="info">Status</th>
+            <th class="info">Quantidade</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ reqitens.as_p}}
+        {% for lotes in reqitens %}
+        <tr>
+            <td>{{ lotes.ITI_IN_SEQUENCIA }}</td>
+            <td>{{ lotes.ITI_ID_PRODUTO }}</td>
+            <td>{{ lotes.ITI_CH_STATUS }}</td>
+            <td>{{ lotes.ITI_RE_QUANTIDADE }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+    <p class="pull-center">
+            <a href="{% url 'invItens' %}" class="btn btn-primary" style="width:150">Adicionar</a>
+                <button type="button" class="btn btn-light" disabled style="width:50" ></button>
+            <a href="{% url 'iniciar_inventario' %}" class="btn btn-primary" style="width:150">Voltar</a>
+                <button type="button" class="btn btn-light" disabled style="width:50" ></button>
+            <a class="btn btn-primary" style="width:150" role="button" aria-pressed="true" href="?action=IntInventario">Efetivar Inventario</a>
+    </p>
+ </div>
+ </div>
+ </form>
+
+</div>
+{% for hidden_field in form.hidden_fields %}
+    {{ hidden_field }}
+{% endfor %}
+
+{% endblock %}
+
+{% block js %}
+    {% include "inventario/js_html/page.html" %}
+{% endblock %}

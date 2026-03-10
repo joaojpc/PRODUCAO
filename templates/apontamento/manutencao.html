@@ -1,0 +1,13 @@
+{% extends 'apontamento/base.html' %}
+{% block content %}
+    <h3>Manutenção de integração de dados</h3>
+    <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="?action=get_ordens">Baixar Ordens</a>
+<button type="button" class="btn btn-light" disabled></button>
+    <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url "menu" %}?action=encerrar_get">Encerrar</a>
+<button type="button" class="btn btn-light" disabled></button>
+    <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="?action=integrarProducao">Integrar</a>
+<!--button type="button" class="btn btn-light" disabled></button-->
+    <!--a class="btn btn-primary btn-lg active" style="width:200" role="button" aria-pressed="true" href="?action=get_tipoordens">Baixar Tipo de Ordens</a-->
+<!--button type="button" class="btn btn-light" disabled></button>
+    <!--a class="btn btn-primary btn-lg active" style="width:200" role="button" aria-pressed="true" href="?action=get_atribref">Baixar Características</a-->
+{% endblock  %}

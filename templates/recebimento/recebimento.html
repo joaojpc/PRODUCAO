@@ -1,0 +1,77 @@
+{% extends 'recebimento/base.html' %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div>
+    <form role="form" method="post" id="resumoprod" name="formresumoproducao">
+
+        {% csrf_token %}
+    {% for field in form.visible_fields %}
+    <div class="form-group">
+      {{ field.label_tag }}
+
+      {% if lote_form.is_bound %}
+        {% if field.errors %}
+          {% render_field field class="form-control is-invalid" %}
+          {% for error in field.errors %}
+            <div class="invalid-feedback">
+              {{ error }}
+            </div>
+          {% endfor %}
+        {% else %}
+          {% render_field field class="form-control is-valid" %}
+        {% endif %}
+      {% else %}
+        {% render_field field class="form-control" %}
+      {% endif %}
+
+      {% if field.help_text %}
+        <small class="form-text text-muted">{{ field.help_text }}</small>
+      {% endif %}
+    </div>
+  {% endfor %}
+    <h3 align="center">Produtos</h3>
+<div class="table-responsive">
+<table class="table table-hover table-bordered table-striped" width="100%" id="table_resprod">
+    <thead>
+        <tr class="info">
+            <th class="info">Origem</th>
+            <th class="info">Produto</th>
+            <th class="info">Identificação</th>
+            <th class="info">NF</th>
+            <th class="info">DOF</th>
+            <th class="info">Volume (m³)</th>
+            <th class="info">Ibama (m³)</th>
+            <th class="info">Data da Entrada</th>
+            <th class="info">Data do Desdobro</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ itens.as_p}}
+        {% for c_itens in itens %}
+        <tr>
+            <td>{{ c_itens.AVR_ST_AUTEX|default_if_none:" " }}</td>
+            <td>{{ c_itens.PRO_ST_DESCRICAO|default_if_none:" " }}</td>
+            <td>{{ c_itens.LOT_IN_NUMIDARVORE|default_if_none:" " }} {{ c_itens.LOT_CH_CLASSIFICACAO }}</td>
+            <td>{{ c_itens.AVR_ST_NOTA|default_if_none:" " }}</td>
+            <td>{{ c_itens.AVR_ST_DOF|default_if_none:" " }}</td>
+            <td>{{ c_itens.RCI_RE_QTDE1|default_if_none:" " }}</td>
+            <td>{{ c_itens.RCI_RE_QTDE2|default_if_none:" " }}</td>
+            <td>{{c_itens.LOT_DT_ENTRADA|default_if_none:" " }}</td>
+            <td>{{ c_itens.LOT_DT_SERRAGEM|default_if_none:" " }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+ </div>
+   </form>
+</div>
+{% for hidden_field in form.hidden_fields %}
+    {{ hidden_field }}
+{% endfor %}
+
+{% endblock %}
+
+{% block js %}
+    {% include "apontamento/js_html/resumo_producao.html" %}
+{% endblock %}

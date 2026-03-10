@@ -1,0 +1,77 @@
+{% extends 'almoxarifado/base_almoxa.html' %}
+{% load widget_tweaks %}
+{% load bootstrap_icons %}
+
+{% block content %}
+<div>
+    <form role="form" method="post">
+        {% csrf_token %}
+    {% for field in form.visible_fields %}
+    <div class="form-group">
+      {{ field.label_tag }}
+
+      {% if lote_form.is_bound %}
+        {% if field.errors %}
+          {% render_field field class="form-control is-invalid" %}
+          {% for error in field.errors %}
+            <div class="invalid-feedback">
+              {{ error }}
+            </div>
+          {% endfor %}
+        {% else %}
+          {% render_field field class="form-control is-valid" %}
+        {% endif %}
+      {% else %}
+        {% render_field field class="form-control" %}
+      {% endif %}
+
+      {% if field.help_text %}
+        <small class="form-text text-muted">{{ field.help_text }}</small>
+      {% endif %}
+    </div>
+  {% endfor %}
+    <h3 align="center">Lista de Itens</h3>
+
+<div class="table-responsive">
+<table class="table table-hover table-bordered table-striped" width="100%" id="list_lotes">
+    <thead>
+        <tr class="info">
+            <th class="info">sequencial</th>
+            <th class="info">Item</th>
+            <th class="info">Status</th>
+            <th class="info">Quantidade</th>
+            <th class="info">Apagar</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ reqitens.as_p}}
+        {% for lotes in reqitens %}
+        <tr>
+            <td>{{ lotes.BXI_IN_SEQUENCIA }}</td>
+            <td>{{ lotes.BXI_ID_PRODUTO }}</td>
+            <td>{{ lotes.BXI_CH_STATUS }}</td>
+            <td>{{ lotes.BXI_RE_QUANTIDADE }}</td>
+            <td><a href="{% url 'deletebaixa' lotes.BXI_ID_REQUISICAO %}"><i class={% bs_icon 'trash' color='red' %} Delete</i></a></td>            
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+    <p class="pull-center">
+            <a href="{% url 'IncluirBaixa' %}" class="btn btn-primary" style="width:150">Adicionar</a>
+                <button type="button" class="btn btn-light" disabled style="width:50" ></button>
+            <a href="{% url 'almoxarifado' %}" class="btn btn-primary" style="width:150">Voltar</a>
+                <button type="button" class="btn btn-light" disabled style="width:50" ></button>
+            <a class="btn btn-primary" style="width:150" role="button" aria-pressed="true" href="?action=IntRequisicao">Efetivar requisicao</a>
+    </p>
+ </div>
+ </form>
+</div>
+{% for hidden_field in form.hidden_fields %}
+    {{ hidden_field }}
+{% endfor %}
+
+{% endblock %}
+
+{% block js %}
+    {% include "apontamento/js_html/page.html" %}
+{% endblock %}

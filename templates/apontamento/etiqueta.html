@@ -1,0 +1,64 @@
+{% extends 'apontamento/base.html' %}
+{% load staticfiles %}
+</head>
+{% block content %}
+<body>
+    <table class="table">
+<tr style="height: 95px">
+     <td style="text-align: left; vertical-align: top; border-bottom: 1px solid #CDCDCD;">
+    <div>
+         <span>N&#176; A: <strong style="font-weight: 900;">123456789</strong></span><br />
+         <span>N&#176; B: <strong style="font-weight: 900;">987456321</strong> </span><br />
+         <span>Data Entrada: 18/12/2014</span><br />
+         <span>Código: 0000</span>
+    </div>
+     </td>
+     <td style="text-align: right; vertical-align: top; border-bottom: 1px solid #CDCDCD;">
+<div style="position: absolute; right:-18px;"><img src="code128bar.jpg" style="vertical-align: middle; width:200px;"/></div>
+     </td>
+</tr>
+<tr>
+     <td colspan="2" style="text-align:left; vertical-align:top">
+    <div>
+         <span>Destinatário: <strong style="font-weight: 900;">FULANO DE TAL</strong>
+         <img id="barcode2"/>
+         </span><br />
+         <span>Endereço: AV TESTE 1802</span><br />
+         <span>Bairro: TESTE</span><br />
+         <span>CEP: 99999-000</span><br />
+         <span>SÃO PAULO - SP</span>
+    </div>
+     </td>
+</tr>
+ </table>
+
+
+
+    <div>
+		<script>
+			JsBarcode("#barcode2", "9780199532179", {
+			  format:"CODE128",
+			  displayValue:true,
+			  fontSize:24,
+			  fontSize:20
+			});
+		</script>
+	</div>
+
+    <p>Click imprimir etiqueta.</p>
+
+    <button onclick="myFunction()" class="btn btn-info btn-lg">
+        <span class="glyphicon glyphicon-print"></span>
+        Imprimir etiqueta
+    </button>
+
+    <script>
+        function myFunction() {
+            window.print();
+        }
+    </script>
+
+
+{% endblock %}
+
+

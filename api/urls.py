@@ -1,0 +1,41 @@
+# coding: utf-8
+from django.conf.urls import url
+from .views import *
+
+helper_patterns = [
+    url(r'^portfolios/$', PortfolioListView.as_view(), name='portfolios'),
+    url(r'^get_portfolio/(?P<pk>[0-9]+)/$', PortfolioView.as_view(), name='get_portfolio'),
+    url(r'^get_login/$', LoginList.as_view(), name='get_login'),
+    url(r'^get_demandas/$', Listardemandas.as_view(), name='get_demandas'),
+    url(r'^empenhodemandas/$', Demandasempenho.as_view(), name='empenhodemandas'),    
+    url(r'^oper_ordem/$', Operordem.as_view(), name='oper_ordem'),
+    url(r'^listarocorrencias/$', Listarocorrencias.as_view(), name='listarocorrencias'),
+    url(r'^listarproducao/$', Listarproducao.as_view(), name='listarproducao'),
+    url(r'^listaatributos/$', Listaratributos.as_view(), name='listaatributos'),
+    url(r'^listareferencias/$', Listarreferencias.as_view(), name='listareferencias'),
+    url(r'^itensordem/$', Itensordem.as_view(), name='itensordem'),    
+    url(r'^GetManProOrdens/$', GetManProOrdens.as_view(), name='GetManProOrdens'),
+    url(r'^GetOrdensPendentes/$', GetOrdensPendentes.as_view(), name='GetOrdensPendentes'),
+    url(r'^get_demandaordens/$', GetDemandaOrdens.as_view(), name='get_demandaordens'),
+    url(r'^post_demanda/$', IntegrarDemandas.as_view(), name='post_demanda'),
+    url(r'^post_producao/$', IntegrarApontamento.as_view(), name='post_producao'),
+    url(r'^GetCentroCustos/$', GetCentroCustos.as_view(), name='GetCentroCustos'),
+    url(r'^GetCadastroItens/$', GetCadastroItens.as_view(), name='GetCadastroItens'),
+    url(r'^geraBaixas/$', IntegrarRequisicao.as_view(), name='geraBaixas'),
+    url(r'^consultasaldo/$', BuscaSaldo.as_view(), name='consultasaldo'),
+    url(r'^geraInventario/$', IntegrarInventario.as_view(), name='geraInventario'),
+    url(r'^GetCadMaquinas/$', DadosMaquina.as_view(), name='GetCadMaquinas'),
+    url(r'^GetItenslocalizacao/$', GetItenslocalizacao.as_view(), name='GetItenslocalizacao'),
+    url(r'^GetItensConversor/$', GetItensConversor.as_view(), name='GetItensConversor'),
+    url(r'^post_integra/$', PostAponta.as_view(), name='post_integra'),
+    url(r'^post_demandas/$', PostDemanda.as_view(), name='post_demandas'),
+    url(r'^get_tipoordens/$', GetTipoOrdens.as_view(), name='get_tipoordens'),
+    url(r'^get_configaponta/$', GetConfigAponta.as_view(), name='get_configaponta'),
+    url(r'^get_proconversor/$', GetProConversor.as_view(), name='get_proconversor'),
+    url(r'^get_referencia/$', GetProReferencia.as_view(), name='get_referencia'),
+    url(r'^avisorecebimento/$', GetProRecebimento.as_view(), name='avisorecebimento'),
+    url(r'^lotesreceb/$', GetLotesReceb.as_view(), name='lotesreceb'),
+    url(r'^lotesinvent/$', GetLotesInventario.as_view(), name='lotesinvent'),
+    #url(r'^PutItenslocalizacao/$', PutItenslocalizacao.as_view(), name='PutItenslocalizacao'),
+]
+urlpatterns = helper_patterns

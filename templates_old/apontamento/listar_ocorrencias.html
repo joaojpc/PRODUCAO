@@ -1,0 +1,40 @@
+{% extends 'apontamento/base.html' %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div>
+    <p class="pull-center"><a href="{% url 'insOcorrencia' %}" class="btn btn-primary">Adicionar</a></p>
+    <h3 align="center">Lista de ocorrencias</h3>
+</div>
+
+<div class="table-responsive">
+
+<table class="table table-hover table-bordered table-striped" cellspacing="0" width="100%" id="lista_ocor">
+    <thead>
+        <tr>
+            <th width="35%">Descrição</th>
+            <th width="39%">Horario</th>
+            <th width="8%">Ordem</th>
+            <th width="8%">Usuário</th>
+            <th width="10%">Tempo de Parada</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ocor in form %}
+        <tr>
+            <td>{{ ocor.ATI_IN_CODIGO }}</td>
+            <td>{{ ocor.ATI_DT_INCLUSAO }}</td>
+            <td>{{ ocor.ATI_IN_ORDEM }}</td>
+            <td>{{ ocor.ATI_USU_INCLUSAO }}</td>
+            <td>{{ ocor.ATI_IN_TEMPO }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+
+{% endblock %}
+{% block js %}
+    {% include "apontamento/js_html/page.html" %}
+    {% include "apontamento/js_html/keyboard.html" %}
+{% endblock %}

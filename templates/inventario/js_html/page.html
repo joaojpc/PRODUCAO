@@ -1,0 +1,36 @@
+{% block js %}
+<script>   
+   $(document).ready(function(){
+      $('#lista_demanda').DataTable();
+   });   
+   $(document).ready(function(){
+      $('#table_baixa').DataTable();
+   });
+   $(document).ready(function(){
+      $('#list_lotes').DataTable();
+   });
+			$(function() {
+				$(".exportToExcel").click(function(e){
+					var table1 = $(this).prev('#list_lotes');
+					if(table1 && table1.length){
+
+						var preserveColors = (table.hasClass('table2excel_with_colors') ? true : false);
+
+						$(table).table2excel({
+
+							exclude: ".noExl",
+							name: "Excel Document Name",
+							filename: "myFileName" + new Date().toISOString().replace(/[\-\:\.]/g, "") + ".xls",
+							fileext: ".xls",
+							exclude_img: true,
+							exclude_links: true,
+							exclude_inputs: true,
+							preserveColors: preserveColors
+						});
+					}
+				});
+
+			});
+
+ </script>
+ {% endblock %}
