@@ -1313,7 +1313,7 @@ class Login_inicial_sqlite:
         self.equipamento_cad = 'N'
         self.ender_ip = ip
         #getEnderIP()
-        self.dbname = DATABASE
+        self.dbname = settings.DATABASE
         self.usuario_in = p_usuario
         self.ordem_st_extenso = p_ordem
         r_ordem = json.loads(formatar_ordem(self.ordem_st_extenso))

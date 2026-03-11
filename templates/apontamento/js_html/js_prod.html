@@ -131,10 +131,11 @@
             var v_conv;
             v_ref = dadosProduto(1);
             var v_descricaoRef;
-            v_refpadrao = dadosProduto(filial);
+            v_refpadrao = dadosProduto(3);
             if (v_ref > 0) {
                 criatag();
                 v_referencia = getAtributosReferencia(v_ref,'S',0);
+                alert('Passou aqui linha 138 - Referência padrão: '+v_referencia.length);
                 for (var i = 0, len = v_referencia.length; i < len; ++i) {
                     v_descricaoRef = v_referencia[i].RAT_ST_DESCRICAO.replaceAll(' ', '_');
                     if (v_referencia[i].RAT_CH_TIPO == 'L') {
@@ -386,8 +387,12 @@
                 v_http = 'http://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa
             }
             v_json = httpGet(v_http);
+            
+            //alert('391 - URL: '+v_http);
+            //alert('392 - JSON: '+v_json);
             v_Return = JSON.parse(v_json);
             return v_Return;
+            //return v_json;
         }
         //***** Busca os conversores do item *****
         function getItensConversores() {
@@ -403,9 +408,11 @@
             return v_conversor;
         }
         function httpGet(theUrl) {
+            //alert('410 - URL: '+theUrl);
             let xmlHttpReq = new XMLHttpRequest();
             xmlHttpReq.open("GET", theUrl, false);
             xmlHttpReq.send(null);
+            //alert('411 - Resposta: '+xmlHttpReq.responseText);
             return xmlHttpReq.responseText;
         }
         //***** Busca dados do produto *****

@@ -2,6 +2,7 @@
 {% load widget_tweaks %}
 {% load bootstrap_icons %}
 {% block content %}
+{% load sum_filter %}
 <div>
     <form role="form" method="post">
         {% csrf_token %}
@@ -66,12 +67,17 @@
             <td>{{ lotes.RFC_ST_DESCRICAO }}</td>
             <td>{{ lotes.PRO_ST_SEQUENCIAL }}</td>
             <td>{{ lotes.APT_CH_STATUS }}</td>
-            {% ifequal lotes.APT_CH_STATUS 'A' %}
+            {% if lotes.APT_CH_STATUS == 'A' %}
                 <td><a href="{% url 'deleteapt' lotes.APT_IN_SEQUENCIA %}"><i class={% bs_icon 'trash' color='red' %} </i></a></td>
-            {% endifequal %}
+            {% endif %}
         </tr>
         {% endfor %}
     </tbody>
+    <tr>
+      <td colspan="2">Total:</td>
+      <td>{{ listLotes|sum_field:'PRO_RE_QTDCONV'|format_number:3 }}</td>
+      <td colspan="4"></td>
+    </tr>
 </table>
  </div>
 {% for hidden_field in form.hidden_fields %}
