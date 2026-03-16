@@ -12,6 +12,7 @@ from django import forms
 #from apontamento.custom_views_sqlite import Listar_opcoes_sqlite, Login_inicial_sqlite
 from .custom_views_sqlite import *
 from apontamento.api_view import *
+
 #from apontamento.models import Apt_controle, Lotes_Apt, Apt_ocorrencia
 import requests
 from django.http import HttpResponse
@@ -120,15 +121,26 @@ class DemForm(forms.Form):
 class DemFormLocal(forms.Form):
     dem_st_lote = forms.CharField (max_length=24, required=True, label='Lote demanda')
     dem_re_qtdlote = forms.FloatField(required=False,widget=forms.HiddenInput(), label='Quantidade do lote')
+    ord_in_codigo   = forms.CharField(required=False,widget=forms.HiddenInput(),label='Ordem')
+    fil_in_codigo   = forms.CharField(required=False,widget=forms.HiddenInput(),label='Filial')
     def clean(self):
         cleaned_data = super(DemFormLocal, self).clean()
         #print(cleaned_data)
         qtde = self.cleaned_data.get("dem_re_qtdlote")
+        loteDem = self.cleaned_data.get("dem_st_lote")
+        ordem = self.cleaned_data.get("ord_in_codigo")
+        filial = self.cleaned_data.get("fil_in_codigo")
+        #Valida lote Já baixado
+        pk = {'ordem': ordem,'filial': filial, 'lote': loteDem}
+        dados = IntAPI(pk);        
+        c_demanda = dados.listar_demanda()    
+        if c_demanda:
+            raise forms.ValidationError(" Demanda Já baixada nessa ordem!")
         if (qtde == ''):
             raise forms.ValidationError(" Quantidade obrigatória!")
         if (qtde is None):
-            raise forms.ValidationError(" Quantidade obrigatória!")
-
+            raise forms.ValidationError(" Quantidade obrigatória!")        
+        
 class RegLotForm(forms.Form):
     pro_in_codigo = forms.IntegerField(label='Item',widget=forms.HiddenInput(attrs={'readonly':'True'}))    
     orl_st_referencia = forms.CharField(widget=forms.HiddenInput(),required=False)

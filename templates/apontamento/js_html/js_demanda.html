@@ -1,6 +1,7 @@
 {% block js %}
 <script>
      var filial = "{{fil_in_codigo}}";
+     var ordem = "{{ord_in_codigo}}";
      var v_ip = '127.0.0.1:8000';
      var v_http;
      var v_get;
@@ -8,10 +9,12 @@
      var v_Return;   
       $(document).ready(function() {
           criaButton();
-          //atribui_valor();
+          atribui_valor();
           function atribui_valor(){
               value_default = 100
-              $("#id_dem_re_qtdlote").val(value_default);
+              $("#id_ord_in_codigo").val(ordem);
+              $("#id_fil_in_codigo").val(filial);              
+              //$("#id_dem_re_qtdlote").val(value_default);
           };
           function criaButton() {
             var html  = '<span class="input-group-btn">';			

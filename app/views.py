@@ -25,6 +25,9 @@ class ApontaDemandaListView(APIView):
         pk = v_data.get('pk')
         if pk:
             serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(MOV_IN_SEQUENCIA = pk), many=True)
+        #ordem, filial e lote;
+        elif v_ordem is not None and v_filial is not None and v_lote is not None:
+            serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO = v_ordem,FIL_IN_CODIGO = v_filial, PRO_ST_LOTE = v_lote), many=True)
         elif v_status is not None:
             serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial, CTL_IN_CODIGO = v_transacao, MOV_ST_STATUS = v_status).order_by('MOV_IN_SEQUENCIA'), many=True)
         elif v_ordem == None:

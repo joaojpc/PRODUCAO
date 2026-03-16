@@ -195,6 +195,7 @@ class IntAPI:
         self.seq_controle = pparam.get('ctl_in_codigo')
         self.cliente = pparam.get('cliente')
         self.pk = pparam.get('pk')
+        self.lote_demanda = pparam.get('lote')
         #Busca dados do equipamento cadastrado;
         funcao = 'equipamento/'
         app_url = geturlprod(funcao)
@@ -266,7 +267,7 @@ class IntAPI:
 
     def listar_producao(self):
         if self.pk:
-            payload = {'pk': self.pk}
+            payload = {'pk': self.pk}        
         else:
             payload = {'ordem': self.ordem_in,'filial': self.fil_in}
         self.funcao = 'apontamentos'
@@ -284,6 +285,9 @@ class IntAPI:
     def listar_demanda(self):
         if self.pk:
             payload = {'pk': self.pk}
+        elif self.fil_in and self.ordem_in and self.lote_demanda:
+            #listar no form
+            payload = {'ordem': self.ordem_in,'filial': self.fil_in, 'lote':self.lote_demanda}
         else:
             payload = {'ordem': self.ordem_in,'filial': self.fil_in}
         self.funcao = 'demandas/'

@@ -25,7 +25,8 @@ import requests
 
 #from apontamento.custom_views import Listar_opcoes, User_logado, Login_inicial, IntProd
 from apontamento.custom_views_sqlite import Listar_opcoes_sqlite, User_logado_sqlite
-from apontamento.api_view import IntAPI, geturl_local, geturlapp, geturl_sqlite, geturlapi, geturl_api_sqlite, geturl_producao, trata_data_sqlite, IntOrdens, monta_produto, monta_ordem, get_client_ip, formatar_caracteristicas,prep_producao, Login_inicial_sqlite, IntAPI_sqlite, formatar_ordem, Controle
+from url_projeto import geturlapp, geturlapi, geturlprod, geturlest
+from apontamento.api_view import IntAPI, trata_data_sqlite, IntOrdens, monta_produto, monta_ordem, get_client_ip, formatar_caracteristicas,prep_producao, Login_inicial_sqlite, IntAPI_sqlite, formatar_ordem, Controle
 
 from apontamento.forms import FormUser, RegOcorForm, DemForm, RegLotForm, FormUser_sqlite, FormLogin, DemFormLocal, ListLotForm, LotesReceb, TrocarImpressora
 from apontamento.formata_string import formatar_string
@@ -289,7 +290,7 @@ def testar_impressao(request):
         apt_in_sequencia = None
     if request.method == "POST":
         funcao = 'apontamentos/'
-        api_listalotes = geturl_sqlite(funcao)
+        api_listalotes = geturlapp(funcao)
         v_seqlote = ListLotForm(request.POST)
         v_seq = None
         if v_seqlote.is_valid():
@@ -361,7 +362,7 @@ def insOcorrencia(request):
         form = RegOcorForm(request.POST)
         if form.is_valid():
             funcao = 'ocorrencias'
-            api_ocorrencia = geturl_local(funcao)
+            api_ocorrencia = geturlapp(funcao)
             ocorrencia = int(form.cleaned_data['ati_in_codigo'])
             tempo = int(form.cleaned_data['ati_in_tempo'])
             row_now = timezone.now()
@@ -422,7 +423,7 @@ def insDemandas(request):
         if form.is_valid():
             l_demandas = []
             funcao = 'demandas/'            
-            api_demandas = geturl_local(funcao)
+            api_demandas = geturlapp(funcao)
             #print 'Valido'
             v_dem_in_codigo = form.cleaned_data['dem_in_codigo']
             v_mvs_st_loteforne = form.cleaned_data['dem_st_lote']
@@ -468,12 +469,13 @@ def insDemandaslocal(request):
     v_session = carrega_sessao(request)
     l_demandas = []
     v_filial = request.session['fil_in_codigo']
-    l_demandas.append(request.session['ord_in_codigo'])
+    v_ordem = request.session['ord_in_codigo']
+    l_demandas.append(v_ordem)
     l_demandas.append(v_filial)
     l_demandas.append(request.session['ctl_in_codigo'])
     template = 'apontamento/novademandalocal.html'
     funcao = 'demandas/'
-    api_demandas = geturl_sqlite(funcao)
+    api_demandas = geturlapp(funcao)
     if request.method == "POST":
         form = DemFormLocal(request.POST)
         if form.is_valid():
@@ -496,7 +498,7 @@ def insDemandaslocal(request):
                 l_demandas.append(v_seqmov)
                 #Busca id da máquina e da ordem
                 funcao = 'controleApt/'
-                url = geturl_producao(funcao)
+                url = geturlprod(funcao)
                 payload = {'ord_in_codigo': l_demandas[0],'fil_in_codigo': l_demandas[1],'status': 'A'}
                 print(payload)
                 c_rs = requests.get(url, params=payload).json()                
@@ -522,7 +524,7 @@ def insDemandaslocal(request):
             #print 'Inválido'
     else:
         form = DemFormLocal()
-    return render(request, template, {'form': form,'fil_in_codigo': l_demandas[1]})
+    return render(request, template, {'form': form,'fil_in_codigo': v_filial,'ord_in_codigo': v_ordem})
 
 def listarlotes_sqllite(request):
     v_session = carrega_sessao(request)
@@ -532,7 +534,7 @@ def listarlotes_sqllite(request):
         v_lista.append(request.session['ord_in_codigo'])
         v_lista.append(request.session['fil_in_codigo'])
         funcao = 'apontamentos'
-        api_listalotes = geturl_sqlite(funcao)
+        api_listalotes = geturlapp(funcao)
         payload = {'ordem': v_lista[0],'filial': v_lista[1],}
         vresponse = requests.get(api_listalotes, params=payload)
         listLotes = json.loads(vresponse.content)
@@ -628,7 +630,7 @@ def manutencao(request):
                 action = request.GET.get('action')
                 if action == 'atividade':
                     funcao = 'itensOrdens/'
-                    api_atividade = geturl_sqlite(funcao)
+                    api_atividade = geturlapp(funcao)
                     payload = {'pro_in': None}
                     c_atividade = requests.get(api_atividade, params=payload).json()
                     for c_a in c_atividade:
@@ -700,7 +702,7 @@ def apontamento(request):
     filial = v_session.get('fil_in_codigo')
     maquina = None
     funcao = 'equipamento/'
-    app_url = geturl_producao(funcao)
+    app_url = geturlprod(funcao)
     payload = {'cliente': host,'filial':filial}
     try:
         cr_printer = requests.get(app_url, params=payload).json()
@@ -714,7 +716,7 @@ def apontamento(request):
     #Busca a Máquina vinculada ao equipamento
     if maquina != 0:
         funcao = 'maquina/'
-        app_url = geturl_producao(funcao)
+        app_url = geturlprod(funcao)
         payload = {'cmaq_id': maquina}
         try:
             cr_maquina = requests.get(app_url, params=payload).json()
@@ -736,7 +738,7 @@ def demandas(request):
     filial = v_session.get('fil_in_codigo')
     maquina = None
     funcao = 'equipamento/'
-    app_url = geturl_producao(funcao)
+    app_url = geturlprod(funcao)
     payload = {'cliente': host,'filial':filial}    
     try:
         cr_printer = requests.get(app_url, params=payload).json()
@@ -749,7 +751,7 @@ def demandas(request):
     #Busca a Máquina vinculada ao equipamento
     if maquina != 0:
         funcao = 'maquina/'
-        app_url = geturl_producao(funcao)
+        app_url = geturlprod(funcao)
         payload = {'cmaq_id': maquina}        
         try:
             cr_maquina = requests.get(app_url, params=payload).json()
@@ -814,7 +816,7 @@ def integrarProducao(pparams):
     seq_in = pparams[2]
     maq_id = ''
     ord_st_extenso =None
-    get_urlprod = geturl_producao(funcao)
+    get_urlprod = geturlprod(funcao)
     #settings.PAY = get_urlprod
     payload = {'fil_in_codigo': fil_in,'status': 'A', 'ord_in_codigo':ord_in}        
     try:        
@@ -987,7 +989,7 @@ def total_prod(request):
     vparams.append(v_session.get('ctl_in_codigo'))    
     #Busca dados da ordem
     funcao = 'ordens/'
-    api_listalotes = geturl_sqlite(funcao)
+    api_listalotes = geturlapp(funcao)
     payload = {'ord_in_codigo': vparams[0],'fil_in_codigo': vparams[1]}
     vresp = requests.get(api_listalotes, params=payload).json()
     for rs in vresp:
@@ -996,7 +998,7 @@ def total_prod(request):
     iniciar = IntAPI_sqlite(vparams)
     listLotes = iniciar.total_prod(vparams)
     funcao = 'apontamentos/'
-    api_listalotes = geturl_sqlite(funcao)
+    api_listalotes = geturlapp(funcao)
     payload = {'ordem': vparams[0],'filial': vparams[1]}
     vresponse = requests.get(api_listalotes, params=payload).json()
     for v_rs in vresponse:        
@@ -1039,13 +1041,13 @@ def integrarAponta(request):
     #Carrega os apontamentos em aberto;
     funcao = 'apontamentos/'
     plf_in_sqoperacao = v_session.get('seq_in_operacao')
-    api_listalotes = geturl_sqlite(funcao)
+    api_listalotes = geturlapp(funcao)
     payload = {'ordem': v_session.get('ord_in_codigo'),'filial': v_session.get('fil_in_codigo'),'status': 'A','ctl_in_codigo': v_session.get('ctl_in_codigo')}
     vresponse = requests.get(api_listalotes, params=payload).json()
     Lotes = json.dumps(vresponse)
     #busca demandas pendentes de integração para a ordem.
     funcao = 'demandas/'
-    get_urlapp = geturl_sqlite(funcao)
+    get_urlapp = geturlapp(funcao)
     payload = {'ordem': v_session.get('ord_in_codigo'),'filial': v_session.get('fil_in_codigo'),'ctl_in_codigo': v_session.get('ctl_in_codigo'),'status': 'A'}
     v_demanda = requests.get(get_urlapp, params=payload).json()
     v_baixas = json.dumps(v_demanda)
