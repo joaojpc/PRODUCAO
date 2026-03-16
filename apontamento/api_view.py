@@ -15,8 +15,6 @@ from django.utils import timezone
 import pandas as pd
 from pandas import json_normalize
 
-DATABASE = "/home/suporte/prod/producao.db"
-
 def trata_data_sqlite(pDATA):
     str_date = pDATA
     if pDATA is not None:
@@ -1143,7 +1141,7 @@ class IntAPI_sqlite:
         self.fil_in = pParams[1]
         self.ord_st_id = None
         self.seq_apt = None
-        self.dbname = DATABASE
+        self.dbname = self.dbname = settings.DATABASE        
     def listar_producao_sqlite(self, pParams):
         self.funcao = 'apontamentos/'
         self.uri = geturlapp(self.funcao)

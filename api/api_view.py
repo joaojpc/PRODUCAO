@@ -276,16 +276,7 @@ class GetDadosProducao:
                 for row in c_rs:
                     print(row)
         except cxo.Error as e:
-            print(f"Erro: {e}")
-        '''con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = cur.var(cxo.CURSOR)
-        #ref_cursor = con.cursor()
-        sparams =(self.fil_in,self.lote,ref_cursor)
-        cur.callproc('apt_intprod2.p_saldolote',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close'''
+            print(f"Erro: {e}")       
         lista = []
         json_saldo= {}
         if c_rs:

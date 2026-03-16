@@ -163,7 +163,7 @@ nome_so = platform.system()
 if nome_so == "Linux":
     DATABASE = "/home/suporte/prod/producao.db"
 elif nome_so == "Windows":
-    DATABASE = r"C:\Novo_projeto\Python38\PRODUCAO\producao.db"
+    DATABASE = r"C:\Clonar\projetos_python\PRODUCAO\producao.db"
 
 
 # Default primary key field type
