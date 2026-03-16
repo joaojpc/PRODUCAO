@@ -22,20 +22,20 @@ class gera_etiqueta:
         label5 = None
         v_id_item = pparams[2]
         v_descr = pparams[3]
-        label5 = '^XA'+'\n'
-        label5 += '^MMT'+'\n'
-        label5 += '^CI28'+'\n'
-        label5 += '^PW799'+'\n'
-        label5 += '^LL0144'+'\n'
+        label5 = r'^XA'+'\n'
+        label5 += r'^MMT'+'\n'
+        label5 += r'^CI28'+'\n'
+        label5 += r'^PW799'+'\n'
+        label5 += r'^LL0144'+'\n'
         #margem largura
-        label5 += '^LS0'+'\n'
+        label5 += r'^LS0'+'\n'
         #Margem altura
-        label5 += '^LT15'+'\n'
-        label5 += '^FT16,12^A0N,28,32^FH\^FD'+v_descr+'^FS'+'\n'
-        label5 += '^BY2,3,72'+'\n'
-        label5 += '^FO20,25^BCN,N,N,N^FD'+v_id_item+'^FS'+'\n'
-        label5 += '^FT120,119^A0N,23,28^FH\^FD'+v_id_item+'^FS'+'\n'
-        label5 += '^PQ1,0,1,Y^XZ'+'\n'
+        label5 += r'^LT15'+'\n'
+        label5 += r'^FT16,12^A0N,28,32^FH\^FD'+v_descr+'^FS'+'\n'
+        label5 += r'^BY2,3,72'+'\n'
+        label5 += r'^FO20,25^BCN,N,N,N^FD'+v_id_item+'^FS'+'\n'
+        label5 += r'^FT120,119^A0N,23,28^FH\^FD'+v_id_item+'^FS'+'\n'
+        label5 += r'^PQ1,0,1,Y^XZ'+'\n'
         v_print = upper(label5)
         #print(v_print)
         if self.imprimir:
@@ -68,20 +68,20 @@ class gera_etiqueta:
         label5 = None
         v_id_item = pparams[2]
         v_descr = pparams[3]
-        label5 = '^XA'+'\n'
-        label5 += '^MMT'+'\n'
-        label5 += '^CI28'+'\n'
-        label5 += '^PW799'+'\n'
-        label5 += '^LL0144'+'\n'
+        label5 = r'^XA'+'\n'
+        label5 += r'^MMT'+'\n'
+        label5 += r'^CI28'+'\n'
+        label5 += r'^PW799'+'\n'
+        label5 += r'^LL0144'+'\n'
         #margem largura
-        label5 += '^LS0'+'\n'
+        label5 += r'^LS0'+'\n'
         #Margem altura
-        label5 += '^LT15'+'\n'
-        #label5 += '^FT16,12^A0N,28,32^FH\^FD'+v_descr+'^FS'+'\n'
-        label5 += '^BY2,3,72'+'\n'
-        label5 += '^FO20,25^BCN,N,N,N^FD'+v_id_item+'^FS'+'\n'
-        label5 += '^FT120,119^A0N,23,28^FH\^FD'+v_id_item+'^FS'+'\n'
-        label5 += '^PQ1,0,1,Y^XZ'+'\n'
+        label5 += r'^LT15'+'\n'
+        #label5 += r'^FT16,12^A0N,28,32^FH\^FD'+v_descr+'^FS'+'\n'
+        label5 += r'^BY2,3,72'+'\n'
+        label5 += r'^FO20,25^BCN,N,N,N^FD'+v_id_item+'^FS'+'\n'
+        label5 += r'^FT120,119^A0N,23,28^FH\^FD'+v_id_item+'^FS'+'\n'
+        label5 += r'^PQ1,0,1,Y^XZ'+'\n'
         v_print = upper(label5)
         #print(v_print)
         if self.imprimir:

@@ -7,7 +7,7 @@ oracle_connection.py
 __pycache__/
 *.pyc
 *.py.save
-
+*.idea/
 *.pyo
 *.pyd
 *.db
