@@ -8,7 +8,7 @@ if nome_so == "Linux":
     # For Linux, specify the path to the Oracle Instant Client libraries
     cxo.init_oracle_client(lib_dir="/opt/oracle/instantclient_21_7")
 elif nome_so == "Windows":
-    cxo.init_oracle_client(lib_dir=r"C:\Client_Oracle\instantclient_19_27")
+    cxo.init_oracle_client(lib_dir=r"C:\Client_Oracle\instantclient_21_20")
 else:
     print("Unsupported operating system. Please use Linux or Windows.")
     sys.exit(1)

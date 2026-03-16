@@ -2,7 +2,8 @@ dbvis.sh
 prodenv/
 prodenv_old/
 venv/
-
+ini.bat
+oracle_connection.py
 __pycache__/
 *.pyc
 *.py.save
@@ -12,3 +13,4 @@ __pycache__/
 *.db
 key.txt
 templates/apontamento/js_html/js_prod_OLD.html
+

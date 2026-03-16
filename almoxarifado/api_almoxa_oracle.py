@@ -137,3 +137,4 @@ class Baixas:
                               bxa_in_sequencia =self.bxa_in_sequencia))
             json_baixas = json.dumps(lista)
         return json_baixas
+

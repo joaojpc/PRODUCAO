@@ -467,8 +467,9 @@ def insDemandas(request):
 def insDemandaslocal(request):
     v_session = carrega_sessao(request)
     l_demandas = []
+    v_filial = request.session['fil_in_codigo']
     l_demandas.append(request.session['ord_in_codigo'])
-    l_demandas.append(request.session['fil_in_codigo'])
+    l_demandas.append(v_filial)
     l_demandas.append(request.session['ctl_in_codigo'])
     template = 'apontamento/novademandalocal.html'
     funcao = 'demandas/'
@@ -497,6 +498,7 @@ def insDemandaslocal(request):
                 funcao = 'controleApt/'
                 url = geturl_producao(funcao)
                 payload = {'ord_in_codigo': l_demandas[0],'fil_in_codigo': l_demandas[1],'status': 'A'}
+                print(payload)
                 c_rs = requests.get(url, params=payload).json()                
                 for rs in c_rs:
                     l_demandas.append(rs['ORD_ST_ID'])
@@ -520,7 +522,7 @@ def insDemandaslocal(request):
             #print 'Inválido'
     else:
         form = DemFormLocal()
-    return render(request, template, {'form': form})
+    return render(request, template, {'form': form,'fil_in_codigo': l_demandas[1]})
 
 def listarlotes_sqllite(request):
     v_session = carrega_sessao(request)

@@ -36,6 +36,7 @@ helper_patterns = [
     path('avisorecebimento/', GetProRecebimento.as_view(), name='avisorecebimento'),
     path('lotesreceb/', GetLotesReceb.as_view(), name='lotesreceb'),
     path('lotesinvent/', GetLotesInventario.as_view(), name='lotesinvent'),
+    path('get_saldolote/', GetSaldoLote.as_view(), name='get_saldolote'),
     #path('PutItenslocalizacao/', PutItenslocalizacao.as_view(), name='PutItenslocalizacao'),
 ]
 urlpatterns = helper_patterns

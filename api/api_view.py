@@ -261,7 +261,50 @@ class GetDadosProducao:
         self.umidade = None
         self.rfc_in_codigo = None
         self.param = None
+        self.lote = None
         #print('Iniciando')
+    def get_saldo(self,pparams):
+        self.fil_in = pparams['filial']
+        self.lote = pparams['lote']
+        try:
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = cur.var(cxo.CURSOR)
+                    sparams = (self.fil_in, self.lote, ref_cursor)
+                    cur.callproc('apt_intprod2.p_saldolote', sparams)
+                    c_rs = ref_cursor.getvalue()
+                for row in c_rs:
+                    print(row)
+        except cxo.Error as e:
+            print(f"Erro: {e}")
+        '''con = getOracleConnection()
+        cur = con.cursor()
+        ref_cursor = cur.var(cxo.CURSOR)
+        #ref_cursor = con.cursor()
+        sparams =(self.fil_in,self.lote,ref_cursor)
+        cur.callproc('apt_intprod2.p_saldolote',(sparams))
+        c_rs = ref_cursor.fetchall()
+        cur.close
+        con.close'''
+        lista = []
+        json_saldo= {}
+        if c_rs:
+            for rs in c_rs:
+                lista.append(dict(pro_tab_in_codigo = int(rs[0]),
+                              pro_pad_in_codigo = rs[1],
+                              pro_in_codigo = rs[2],
+                              pro_st_descricao = rs[3],
+                              mvs_re_quantidade = float(rs[4])))
+                
+                json_saldo = json.dumps(lista)
+        else:
+            lista.append(dict(pro_tab_in_codigo = 0,
+                              pro_pad_in_codigo = 0,
+                              pro_in_codigo = 0,
+                              pro_st_descricao = 'Produto não encontrado',
+                              mvs_re_quantidade = 0))
+            json_saldo = json.dumps(lista)
+        return json_saldo
     def get_integracao(self,pparams):
         if pparams[1] is None:
             selectSQL =('''select ord.org_in_codigo,

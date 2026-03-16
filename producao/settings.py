@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-#_%ias=44y7yt1i9p$3l+7(pt&0i+1*w2_sm9c%5cp5=-n-evu
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.0.24','localhost','127.0.0.1','0.0.0.0:80','192.168.0.24:80','127.0.0.1:80','187.45.11.48','localhost:8000']
+ALLOWED_HOSTS = ['192.168.0.24','localhost','127.0.0.1:8000','127.0.0.1','0.0.0.0:80','192.168.0.24:80','127.0.0.1:80','187.45.11.48','localhost:8000']
 
 
 # Application definition
@@ -163,7 +163,7 @@ nome_so = platform.system()
 if nome_so == "Linux":
     DATABASE = "/home/suporte/prod/producao.db"
 elif nome_so == "Windows":
-    DATABASE = "C:\Clonar\projetos_python\PRODUCAO\producao.db"
+    DATABASE = r"C:\Novo_projeto\Python38\PRODUCAO\producao.db"
 
 
 # Default primary key field type

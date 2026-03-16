@@ -9,7 +9,7 @@
         var mydata;
         var v_texto;
         var v_padrao;        
-        var v_ip = '192.168.0.24';
+        var v_ip = '127.0.0.1:8000';
         $.fn.numpad.defaults.gridTpl = '<table class="table modal-content"></table>';
 		$.fn.numpad.defaults.backgroundTpl = '<div class="modal-backdrop in"></div>';
 		$.fn.numpad.defaults.displayTpl = '<input type="text" class="form-control" />';
@@ -387,12 +387,8 @@
                 v_http = 'http://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa
             }
             v_json = httpGet(v_http);
-            
-            //alert('391 - URL: '+v_http);
-            //alert('392 - JSON: '+v_json);
             v_Return = JSON.parse(v_json);
             return v_Return;
-            //return v_json;
         }
         //***** Busca os conversores do item *****
         function getItensConversores() {
@@ -408,13 +404,11 @@
             return v_conversor;
         }
         function httpGet(theUrl) {
-            //alert('410 - URL: '+theUrl);
             let xmlHttpReq = new XMLHttpRequest();
             xmlHttpReq.open("GET", theUrl, false);
             xmlHttpReq.send(null);
-            //alert('411 - Resposta: '+xmlHttpReq.responseText);
             return xmlHttpReq.responseText;
-        }
+        }    
         //***** Busca dados do produto *****
         function dadosProduto(value){
             var v_retorno;

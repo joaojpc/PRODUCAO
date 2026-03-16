@@ -1,0 +1,4 @@
+{
+    "debug.javascript.autoAttachFilter": "always",
+    "files.autoSave": "afterDelay"
+}

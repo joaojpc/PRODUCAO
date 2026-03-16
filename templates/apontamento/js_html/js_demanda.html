@@ -1,4 +1,11 @@
+{% block js %}
 <script>
+     var filial = "{{fil_in_codigo}}";
+     var v_ip = '127.0.0.1:8000';
+     var v_http;
+     var v_get;
+     var v_json;
+     var v_Return;   
       $(document).ready(function() {
           criaButton();
           //atribui_valor();
@@ -97,8 +104,30 @@
          $("#id_dem_re_qtdlote").val($(this).val());
       });
       $('#id_dem_st_lote').on('change', function() {
+          var v_saldo = 0;
+          var v_lote = $(this).val()
+          v_saldo = getSaldoLote(filial,v_lote)
           v_float = 9999.000
           $("#numpadButton").val(v_float);
           $("#id_dem_re_qtdlote").val(v_float);
       });
+      //busca saldo no estoque
+      function getSaldoLote(pFilial, pLote) {
+          var v_saldo;
+          v_http = 'http://'+v_ip+'/api/get_saldolote/?filial='+pFilial+'&lote='+pLote
+          v_json = httpGet(v_http);
+          v_Return = JSON.parse(v_json);
+          for (var i = 0, len = v_Return.length; i < len; ++i) {
+              alert(v_Return[i]);
+              v_saldo = JSON.parse(v_Return[i].MVS_RE_QUANTIDADE);
+          }
+          return v_saldo;
+      }
+      function httpGet(theUrl) {
+          let xmlHttpReq = new XMLHttpRequest();
+          xmlHttpReq.open("GET", theUrl, false);
+          xmlHttpReq.send(null);
+          return xmlHttpReq.responseText;
+      }
  </script>
+ {% endblock %}

@@ -9,6 +9,7 @@ from apontamento.custom_views_sqlite import Listar_opcoes_sqlite, User_logado_sq
 from producao import settings
 from datetime import datetime, date, timedelta
 from apontamento.Etiqueta_precorte import gera_etiqueta
+from url_projeto import geturlapp, geturlapi, geturlprod, geturlest
 
 from django.utils import timezone
 import pandas as pd
@@ -16,38 +17,6 @@ from pandas import json_normalize
 
 DATABASE = "/home/suporte/prod/producao.db"
 
-def geturlapi(funcao):
-    url_remoto = settings.URL_PRODUCAO
-    url_principal = 'http://'+url_remoto+'/api/'+funcao
-    #print (url_principal)
-    return url_principal
-def geturlapp(funcao):
-    url_remoto = settings.URL_PRODUCAO
-    url_principal = 'http://'+url_remoto+'/app/'+funcao
-    #print (url_principal)
-    return url_principal
-def geturl_local(funcao):
-    url_local = settings.URL_PRODUCAO
-    url_principal = 'http://'+url_local+'/producao/'+funcao
-    #print (url_principal)
-    return url_principal
-
-def geturl_producao(funcao):
-    url_producao = settings.URL_PRODUCAO
-    url_principal = 'http://'+url_producao+'/prod/'+funcao
-    #print (url_principal)
-    return url_principal
-
-def geturl_sqlite(funcao):
-    url_producao = settings.URL_PRODUCAO
-    url_principal = 'http://'+url_producao+'/app/'+funcao
-    #print (url_principal)
-    return url_principal
-def geturl_api_sqlite(funcao):
-    url_producao = settings.URL_PRODUCAO
-    url_principal = 'http://'+url_producao+'/api/'+funcao
-    #print (url_principal)
-    return url_principal
 def trata_data_sqlite(pDATA):
     str_date = pDATA
     if pDATA is not None:
@@ -228,7 +197,7 @@ class IntAPI:
         self.pk = pparam.get('pk')
         #Busca dados do equipamento cadastrado;
         funcao = 'equipamento/'
-        app_url = geturl_producao(funcao)
+        app_url = geturlprod(funcao)
         payload = {'cliente': self.cliente,'filial':self.fil_in}
         v_printer = requests.get(app_url, params=payload).json()
         for rs_printer in v_printer:
@@ -274,7 +243,7 @@ class IntAPI:
     
     def reg_ocorencias(self):
         self.funcao = 'ocorrencias/'
-        self.uri = geturl_local(self.funcao)        
+        self.uri = geturlapp(self.funcao)        
         payload = {'ordem': self.ordem_in}
         vresponse = requests.get(self.uri, params=payload)
         #vresponse = requests.get('http://localhost/producao/ocorrencias/?ordem=50602')        
@@ -332,7 +301,7 @@ class IntAPI:
     def empenho_demanda(self):
         if settings.GRAVAR_LOCAL:
             self.funcao = 'demandas/'
-            self.uri = geturl_local(self.funcao)
+            self.uri = geturlapp(self.funcao)
         else:
             self.funcao = 'empenhodemandas'
             self.uri = geturlapi(self.funcao)
@@ -445,7 +414,7 @@ class IntAPI:
         funcao = 'ocorrencias'
         #print('Passou aqui linha 160')
 
-        api_ocorrencia = geturl_local(funcao)
+        api_ocorrencia = geturlapp(funcao)
         c_lista = []
         c_lista.append(v_params[0])
         c_lista.append(v_params[1])
@@ -475,7 +444,7 @@ class IntOrdens:
         lista_conv = []
         funcao = 'GetOrdensPendentes/'
         try:
-            api_ordenspendentes = geturl_api_sqlite(funcao)
+            api_ordenspendentes = geturlapi(funcao)
             if pparams[1] is None:
                 payload = {'org_in_codigo': pparams[0],'param': pparams[3]}
             else:
@@ -493,7 +462,7 @@ class IntOrdens:
                     funcao = 'GetManProOrdens/'
                     #try:
                     if 1==1:
-                        api_getordens = geturl_api_sqlite(funcao)
+                        api_getordens = geturlapi(funcao)
                         payload = {'org_in_codigo': ord['org_in_codigo'],
                                    'ord_seq_in_codigo': ord['ord_seq_in_codigo'],
                                    'ord_in_codigo': ord['ord_in_codigo']}
@@ -505,11 +474,11 @@ class IntOrdens:
                                 c_get_inf = {'umidade': d_ord['ORD_RE_UMIDADE'],'lote_ordem': d_ord['LOTE_ORDEM'],'destino': d_ord['ORD_ST_DESTINO'],'origem': d_ord['ORD_ST_ORIGEM']}
                                 #Busca Demandas da Ordem;
                                 funcao = 'get_demandaordens/'
-                                uri = geturl_api_sqlite(funcao)
+                                uri = geturlapi(funcao)
                                 c_get_demandas = requests.get(uri, params=payload).json()
                                 #Busca Item da Ordem + SubProdutos;
                                 funcao = 'itensordem/'
-                                uri = geturl_api_sqlite(funcao)
+                                uri = geturlapi(funcao)
                                 payload = {'ordem': d_ord['ORD_IN_CODIGO'],'filial': d_ord['FIL_IN_CODIGO']}
                                 c_get_itens = requests.get(uri, params=payload).json()
                                 v_dados = {'ORG_TAB_IN_CODIGO':d_ord['ORG_TAB_IN_CODIGO'],
@@ -546,7 +515,7 @@ class IntOrdens:
                                                   'ORD_IN_CODIGO': d_ord['ORD_IN_CODIGO'],
                                                   'param':'N'}
                                 funcao = 'GetOrdensPendentes/'
-                                api_ordenspendentes = geturl_api_sqlite(funcao)
+                                api_ordenspendentes = geturlapi(funcao)
                                 do_response = requests.put(api_ordenspendentes, data=v_update_ordem)
                                 #Busca Itens da ordem
                                 if c_get_itens:
@@ -568,12 +537,12 @@ class IntOrdens:
                                         if d_itens['rfc_in_codigo']!=0:
                                             #Busca atributos dos Itens
                                             funcao = 'listaatributos/'
-                                            uri = geturl_api_sqlite(funcao)
+                                            uri = geturlapi(funcao)
                                             payload = {'item': d_itens['pro_in_codigo'],'filial': d_ord['FIL_IN_CODIGO']}
                                             c_get_atrib = requests.get(uri, params=payload).json()
                                             #Busca Características dos Itens
                                             funcao = 'listareferencias/'
-                                            uri = geturl_api_sqlite(funcao)
+                                            uri = geturlapi(funcao)
                                             c_get_ref = requests.get(uri, params=payload).json()
                                             #grava itens na tabela
                                             v_dados_produtos = {'PRO_TAB_IN_CODIGO': d_ord['PRO_TAB_IN_CODIGO'],
@@ -645,7 +614,7 @@ class IntOrdens:
             if v_maq['CTR_ST_ID']!= '0':
                 #Busca dados da máquina;
                 funcao = 'maquina/'
-                app_url = geturl_producao(funcao)
+                app_url = geturlprod(funcao)
                 payload = {'cmaq_id': v_maq['CMAQ_ST_ID'], 'ctr_id':v_maq['CTR_ST_ID']}
                 v_maquina = requests.get(app_url, params=payload).json()
                 if not(v_maquina):
@@ -743,7 +712,7 @@ class prep_producao:
         v_ordem = {'ord_in_codigo': v_lista[0],'fil_in_codigo': v_lista[1],'ctl_in_codigo': v_lista[2],'cliente': v_lista[3],'pro_pad_in_codigo': v_lista[4],'tpo_st_codigo':v_lista[5],'pro_in_codigo': v_lista[6],'ord_st_id':v_ord_st_id}        
         #Busca dados do equipamento cadastrado;
         funcao = 'equipamento/'
-        app_url = geturl_producao(funcao)
+        app_url = geturlprod(funcao)
         payload = {'cliente': v_lista[3],'filial':v_lista[1]}
         v_printer = requests.get(app_url, params=payload).json()
         for rs_printer in v_printer:
@@ -751,7 +720,7 @@ class prep_producao:
                 self.host = rs_printer['PRINTER_ST_IP']
         #Busca dados da máquina;
         funcao = 'maquina/'
-        app_url = geturl_producao(funcao)
+        app_url = geturlprod(funcao)
         if v_lista[1] ==312:
             payload = {'cmaq_id': self.maquina}
         else:
@@ -1479,7 +1448,7 @@ class Login_inicial_sqlite:
         except:
             pass
         funcao = 'equipamento/'
-        app_url = geturl_producao(funcao)
+        app_url = geturlprod(funcao)
         payload = {'cliente': v_params[4],'filial':self.ord_filial}
         try:
             cr_printer = requests.get(app_url, params=payload).json()
@@ -1490,7 +1459,7 @@ class Login_inicial_sqlite:
             pass
         if maquina is not None:
             funcao = 'maquina/'
-            app_url = geturl_producao(funcao)
+            app_url = geturlprod(funcao)
             payload = {'cmaq_id': maquina}
             try:
                 cr_maquina = requests.get(app_url, params=payload).json()
@@ -1500,7 +1469,7 @@ class Login_inicial_sqlite:
             except:
                 pass        
         funcao = 'controleApt/'
-        uri = geturl_producao(funcao)
+        uri = geturlprod(funcao)
         dados = data = {"CTL_IN_CODIGO": sequencia,
                         "CTL_ST_USUARIO": self.usuario_in,
                         "ORD_IN_CODIGO": self.ordem_in,
@@ -1532,7 +1501,7 @@ class Controle:
     def getControle(self):
         cr_ctl = {}
         funcao = 'controleApt/'
-        app_url = geturl_producao(funcao)
+        app_url = geturlprod(funcao)
         payload = {'ctl_in_codigo': self.controle}
         try:
             cr_ctl = requests.get(app_url, params=payload).json()
@@ -1542,7 +1511,7 @@ class Controle:
     def putControle(self, pParams):
         self.impressora = pParams.get('impressora')
         funcao = 'controleApt/'
-        app_url = geturl_producao(funcao)
+        app_url = geturlprod(funcao)
         cr_ctl = {}
         payload = {'ctl_in_codigo': self.controle, 'impressora': self.impressora}
         try:

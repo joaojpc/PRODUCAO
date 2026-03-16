@@ -373,3 +373,10 @@ class GetLotesInventario(APIView):
         c_get = ini_get.get_LotesInventario(dados)
         response = Response(c_get, status=status.HTTP_200_OK)
         return response
+class GetSaldoLote(APIView):
+    def get(self, request, format=None):
+        ini_get = GetDadosProducao()
+        dados = request.GET
+        c_get = ini_get.get_saldo(dados)
+        response = Response(c_get, status=status.HTTP_200_OK)
+        return response
