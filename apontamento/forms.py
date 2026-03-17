@@ -147,7 +147,7 @@ class DemFormLocal(forms.Form):
             if rs_dem['com_in_codigo'] == v_pro_in_codigo:
                 v_item_valid = True
         if not v_item_valid:
-            raise forms.ValidationError(" Esse item não faz parte da demanda da ordem, favor inserir na ordem e baixar as informações novamente!")                    
+            raise forms.ValidationError(" Este item não faz parte da demanda da ordem, favor inserir na ordem e baixar as informações novamente!")                    
         if (qtde == ''):
             raise forms.ValidationError(" Quantidade obrigatória!")
         if (qtde is None):
