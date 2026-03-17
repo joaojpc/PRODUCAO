@@ -195,8 +195,6 @@ class IntAPI:
         self.cliente = pparam.get('cliente')
         self.pk = pparam.get('pk')
         self.lote_demanda = pparam.get('lote')
-        print('linha 198', self.fil_in)
-        print('linha 199', pparam)
         #Busca dados do equipamento cadastrado;
         funcao = 'equipamento/'
         app_url = geturlprod(funcao)
@@ -204,18 +202,15 @@ class IntAPI:
         v_printer = requests.get(app_url, params=payload).json()
         for rs_printer in v_printer:
             self.maquina = rs_printer['MAQ_IN_CODIGO']
-        print('linha 205', self.fil_in)
-        c_operacoes = self.operacoes_ordem()
-        for v_operacoes in c_operacoes:
-            self.org_in = v_operacoes['ORG_IN_CODIGO']            
-
+        if self.fil_in and self.ordem_in:
+            c_operacoes = self.operacoes_ordem()
+            for v_operacoes in c_operacoes:
+                self.org_in = v_operacoes['ORG_IN_CODIGO']            
     def operacoes_ordem(self):
-        self.funcao = 'oper_ordem/'
+        self.funcao = 'oper_ordem'
         self.uri= geturlapi(self.funcao)        
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        print('linha 214', payload)
-        vresponse = requests.get(self.uri, params=payload)
-        print('linha 216', vresponse)
+        vresponse = requests.get(self.uri, params=payload).json()
         return vresponse
     
     def ordem_demandas(self):
