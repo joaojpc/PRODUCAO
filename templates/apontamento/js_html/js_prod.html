@@ -8,7 +8,8 @@
         var v_Return;
         var mydata;
         var v_texto;
-        var v_padrao;        
+        var v_padrao;
+        let clicado = false;        
         var v_ip = '192.168.0.24';
         $.fn.numpad.defaults.gridTpl = '<table class="table modal-content"></table>';
 		$.fn.numpad.defaults.backgroundTpl = '<div class="modal-backdrop in"></div>';
@@ -370,9 +371,13 @@
             //var qtde_refugo= 0;
         }
         $('#submit').click(function(){
-            document.getElementById("submit").disabled = true;
+            //document.getElementById("submit").disabled = true;
+            if (!clicado) {
+               clicado = true;
+            }
             // código a ser executado            
             myFunction();
+            clicado = False;
         });
         $('#numpadqtdeprod').on('change', function() {
          $("#id_orl_re_qtdlote").val($(this).val());
