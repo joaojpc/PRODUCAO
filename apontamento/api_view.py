@@ -210,7 +210,8 @@ class IntAPI:
         self.uri = geturlapi(self.funcao)        
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
         #print(payload)
-        vresponse = requests.get(self.uri, params=payload)
+        vresponse = requests.get(self.uri, params=payload).json()
+        print('linha 214',vresponse)
         vRes_json = json.loads(vresponse.content)
         #print(vRes_json)
         operacoes= {}
