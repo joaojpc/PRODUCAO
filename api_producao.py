@@ -94,7 +94,7 @@ class integrador:
                 self.funcao = 'apontamentos/'
                 self.get_urlapp = geturlapp(self.funcao)                                
                 self.payload = {'ordem': rs['ORD_IN_CODIGO'],'filial': rs['FIL_IN_CODIGO'],'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'A'}
-                print(self.payload)
+                #print(self.payload)
                 try:                    
                     v_ordens = requests.get(self.get_urlapp, params=self.payload).json()
                     print(requests.url)
@@ -102,7 +102,7 @@ class integrador:
                         tem_ordem = 'S'
                 except:
                     pass
-                print(tem_ordem)
+                #print(tem_ordem)
                 self.funcao = 'demandas/'
                 self.get_urlapp = geturlapp(self.funcao)
                 self.payload = {'ordem': rs['ORD_IN_CODIGO'],'filial': rs['FIL_IN_CODIGO'],'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'A'}
@@ -112,7 +112,7 @@ class integrador:
                         tem_demanda = 'S'                        
                 except:
                     pass
-                print(tem_demanda)
+                #print(tem_demanda)
                 if (tem_ordem =='N') and(tem_demanda =='N'):
                     self.payload = {'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'E'}
                     c_update = requests.put(self.get_urlprod, params=self.payload)    
@@ -325,12 +325,12 @@ class integrador:
                     #Busca a situação da ordem
                     v_sit = self.situacao_ordem()                    
                     if v_sit == 'EN':
-                        print('Ordem encerrada! ',self.ord_in)
+                        #print('Ordem encerrada! ',self.ord_in)
                         #Encerra a ordem;
                         self.payload = {'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'E'}
                         c_update = requests.put(self.get_urlprod, params=self.payload)
                     else:
-                        print(self.ord_in)
+                        #print(self.ord_in)
                         self.ord_st_extenso = rs['ORD_ST_EXTENSO']                        
                         v_idordem = separa_idordem(self.ord_st_extenso)                        
                         self.seq_in = int(v_idordem.get('plf_in_sqoperacao'))
@@ -381,7 +381,7 @@ class integrador:
                                         #resp_Prod = requests.post(self.get_urlapi, data=v_dadosProd).json()
                                         if resp_Prod:
                                             for rs_prod in resp_Prod:
-                                                print(rs_prod)
+                                                #(rs_prod)
                                                 if (rs_prod['mensagem'] == 'Ok') and (rs_prod['mensagem_sub'] == 'Ok'):
                                                     #faz Update da transação da ordem;
                                                     self.funcao = 'apontamentos/'
@@ -400,9 +400,9 @@ class integrador:
                         #if 1==1:
                             v_demanda = requests.get(self.get_urlapp, params=self.payload).json()
                             if v_demanda:
-                                print('linha 403 => Iniciando integração das demandas!')
+                                #print('linha 403 => Iniciando integração das demandas!')
                                 for r_dem in v_demanda:
-                                    print(f'linha 405 => Dados da demanda: {r_dem}')
+                                    #print(f'linha 405 => Dados da demanda: {r_dem}')
                                     v_dadosDem = {'fil_in_codigo': r_dem['FIL_IN_CODIGO'],
                                               'ord_in_codigo': r_dem['ORD_IN_CODIGO'],
                                               'ctl_in_codigo': r_dem['CTL_IN_CODIGO'],
@@ -423,9 +423,9 @@ class integrador:
                                         
                                         resp_Dem = json.loads(self.apt_integrarDemanda(v_dadosDem))
                                         if resp_Dem:
-                                            print(f'linha 426 => Dados da resposta da demanda: {resp_Dem}')
+                                            #print(f'linha 426 => Dados da resposta da demanda: {resp_Dem}')
                                             for rs_dem in resp_Dem:
-                                                print(rs_dem)
+                                                #print(rs_dem)
                                                 if (rs_dem['mensagem'] == 'Ok'):
                                                     if (rs_dem['item'] == 'Não Encontrado!'):
                                                         self.payload = {'ctl_in_codigo': r_dem['CTL_IN_CODIGO'],'sequencia': r_dem['MOV_IN_SEQUENCIA'],'status': 'I', 'item': None}
@@ -505,7 +505,7 @@ class integrador:
         return v_retorno
     def apt_integrarDemanda(self, pparams):
         lista = []
-        print('linha 508 => Iniciando integração das demandas!',pparams)
+        #print('linha 508 => Iniciando integração das demandas!',pparams)
         v_retorno = {}
         v_listDem = pparams
         if (self.ord_in == 1280):
@@ -558,7 +558,7 @@ class integrador:
             cur.close
             con.close            
             if c_rs:
-                print(c_rs)
+                #print(c_rs)
                 v_retorno = c_rs
             else:
                 v_retorno =  'AB'
