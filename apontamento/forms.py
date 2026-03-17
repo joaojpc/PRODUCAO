@@ -136,7 +136,7 @@ class DemFormLocal(forms.Form):
         req = {'ordem': ordem,'filial': filial, 'lote': loteDem}
         dados = IntAPI(req)        
         c_demanda = dados.listar_demanda(req) 
-        d_dem = {'ord_in_codigo': ordem,'fil_in_codigo': filial}
+        d_dem = {'ordem': ordem,'filial': filial}
         dprod = prep_producao()
         cr_dem = dprod.prepara_demandas(d_dem)
         if c_demanda:

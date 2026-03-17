@@ -693,7 +693,7 @@ class prep_producao:
     def prepara_demandas(self,pparams):
         self.fil_in_codigo = pparams.get('filial')
         self.ord_in_codigo = pparams.get('Ordem')
-        payload = {'ordem': self.ord_in_codigo,'filial': self.fil_in_codigo}
+        payload = {'ord_in_codigo': self.ord_in_codigo,'fil_in_codigo': self.fil_in_codigo}
         funcao = 'ordens/'
         d2 = {}
         app_itens = geturlapp(funcao)
