@@ -7,7 +7,7 @@ import json
 import socket
 import os
 
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 #from pandas import json
 from unicodedata import normalize
 

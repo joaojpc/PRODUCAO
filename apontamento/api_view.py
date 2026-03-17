@@ -225,7 +225,7 @@ class IntAPI:
         json_demandas = json.dumps(vRes_json)
         #print(json_demandas)
         return json_demandas
-
+    
     def listar_ocorencias(self):
         self.funcao = 'listarocorrencias'
         self.uri = geturlapi(self.funcao)
@@ -690,7 +690,20 @@ class prep_producao:
         self.row_now = timezone.now()
         self.str_now = self.row_now.strftime('%Y-%m-%d')
         self.str_eti = self.row_now.strftime('%d/%m/%Y')
-        
+    def prepara_demandas(self,pparams):
+        self.fil_in_codigo = pparams.get('filial')
+        self.ord_in_codigo = pparams.get('Ordem')
+        payload = {'ordem': self.ord_in_codigo,'filial': self.fil_in_codigo}
+        funcao = 'ordens/'
+        d2 = {}
+        app_itens = geturlapp(funcao)
+        payload = {'org_in_codigo': None,
+                   'ord_in_codigo': self.ord_in_codigo,
+                   'fil_in_codigo': self.fil_in_codigo}
+        c_appitens = requests.get(app_itens, params=payload).json()
+        for r_appitens in c_appitens:
+            d2 = r_appitens['PRO_ST_demandas']
+        return d2    
     def prepara_apontamento(self,plista):
         v_lista = []
         v_lista.append(plista[0])

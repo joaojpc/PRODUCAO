@@ -130,12 +130,24 @@ class DemFormLocal(forms.Form):
         loteDem = self.cleaned_data.get("dem_st_lote")
         ordem = self.cleaned_data.get("ord_in_codigo")
         filial = self.cleaned_data.get("fil_in_codigo")
+        v_pro_in_codigo = None
+        v_item_valid = False
         #Valida lote Já baixado
         req = {'ordem': ordem,'filial': filial, 'lote': loteDem}
         dados = IntAPI(req)        
         c_demanda = dados.listar_demanda(req) 
+        dprod = prep_producao()
+        cr_dem = dprod.prepara_demandas(req)
         if c_demanda:
             raise forms.ValidationError(" Demanda Já baixada nessa ordem!")
+        #valida o item da demanda;
+        for item in c_demanda:
+            v_pro_in_codigo = item['PRO_IN_CODIGO'
+        for rs_dem in cr_dem:
+            if rs_dem['com_in_codigo'] == v_pro_in_codigo:
+                v_item_valid = True
+        if not v_item_valid:
+            raise forms.ValidationError(" Esse item não faz parte da demanda da ordem, favor inserir na ordem e baixar as informações novamente!")                    
         if (qtde == ''):
             raise forms.ValidationError(" Quantidade obrigatória!")
         if (qtde is None):
