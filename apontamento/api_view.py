@@ -505,7 +505,7 @@ class IntOrdens:
                                 #grava na tabela local => api => models.py man_pro_ordens
                                 funcao = 'ordens/'
                                 #print(v_dados)
-                                dadosOrdens = geturl_sqlite(funcao)
+                                dadosOrdens = geturlapp(funcao)
                                 payload = {'org_in_codigo': ord['org_in_codigo'],
                                            'ord_seq_in_codigo': ord['ord_seq_in_codigo'],
                                            'ord_in_codigo': ord['ord_in_codigo']}
@@ -595,7 +595,7 @@ class IntOrdens:
                                         #verifica se existe o item cadastrado
                                         #print(v_dados_produtos)
                                         funcaoapp = 'itensOrdens/'
-                                        uriapp = geturl_sqlite(funcaoapp)
+                                        uriapp = geturlapp(funcaoapp)
                                         payload = {'pro_pad_in_codigo': d_itens['pro_pad_in_codigo'],
                                                    'pro_in_codigo': d_itens['pro_in_codigo'],
                                                    'rfc_in_codigo':d_itens['rfc_in_codigo']}
@@ -699,7 +699,7 @@ class prep_producao:
         funcao = 'ordens/'
         d2 = {}
         v_ord_st_id = None
-        app_itens = geturl_sqlite(funcao)
+        app_itens = geturlapp(funcao)
         payload = {'org_in_codigo': None,
                    'ord_in_codigo': v_lista[0],
                    'fil_in_codigo': v_lista[1]}
@@ -963,7 +963,7 @@ class prep_producao:
                  'ORL_RE_QTDAJUSTADA':self.apt_re_quantConv,
                  'PRO_ST_FORNECEDOR':self.fornecedor}
         funcao = 'apontamentos/'
-        api_producao = geturl_sqlite(funcao)
+        api_producao = geturlapp(funcao)
         #print('DADOS',dados)
         try:
             response = requests.post(api_producao, data=dados)
