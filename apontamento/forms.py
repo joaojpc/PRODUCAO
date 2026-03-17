@@ -132,10 +132,9 @@ class DemFormLocal(forms.Form):
         filial = self.cleaned_data.get("fil_in_codigo")
         #Valida lote Já baixado
         req = {'ordem': ordem,'filial': filial, 'lote': loteDem}
-        print('forms 135',req)
         dados = IntAPI(req)        
         c_demanda = dados.listar_demanda(req) 
-        #print('forms 137',c_demanda)   
+        print('forms 137',c_demanda)   
         if c_demanda:
             raise forms.ValidationError(" Demanda Já baixada nessa ordem!")
         if (qtde == ''):
