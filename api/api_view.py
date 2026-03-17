@@ -271,13 +271,13 @@ class GetDadosProducao:
             #cur = con.cursor()
             #ref_cursor = con.cursor()
             with getOracleConnection() as con:
-                print('Conexão estabelecida com sucesso!')
+                #print('Conexão estabelecida com sucesso!')
                 with con.cursor() as cur:
-                    print('Cursor criado com sucesso!')
+                    #print('Cursor criado com sucesso!')
                     ref_cursor = con.cursor()
                     sparams = (self.fil_in, self.lote, ref_cursor)
                     cur.callproc('apt_intprod2.p_saldolote', sparams)
-                    c_rs = ref_cursor.getvalue()
+                    c_rs = ref_cursor.fetchall()
                 for row in c_rs:
                     print(row)
         except cxo.Error as e:
