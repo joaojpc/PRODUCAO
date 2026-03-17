@@ -516,6 +516,7 @@ class IntOrdens:
                                                   'ORD_SEQ_IN_CODIGO': d_ord['ORD_SEQ_IN_CODIGO'],
                                                   'ORD_IN_CODIGO': d_ord['ORD_IN_CODIGO'],
                                                   'param':'N'}
+                                print(v_update_ordem)
                                 funcao = 'GetOrdensPendentes/'
                                 api_ordenspendentes = geturlapi(funcao)
                                 do_response = requests.put(api_ordenspendentes, data=v_update_ordem)
