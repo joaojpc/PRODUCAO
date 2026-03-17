@@ -206,10 +206,11 @@ class IntAPI:
             self.org_in = v_operacoes['ORG_IN_CODIGO']            
 
     def operacoes_ordem(self):
-        self.funcao = 'oper_ordem'
+        self.funcao = 'oper_ordem/'
         self.uri = geturlapi(self.funcao)        
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        vresponse = requests.get(self.uri, params=payload).json
+        print('linha 212', payload)
+        vresponse = requests.get(self.uri, params=payload)
         print('linha 213', vresponse)
         return vresponse
     
