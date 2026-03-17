@@ -402,7 +402,7 @@ class integrador:
                             if v_demanda:
                                 print('linha 403 => Iniciando integração das demandas!')
                                 for r_dem in v_demanda:
-                                    print(r_dem)
+                                    print(f'linha 405 => Dados da demanda: {r_dem}')
                                     v_dadosDem = {'fil_in_codigo': r_dem['FIL_IN_CODIGO'],
                                               'ord_in_codigo': r_dem['ORD_IN_CODIGO'],
                                               'ctl_in_codigo': r_dem['CTL_IN_CODIGO'],
