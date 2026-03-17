@@ -116,6 +116,7 @@ class IntApi:
                     columns = [col[0] for col in cur.description]
                     cur.rowfactory = lambda *args: dict(zip(columns, args))
                     c_rs = cur.fetchall()
+                    print('linha 119',c_rs)
                     if c_rs:
                         json_operacoes = json.dumps(c_rs)
         except cxo.Error as e:
