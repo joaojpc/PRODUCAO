@@ -202,14 +202,14 @@ class IntAPI:
         v_printer = requests.get(app_url, params=payload).json()
         for rs_printer in v_printer:
             self.maquina = rs_printer['MAQ_IN_CODIGO']
+        print('linha 205', self.fil_in)
         c_operacoes = self.operacoes_ordem()
         for v_operacoes in c_operacoes:
             self.org_in = v_operacoes['ORG_IN_CODIGO']            
 
     def operacoes_ordem(self):
         self.funcao = 'oper_ordem/'
-        self.uri= geturlapi(self.funcao) 
-        print('linha 212', self.fil_in)       
+        self.uri= geturlapi(self.funcao)        
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
         print('linha 214', payload)
         vresponse = requests.get(self.uri, params=payload)
