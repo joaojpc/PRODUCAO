@@ -183,8 +183,9 @@ class ManProOrdensListView(APIView):
     serializer_class = ManProOrdensSerializer
     def get(self, request, format=None):
         v_data=request.GET
-        print('linha 186',v_data.get('ord_in_codigo')) 
-        print('linha 186',v_data.get('fil_in_codigo'))        
+        print('linha 186',v_data) 
+        print('linha 187',v_data.get('ord_in_codigo')) 
+        print('linha 188',v_data.get('fil_in_codigo'))        
         v_ordem = v_data.get('ord_in_codigo')
         v_fil = v_data.get('fil_in_codigo')
         v_org = v_data.get('org_in_codigo')
