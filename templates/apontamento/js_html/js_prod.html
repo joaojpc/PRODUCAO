@@ -377,7 +377,9 @@
             }*/
             // código a ser executado            
             myFunction();
+            setTimeout(() => {
             document.getElementById("submit").disabled = false;
+            }, 2000);
             //clicado = false;
         });
         $('#numpadqtdeprod').on('change', function() {
