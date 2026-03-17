@@ -297,6 +297,7 @@ class GetDadosProducao:
             json_saldo = json.dumps(lista)
         return json_saldo
     def get_integracao(self,pparams):
+        #integrações
         if pparams[1] is None:
             selectSQL =('''select ord.org_in_codigo,
                               ord.ord_seq_in_codigo,
