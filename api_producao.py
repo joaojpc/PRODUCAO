@@ -423,6 +423,7 @@ class integrador:
                                         
                                         resp_Dem = json.loads(self.apt_integrarDemanda(v_dadosDem))
                                         if resp_Dem:
+                                            print(f'linha 426 => Dados da resposta da demanda: {resp_Dem}')
                                             for rs_dem in resp_Dem:
                                                 print(rs_dem)
                                                 if (rs_dem['mensagem'] == 'Ok'):
@@ -504,6 +505,7 @@ class integrador:
         return v_retorno
     def apt_integrarDemanda(self, pparams):
         lista = []
+        print('linha 508 => Iniciando integração das demandas!',)
         v_retorno = {}
         v_listDem = pparams
         if (self.ord_in == 1280):
