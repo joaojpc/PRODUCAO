@@ -28,7 +28,10 @@ class IntApi:
         ref_cursor = con.cursor()
         sparams = (self.fil_in,self.ordem_in,ref_cursor)
         cur.callproc('idp.apt_intprod.apt_retornademandadisp',(sparams))
+        columns = [col[0] for col in cur.description]
+        cur.rowfactory = lambda *args: dict(zip(columns, args))
         c_rs = ref_cursor.fetchall()
+        print(c_rs)
         cur.close
         con.close
         lista = []
