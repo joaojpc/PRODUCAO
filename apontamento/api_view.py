@@ -692,7 +692,7 @@ class prep_producao:
         self.str_eti = self.row_now.strftime('%d/%m/%Y')
     def prepara_demandas(self,pparams):
         self.fil_in_codigo = pparams.get('filial')
-        self.ord_in_codigo = pparams.get('Ordem')
+        self.ord_in_codigo = pparams.get('ordem')
         payload = {'ord_in_codigo': self.ord_in_codigo,'fil_in_codigo': self.fil_in_codigo}
         funcao = 'ordens/'
         d2 = {}
