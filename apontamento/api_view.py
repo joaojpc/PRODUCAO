@@ -702,7 +702,8 @@ class prep_producao:
                    'fil_in_codigo': self.fil_in_codigo}
         c_appitens = requests.get(app_itens, params=payload).json()
         for r_appitens in c_appitens:
-            d2 = r_appitens['PRO_ST_demandas']
+            print('passou aqui linha 705',r_appitens)
+            d2 = r_appitens['PRO_ST_DEMANDAS']
         return d2    
     def prepara_apontamento(self,plista):
         v_lista = []
