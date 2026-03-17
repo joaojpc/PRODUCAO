@@ -131,8 +131,9 @@
               v_saldo = v_Return[i].MVS_RE_QUANTIDADE;
           }
           if (v_saldo === undefined) {
+              v_saldo = 0;
+          }  
           return v_saldo;
-          }
       }
       function httpGet(theUrl) {
           let xmlHttpReq = new XMLHttpRequest();
