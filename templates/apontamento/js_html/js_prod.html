@@ -371,13 +371,14 @@
             //var qtde_refugo= 0;
         }
         $('#submit').click(function(){
-            //document.getElementById("submit").disabled = true;
-            if (!clicado) {
+            document.getElementById("submit").disabled = true;
+            /*if (!clicado) {
                clicado = true;
-            }
+            }*/
             // código a ser executado            
             myFunction();
-            clicado = False;
+            document.getElementById("submit").disabled = false;
+            //clicado = false;
         });
         $('#numpadqtdeprod').on('change', function() {
          $("#id_orl_re_qtdlote").val($(this).val());
