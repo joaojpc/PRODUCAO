@@ -15,7 +15,8 @@ class IntApi:
     def __init__(self,pparams):
         self.fil_in = int(pparams.get('filial'))
         self.ordem_in = int(pparams.get('ordem'))
-        c_operacoes = self.operacoes_ordem()
+        c_operacoes = self.operacoes_ordem().json()
+        print('linha 10',c_operacoes)
         for v_operacoes in c_operacoes:
             self.pro_in = v_operacoes['pro_in_codigo']
             self.org_in = v_operacoes['org_in_codigo']
