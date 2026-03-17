@@ -277,11 +277,10 @@ class GetDadosProducao:
                     ref_cursor = con.cursor()
                     sparams = (self.fil_in, self.lote, ref_cursor)
                     cur.callproc('apt_intprod2.p_saldolote', sparams)
-                    columns = [col[0] for col in cur.description]
-                    cur.rowfactory = lambda *args: dict(zip(columns, args))
+                    columns = [col[0] for col in ref_cursor.description]
                     c_rs = ref_cursor.fetchall()
-                    print(c_rs)
-                    for row in c_rs:
+                    results = [dict(zip(columns, row)) for row in c_rs]
+                    for row in results:
                         print(row)
         except cxo.Error as e:
             print(f"Erro: {e}")       
