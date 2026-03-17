@@ -408,7 +408,7 @@ def baixaDemandaLocal(request):
     if 'ord_in_codigo' in request.session:
         ini_prod = IntAPI(v_session)
         req = {'ordem': v_ordem,'filial': v_filial}
-        listLotes  = ini_prod.listar_demanda()
+        listLotes  = ini_prod.listar_demanda(req)
         return render(request, template, {'dem': listLotes})
     else:
         return redirect('demos_sessions')
