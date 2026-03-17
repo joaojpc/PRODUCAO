@@ -371,17 +371,21 @@
             //var qtde_refugo= 0;
         }
         $('#submit').click(function(){
+            const timerId = setTimeout(function() {
+                // This code will not run if clearTimeout is called in time
+                alert('Aguarde a conclusão do processo de inserção do lote!');
+                myFunction();
+            }, 3000);
             //document.getElementById("submit").disabled = true;
             /*if (!clicado) {
                clicado = true;
             }*/
-            // código a ser executado            
-            myFunction();
+            // código a ser executado                        
             //const timeoutId = setTimeout(() => {
             //document.getElementById("submit").disabled = false;
             //}, 2000);
             //clicado = false;
-            //clearTimeout(timeoutId);
+            clearTimeout(timerId);
         });
         $('#numpadqtdeprod').on('change', function() {
          $("#id_orl_re_qtdlote").val($(this).val());
