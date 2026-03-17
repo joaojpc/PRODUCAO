@@ -370,6 +370,11 @@
             //var qtde_refugo= 0;
         }
         $('#submit').click(function(){
+            document.getElementById("submit").disabled = true;
+            // código a ser executado
+            setTimeout(() => {
+                document.getElementById(("submit").disabled = false;
+            }, 2000); // reabilita o clique após 2 segundos
             myFunction();
         });
         $('#numpadqtdeprod').on('change', function() {
