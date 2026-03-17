@@ -115,8 +115,11 @@ class IntApi:
                     cur.prepare(selectSQL)
                     cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
                     columns = [col[0] for col in cur.description]
-                    c_rs = cur.fetchall()
-                    json_operacoes = [dict(zip(columns, row)) for row in c_rs]
+                    c_rs = [dict(zip(columns, row)) for row in cur.fetchall()]
+                    '''columns = [col[0] for col in cur.description]
+                    cur.rowfactory = lambda *args: dict(zip(columns, args))
+                    c_rs = cur.fetchall()'''
+                    
                     return c_rs
         except cxo.Error as e:
             print(f"Erro: {e}")
