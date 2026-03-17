@@ -663,7 +663,7 @@ def manutencao(request):
                         v_lista.append(2)                    
                     v_lista.append(fil_in)
                     v_lista.append(ord_in)
-                    v_lista.append('S')
+                    v_lista.append('N')
                     ini = IntOrdens()
                     ini.buscaOrdens(v_lista)
                     return redirect('menu')
