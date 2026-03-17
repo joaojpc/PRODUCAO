@@ -267,9 +267,6 @@ class GetDadosProducao:
         self.fil_in = pparams['filial']
         self.lote = pparams['lote']
         try:
-            #con = getOracleConnection()
-            #cur = con.cursor()
-            #ref_cursor = con.cursor()
             with getOracleConnection() as con:
                 #print('Conexão estabelecida com sucesso!')
                 with con.cursor() as cur:
@@ -279,29 +276,11 @@ class GetDadosProducao:
                     cur.callproc('apt_intprod2.p_saldolote', sparams)
                     columns = [col[0] for col in ref_cursor.description]
                     c_rs = ref_cursor.fetchall()
-                    results = [dict(zip(columns, row)) for row in c_rs]
-                    for row in results:
-                        print(row)
+                    json_saldo = [dict(zip(columns, row)) for row in c_rs]
+                    '''for row in json_saldo:
+                        print(row)'''
         except cxo.Error as e:
             print(f"Erro: {e}")       
-        lista = []
-        json_saldo= {}
-        if c_rs:
-            for rs in c_rs:
-                lista.append(dict(pro_tab_in_codigo = int(rs[0]),
-                              pro_pad_in_codigo = rs[1],
-                              pro_in_codigo = rs[2],
-                              pro_st_descricao = rs[3],
-                              mvs_re_quantidade = float(rs[4])))
-                
-                json_saldo = json.dumps(lista)
-        else:
-            lista.append(dict(pro_tab_in_codigo = 0,
-                              pro_pad_in_codigo = 0,
-                              pro_in_codigo = 0,
-                              pro_st_descricao = 'Produto não encontrado',
-                              mvs_re_quantidade = 0))
-            json_saldo = json.dumps(lista)
         return json_saldo
     def get_integracao(self,pparams):
         #integrações
