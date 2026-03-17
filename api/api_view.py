@@ -267,8 +267,13 @@ class GetDadosProducao:
         self.fil_in = pparams['filial']
         self.lote = pparams['lote']
         try:
+            #con = getOracleConnection()
+            #cur = con.cursor()
+            #ref_cursor = con.cursor()
             with getOracleConnection() as con:
+                print('Conexão estabelecida com sucesso!')
                 with con.cursor() as cur:
+                    print('Cursor criado com sucesso!')
                     ref_cursor = cur.var(cxo.CURSOR)
                     sparams = (self.fil_in, self.lote, ref_cursor)
                     cur.callproc('apt_intprod2.p_saldolote', sparams)
