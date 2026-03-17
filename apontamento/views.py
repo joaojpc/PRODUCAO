@@ -479,7 +479,7 @@ def insDemandaslocal(request):
     if request.method == "POST":
         form = DemFormLocal(request.POST)
         if form.is_valid():
-            #print 'Valido'
+            print('linha 482 Valido')
             v_mvs_st_loteforne = form.cleaned_data['dem_st_lote']
             v_apt_re_quantidade = form.cleaned_data['dem_re_qtdlote']
             l_demandas.append(v_mvs_st_loteforne)
