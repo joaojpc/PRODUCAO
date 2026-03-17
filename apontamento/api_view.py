@@ -187,6 +187,7 @@ class IntAPI:
         self.cfg_st_id = None
         self.maquina   = None
         self.org_in    = None
+        print('linha 190', pparam)
         self.fil_in = pparam.get('fil_in_codigo')
         self.ordem_in = pparam.get('ord_in_codigo')
         self.usuario = pparam.get('usuario')
@@ -203,21 +204,15 @@ class IntAPI:
             self.maquina = rs_printer['MAQ_IN_CODIGO']
         c_operacoes = self.operacoes_ordem()
         for v_operacoes in c_operacoes:
-            self.org_in = v_operacoes['org_in_codigo']            
+            self.org_in = v_operacoes['ORG_IN_CODIGO']            
 
     def operacoes_ordem(self):
         self.funcao = 'oper_ordem'
         self.uri = geturlapi(self.funcao)        
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        #print(payload)
-        vresponse = requests.get(self.uri, params=payload).json()
-        print('linha 214',vresponse)
-        vRes_json = json.loads(vresponse.content)
-        #print(vRes_json)
-        operacoes= {}
-        operacoes = json.dumps(vRes_json)
-        return operacoes
-
+        vresponse = requests.get(self.uri, params=payload)
+        return vresponse
+    
     def ordem_demandas(self):
         self.funcao = 'get_demandas'
         self.uri = geturlapi(self.funcao)
