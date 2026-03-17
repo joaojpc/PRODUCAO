@@ -13,12 +13,9 @@ from django.utils import timezone
 
 class IntApi:
     def __init__(self,pparams):
-        v_params = []
-        v_params.append(pparams)
-        for v_obj in v_params:
-            self.fil_in = int(v_obj[0])
-            self.ordem_in = int(v_obj[1])
-        c_operacoes = json.loads(self.operacoes_ordem())
+        self.fil_in = int(pparams.get('filial'))
+        self.ordem_in = int(pparams.get('ordem'))
+        c_operacoes = self.operacoes_ordem()
         for v_operacoes in c_operacoes:
             self.pro_in = v_operacoes['pro_in_codigo']
             self.org_in = v_operacoes['org_in_codigo']
@@ -75,11 +72,7 @@ class IntApi:
         return json_baixas
 
     def operacoes_ordem(self):
-        v_params = []
         json_operacoes = {}
-        v_params.append(self.fil_in)
-        v_params.append(self.ordem_in)
-        print('linha 82',v_params)       
         try:
             with getOracleConnection() as con:
                 #print('Conexão estabelecida com sucesso!')
