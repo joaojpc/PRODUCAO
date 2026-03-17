@@ -187,7 +187,6 @@ class IntAPI:
         self.cfg_st_id = None
         self.maquina   = None
         self.org_in    = None
-        print('linha 190', pparam)
         self.fil_in = pparam.get('fil_in_codigo')
         self.ordem_in = pparam.get('ord_in_codigo')
         self.usuario = pparam.get('usuario')
@@ -211,6 +210,7 @@ class IntAPI:
         self.uri = geturlapi(self.funcao)        
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
         vresponse = requests.get(self.uri, params=payload)
+        print('linha 213', vresponse)
         return vresponse
     
     def ordem_demandas(self):
