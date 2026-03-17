@@ -371,17 +371,17 @@
             //var qtde_refugo= 0;
         }
         $('#submit').click(function(){
-            document.getElementById("submit").disabled = true;
+            //document.getElementById("submit").disabled = true;
             /*if (!clicado) {
                clicado = true;
             }*/
             // código a ser executado            
             myFunction();
-            const timeoutId = setTimeout(() => {
-            document.getElementById("submit").disabled = false;
-            }, 2000);
+            //const timeoutId = setTimeout(() => {
+            //document.getElementById("submit").disabled = false;
+            //}, 2000);
             //clicado = false;
-            clearTimeout(timeoutId);
+            //clearTimeout(timeoutId);
         });
         $('#numpadqtdeprod').on('change', function() {
          $("#id_orl_re_qtdlote").val($(this).val());
