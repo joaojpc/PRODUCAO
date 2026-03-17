@@ -284,6 +284,7 @@ class IntAPI:
             payload = {'ordem': self.ordem_in,'filial': self.fil_in, 'lote':self.lote_demanda}
         else:
             payload = {'ordem': self.ordem_in,'filial': self.fil_in}
+        print('payload demanda 287',payload)
         self.funcao = 'demandas/'
         self.uri = geturlapp(self.funcao)
         json_producao = requests.get(self.uri, params=payload).json()
