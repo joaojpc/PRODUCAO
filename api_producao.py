@@ -400,8 +400,9 @@ class integrador:
                         #if 1==1:
                             v_demanda = requests.get(self.get_urlapp, params=self.payload).json()
                             if v_demanda:
-                                print('Iniciando integração das demandas!')
+                                print('linha 403 => Iniciando integração das demandas!')
                                 for r_dem in v_demanda:
+                                    print(r_dem)
                                     v_dadosDem = {'fil_in_codigo': r_dem['FIL_IN_CODIGO'],
                                               'ord_in_codigo': r_dem['ORD_IN_CODIGO'],
                                               'ctl_in_codigo': r_dem['CTL_IN_CODIGO'],
@@ -419,6 +420,7 @@ class integrador:
                                     #if 1==1:
                                         # Grava os dados no Mega                                                        
                                         #resp_Dem = requests.post(self.get_urlapi, data=v_dadosDem).json()
+                                        
                                         resp_Dem = json.loads(self.apt_integrarDemanda(v_dadosDem))
                                         if resp_Dem:
                                             for rs_dem in resp_Dem:
