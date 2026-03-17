@@ -196,7 +196,7 @@ class IntAPI:
         self.pk = pparam.get('pk')
         self.lote_demanda = pparam.get('lote')
         print('linha 198', self.fil_in)
-        print('linha 198', pparam)
+        print('linha 199', pparam)
         #Busca dados do equipamento cadastrado;
         funcao = 'equipamento/'
         app_url = geturlprod(funcao)
