@@ -72,6 +72,8 @@ class Listardemandas(APIView):
         return response
 class Operordem(APIView):
     def get(self, request, format=None):
+        dados = request.GET
+        print('linha 76',dados)
         v_params = []
         v_params.append(request.GET.get('filial'))
         v_params.append(request.GET.get('ordem'))
