@@ -403,8 +403,11 @@ def baixaDemanda(request):
 def baixaDemandaLocal(request):
     template = 'apontamento/demandalocal.html'
     v_session = carrega_sessao(request)
+    v_ordem = v_session.get('ord_in_codigo')
+    v_filial = v_session.get('fil_in_codigo')
     if 'ord_in_codigo' in request.session:
         ini_prod = IntAPI(v_session)
+        req = {'ordem': v_ordem,'filial': v_filial}
         listLotes  = ini_prod.listar_demanda()
         return render(request, template, {'dem': listLotes})
     else:
