@@ -119,7 +119,8 @@
           var v_saldo;
           v_http = 'http://'+v_ip+'/api/get_saldolote/?filial='+pFilial+'&lote='+pLote
           v_json = httpGet(v_http);
-          v_Return = JSON.parse(v_json);
+          //v_Return = JSON.parse(v_json);
+          v_Return = v_json;
           for (var i = 0, len = v_Return.length; i < len; ++i) {
               alert(v_Return[i]);
               v_saldo = JSON.parse(v_Return[i].MVS_RE_QUANTIDADE);
