@@ -142,7 +142,7 @@ class DemFormLocal(forms.Form):
             raise forms.ValidationError(" Demanda Já baixada nessa ordem!")
         #valida o item da demanda;
         for item in c_demanda:
-            v_pro_in_codigo = item['PRO_IN_CODIGO'
+            v_pro_in_codigo = item['PRO_IN_CODIGO']
         for rs_dem in cr_dem:
             if rs_dem['com_in_codigo'] == v_pro_in_codigo:
                 v_item_valid = True
@@ -176,9 +176,9 @@ class RegLotForm(forms.Form):
             v_lista.append(filial)
             obj_itens = IntAPI_sqlite();
             itens = json.loads(obj_itens.itens_ordem_sqlite(v_lista))
-            print('forms 141',itens)
+            # print('forms 141',itens)
             for itn in itens:
-                print (itn['pro_in_codigo'])
+                #print (itn['pro_in_codigo'])
                 if (itn['pro_in_codigo'] == lote_item):
                     if(itn['rfc_in_codigo'] != 0):
                         v_validarefer = True
