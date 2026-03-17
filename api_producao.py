@@ -434,7 +434,7 @@ class integrador:
                                                     #print(self.payload)
                                                     self.funcao = 'demandas/'
                                                     self.get_urlapp = geturlapp(self.funcao)                                                    
-                                                    c_update_dem = requests.put(self.get_urlapp, params=self.payload)                                                
+                                                    #c_update_dem = requests.put(self.get_urlapp, params=self.payload)                                                
                                     except:
                                         pass
                         except:
