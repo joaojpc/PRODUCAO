@@ -276,7 +276,11 @@ class IntAPI:
         jason_delete = requests.delete(self.uri, params=payload)
         return jason_delete
 
-    def listar_demanda(self):
+    def listar_demanda(self,pparams):
+        if pparams:
+            self.ordem_in = pparams.get('ordem')
+            self.fil_in = pparams.get('filial')
+            self.lote_demanda = pparams.get('lote')
         if self.pk:
             payload = {'pk': self.pk}
         elif self.fil_in and self.ordem_in and self.lote_demanda:
