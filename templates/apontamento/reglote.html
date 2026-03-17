@@ -55,7 +55,7 @@
       </li>
   </div>
   <div>  
-     <a><input type="submit" value="Inserir lote" name="submit" id="submit" class="btn btn-primary" style="width:150"></a>
+     <a><input type="submit" onclick="this.disabled = true; this.form.submit();value="Inserir lote" name="submit" id="submit" class="btn btn-primary" style="width:150"></a>
      <button type="button" class="btn btn-light" style="width:100" disabled></button>
      <a href="{% url 'testar_impressao' %}" class="btn btn-primary" style="width:150">Imprimir Etiqueta</a>
   </div>
