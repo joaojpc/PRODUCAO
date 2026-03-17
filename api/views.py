@@ -78,7 +78,7 @@ class Operordem(APIView):
         v_params.append(request.GET.get('filial'))
         v_params.append(request.GET.get('ordem'))
         ini_prod = IntApi(v_params)
-        c_demanda = json.loads(ini_prod.operacoes_ordem())
+        c_demanda = ini_prod.operacoes_ordem()
         response = Response(c_demanda, status=status.HTTP_200_OK)
         return response
 class Listarocorrencias(APIView):
