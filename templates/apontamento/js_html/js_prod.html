@@ -377,10 +377,11 @@
             }*/
             // código a ser executado            
             myFunction();
-            setTimeout(() => {
+            const timeoutId = setTimeout(() => {
             document.getElementById("submit").disabled = false;
             }, 2000);
             //clicado = false;
+            clearTimeout(timeoutId);
         });
         $('#numpadqtdeprod').on('change', function() {
          $("#id_orl_re_qtdlote").val($(this).val());
