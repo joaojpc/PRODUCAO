@@ -16,10 +16,9 @@ class IntApi:
         self.fil_in = int(pparams.get('filial'))
         self.ordem_in = int(pparams.get('ordem'))
         c_operacoes = self.operacoes_ordem()
-        print('linha 19',c_operacoes)
         for v_operacoes in c_operacoes:
-            self.pro_in = v_operacoes['pro_in_codigo']
-            self.org_in = v_operacoes['org_in_codigo']
+            self.pro_in = v_operacoes['PRO_IN_CODIGO']
+            self.org_in = v_operacoes['ORG_IN_CODIGO']
     def ord_demandas(self):
         con = getOracleConnection()
         cur = con.cursor()
