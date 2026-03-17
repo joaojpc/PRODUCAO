@@ -505,7 +505,7 @@ class integrador:
         return v_retorno
     def apt_integrarDemanda(self, pparams):
         lista = []
-        print('linha 508 => Iniciando integração das demandas!',)
+        print('linha 508 => Iniciando integração das demandas!',pparams)
         v_retorno = {}
         v_listDem = pparams
         if (self.ord_in == 1280):
