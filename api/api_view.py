@@ -116,25 +116,10 @@ class IntApi:
                     columns = [col[0] for col in cur.description]
                     cur.rowfactory = lambda *args: dict(zip(columns, args))
                     c_rs = cur.fetchall()
-                    print('linha 119',c_rs)
-                    if c_rs:
-                        json_operacoes = json.dumps(c_rs)
+                    return c_rs
         except cxo.Error as e:
-            print(f"Erro: {e}")       
-        return json_operacoes
-        
-        cur.close
-        con.close
-        lista = []
-        for rs in c_rs:
-            lista.append(dict(org_in_codigo = int(rs[2]),
-                              ord_in_codigo = int(rs[6]),
-                              pro_in_codigo = int(rs[9]),
-                              plf_in_sqoperacao = rs[10]))
-        operacoes= {}
-        operacoes = json.dumps(lista)
-        return operacoes
-
+            print(f"Erro: {e}")
+        return json_operacoes       
     def lista_ocorrencia(self):
         con = getOracleConnection()
         cur = con.cursor()
