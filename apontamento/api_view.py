@@ -201,7 +201,7 @@ class IntAPI:
         v_printer = requests.get(app_url, params=payload).json()
         for rs_printer in v_printer:
             self.maquina = rs_printer['MAQ_IN_CODIGO']
-        c_operacoes = json.loads(self.operacoes_ordem())
+        c_operacoes = self.operacoes_ordem()
         for v_operacoes in c_operacoes:
             self.org_in = v_operacoes['org_in_codigo']            
 
