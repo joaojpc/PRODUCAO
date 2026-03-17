@@ -15,8 +15,8 @@ class IntApi:
     def __init__(self,pparams):
         self.fil_in = int(pparams.get('filial'))
         self.ordem_in = int(pparams.get('ordem'))
-        c_operacoes = self.operacoes_ordem().json()
-        print('linha 10',c_operacoes)
+        c_operacoes = self.operacoes_ordem()
+        print('linha 19',c_operacoes)
         for v_operacoes in c_operacoes:
             self.pro_in = v_operacoes['pro_in_codigo']
             self.org_in = v_operacoes['org_in_codigo']
@@ -115,8 +115,8 @@ class IntApi:
                     cur.prepare(selectSQL)
                     cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
                     columns = [col[0] for col in cur.description]
-                    cur.rowfactory = lambda *args: dict(zip(columns, args))
                     c_rs = cur.fetchall()
+                    json_operacoes = [dict(zip(columns, row)) for row in c_rs]
                     return c_rs
         except cxo.Error as e:
             print(f"Erro: {e}")
