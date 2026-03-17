@@ -75,47 +75,60 @@ class IntApi:
         return json_baixas
 
     def operacoes_ordem(self):
-        v_params = []        
-        con = getOracleConnection()
-        cur = con.cursor()
+        v_params = []
+        json_operacoes = {}
         v_params.append(self.fil_in)
         v_params.append(self.ordem_in)
-        selectSQL =('''select ord.org_tab_in_codigo,
-                              ord.org_pad_in_codigo,
-                              ord.org_in_codigo,
-                              ord.org_tau_st_codigo,
-                              ord.ord_tab_in_codigo,
-                              ord.ord_seq_in_codigo,
-                              ord.ord_in_codigo,
-                              ord.pro_tab_in_codigo,
-                              ord.pro_pad_in_codigo,
-                              ord.pro_in_codigo,
-                              pgo.plf_in_sqoperacao
-                         from idp.pro_ordens ord,
-                              idp.pro_prog_ordem pgo
-                        where ord.org_tab_in_codigo = pgo.org_tab_in_codigo
-                          and ord.org_pad_in_codigo = pgo.org_pad_in_codigo
-                          and ord.org_in_codigo = pgo.org_in_codigo
-                          and ord.org_tau_st_codigo = pgo.org_tau_st_codigo
-                          and ord.ord_tab_in_codigo = pgo.ord_tab_in_codigo
-                          and ord.ord_seq_in_codigo = pgo.ord_seq_in_codigo
-                          and ord.ord_in_codigo = pgo.ord_in_codigo
-                          and pgo.plf_in_sqoperacao = (select min(po.plf_in_sqoperacao)
-                                                         from idp.pro_prog_ordem po
-                                                        where po.org_tab_in_codigo = pgo.org_tab_in_codigo
-                                                          and po.org_pad_in_codigo = pgo.org_pad_in_codigo
-                                                          and po.org_in_codigo     = pgo.org_in_codigo
-                                                          and po.org_tau_st_codigo = pgo.org_tau_st_codigo
-                                                          and po.ord_tab_in_codigo = pgo.ord_tab_in_codigo
-                                                          and po.ord_seq_in_codigo = pgo.ord_seq_in_codigo
-                                                          and po.ord_in_codigo     = pgo.ord_in_codigo
-                                                          and po.tmp_ch_aponta     = 'S'                                                          
-                                                      )
-                          and ord.fil_in_codigo = :fil_in
-                          and ord.ord_in_codigo = :ord_in''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
-        c_rs = cur.fetchall()
+        print('linha 82',v_params)       
+        try:
+            with getOracleConnection() as con:
+                #print('Conexão estabelecida com sucesso!')
+                with con.cursor() as cur:
+                    #print('Cursor criado com sucesso!')
+                    selectSQL =('''select ord.org_tab_in_codigo,
+                                          ord.org_pad_in_codigo,
+                                          ord.org_in_codigo,
+                                          ord.org_tau_st_codigo,
+                                          ord.ord_tab_in_codigo,
+                                          ord.ord_seq_in_codigo,
+                                          ord.ord_in_codigo,
+                                          ord.pro_tab_in_codigo,
+                                          ord.pro_pad_in_codigo,
+                                          ord.pro_in_codigo,
+                                          pgo.plf_in_sqoperacao
+                                     from idp.pro_ordens ord,
+                                          idp.pro_prog_ordem pgo
+                                    where ord.org_tab_in_codigo = pgo.org_tab_in_codigo
+                                      and ord.org_pad_in_codigo = pgo.org_pad_in_codigo
+                                      and ord.org_in_codigo = pgo.org_in_codigo
+                                      and ord.org_tau_st_codigo = pgo.org_tau_st_codigo
+                                      and ord.ord_tab_in_codigo = pgo.ord_tab_in_codigo
+                                      and ord.ord_seq_in_codigo = pgo.ord_seq_in_codigo
+                                      and ord.ord_in_codigo = pgo.ord_in_codigo
+                                      and pgo.plf_in_sqoperacao = (select min(po.plf_in_sqoperacao)
+                                                                     from idp.pro_prog_ordem po
+                                                                    where po.org_tab_in_codigo = pgo.org_tab_in_codigo
+                                                                      and po.org_pad_in_codigo = pgo.org_pad_in_codigo
+                                                                      and po.org_in_codigo     = pgo.org_in_codigo
+                                                                      and po.org_tau_st_codigo = pgo.org_tau_st_codigo
+                                                                      and po.ord_tab_in_codigo = pgo.ord_tab_in_codigo
+                                                                      and po.ord_seq_in_codigo = pgo.ord_seq_in_codigo
+                                                                      and po.ord_in_codigo     = pgo.ord_in_codigo
+                                                                      and po.tmp_ch_aponta     = 'S'                                                          
+                                                                    )
+                                    and ord.fil_in_codigo = :fil_in
+                                    and ord.ord_in_codigo = :ord_in''')
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
+                    columns = [col[0] for col in cur.description]
+                    cur.rowfactory = lambda *args: dict(zip(columns, args))
+                    c_rs = cur.fetchall()
+                    if c_rs:
+                        json_operacoes = json.dumps(c_rs)
+        except cxo.Error as e:
+            print(f"Erro: {e}")       
+        return json_operacoes
+        
         cur.close
         con.close
         lista = []
