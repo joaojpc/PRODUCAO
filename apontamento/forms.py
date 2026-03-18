@@ -143,6 +143,7 @@ class DemFormLocal(forms.Form):
             raise forms.ValidationError(" Demanda Já baixada nessa ordem!")
         #valida o item da demanda;
         for item in c_demanda:
+            print('forms 146',item)
             v_pro_in_codigo = item['PRO_IN_CODIGO']
         for rs_dem in cr_dem:
             print('forms 148',rs_dem)
