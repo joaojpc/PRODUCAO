@@ -705,6 +705,15 @@ class prep_producao:
             #print('passou aqui linha 705',r_appitens)
             d2 = r_appitens['PRO_ST_DEMANDAS']
         return d2    
+    def listar_saldo(self,pparams):
+        self.fil_in_codigo = pparams.get('filial')
+        self.lote = pparams.get('lote')
+        payload = {'lote': self.lote,'filial': self.fil_in_codigo}
+        funcao = 'get_saldolote/' 
+        app_url = geturlapi(funcao)      
+        c_saldo = requests.get(app_url, params=payload).json()        
+        return c_saldo
+
     def prepara_apontamento(self,plista):
         v_lista = []
         v_lista.append(plista[0])

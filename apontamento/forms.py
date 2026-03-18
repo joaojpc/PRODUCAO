@@ -138,11 +138,12 @@ class DemFormLocal(forms.Form):
         c_demanda = dados.listar_demanda(req) 
         d_dem = {'ordem': ordem,'filial': filial}
         dprod = prep_producao()
-        cr_dem = dprod.prepara_demandas(d_dem)        
+        cr_dem = dprod.prepara_demandas(d_dem) 
+        cr_sld = dprod.prepara_saldo(req)
         if c_demanda:
             raise forms.ValidationError(" Demanda Já baixada nessa ordem!")
         #valida o item da demanda;
-        for item in c_demanda:
+        for item in cr_sld:
             print('forms 146',item)
             v_pro_in_codigo = item['PRO_IN_CODIGO']
         for rs_dem in cr_dem:
