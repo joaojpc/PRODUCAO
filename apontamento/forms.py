@@ -139,7 +139,7 @@ class DemFormLocal(forms.Form):
         d_dem = {'ordem': ordem,'filial': filial}
         dprod = prep_producao()
         cr_dem = dprod.prepara_demandas(d_dem) 
-        cr_sld = dprod.prepara_saldo(req)
+        cr_sld = dprod.listar_saldo(req)
         if c_demanda:
             raise forms.ValidationError(" Demanda Já baixada nessa ordem!")
         #valida o item da demanda;
