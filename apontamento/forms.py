@@ -139,6 +139,7 @@ class DemFormLocal(forms.Form):
         d_dem = {'ordem': ordem,'filial': filial}
         dprod = prep_producao()
         cr_dem = dprod.prepara_demandas(d_dem)
+        print('forms 142',cr_dem)
         if c_demanda:
             raise forms.ValidationError(" Demanda Já baixada nessa ordem!")
         #valida o item da demanda;
