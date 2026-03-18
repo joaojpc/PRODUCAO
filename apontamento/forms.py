@@ -147,14 +147,10 @@ class DemFormLocal(forms.Form):
         for rs_dem in cr_dem:
             print('forms 148',rs_dem)
             print('forms 149',v_pro_in_codigo)
-            v_itens = rs_dem
-            for rs_itn in v_itens:
-                print('forms 150',rs_itn['com_in_codigo'])
-                if rs_itn['pro_in_codigo'] == v_pro_in_codigo:
-                    v_item_valid = True            
-            
-            if rs_dem['com_in_codigo'] == v_pro_in_codigo:
-                v_item_valid = True
+            v_itens = rs_dem['pro_in_codigo']
+            print('forms 151',v_itens)
+            if v_itens == v_pro_in_codigo:
+                v_item_valid = True                                    
         if not v_item_valid:
             raise forms.ValidationError(" Este item não faz parte da demanda da ordem, favor inserir na ordem e baixar as informações novamente!")                    
         if (qtde == ''):
