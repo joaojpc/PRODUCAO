@@ -1173,7 +1173,7 @@ def ExcluirDemanda(request,pk):
     v_session.update(v_pk)
     ini_prod = IntAPI(v_session)
     try:
-        lote = ini_prod.listar_demanda()
+        lote = ini_prod.listar_demanda(v_pk)
         for itn in lote:
             v_lote = itn
         if request.method == "POST":

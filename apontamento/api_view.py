@@ -278,6 +278,7 @@ class IntAPI:
 
     def listar_demanda(self,pparams):
         if pparams:
+            self.pk = pparams.get('pk')
             self.ordem_in = pparams.get('ordem')
             self.fil_in = pparams.get('filial')
             self.lote_demanda = pparams.get('lote')
