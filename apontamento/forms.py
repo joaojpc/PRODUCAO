@@ -145,9 +145,14 @@ class DemFormLocal(forms.Form):
         for item in c_demanda:
             v_pro_in_codigo = item['PRO_IN_CODIGO']
         for rs_dem in cr_dem:
-            print('forms 148',cr_dem)
+            print('forms 148',rs_dem)
             print('forms 149',v_pro_in_codigo)
-            print('forms 150',rs_dem['com_in_codigo'])
+            v_itens = rs_dem
+            for rs_itn in v_itens:
+                print('forms 150',rs_itn['com_in_codigo'])
+                if rs_itn['pro_in_codigo'] == v_pro_in_codigo:
+                    v_item_valid = True            
+            
             if rs_dem['com_in_codigo'] == v_pro_in_codigo:
                 v_item_valid = True
         if not v_item_valid:
