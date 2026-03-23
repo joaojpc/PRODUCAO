@@ -141,9 +141,7 @@ class DemFormLocal(forms.Form):
         dprod = prep_producao()
         cr_dem = dprod.prepara_demandas(d_dem) 
         cr_sld = dprod.listar_saldo(req)
-        if c_demanda:
-            raise forms.ValidationError(" Demanda Já baixada nessa ordem!")
-        #valida o item da demanda;
+        #Valida o lote e saldo do item;
         for item in cr_sld:
             v_saldo = item['MVS_RE_QUANTIDADE']
             v_pro_in_codigo = item['PRO_IN_CODIGO']
@@ -157,6 +155,9 @@ class DemFormLocal(forms.Form):
                 v_item_valid = True                                    
         if not v_item_valid:
             raise forms.ValidationError(" Este item não faz parte da demanda da ordem, favor inserir na ordem e baixar as informações novamente!")                    
+        #valida o item da demanda;
+        if c_demanda:
+            raise forms.ValidationError(" Demanda Já baixada nessa ordem!")
         if (qtde == ''):
             raise forms.ValidationError(" Quantidade obrigatória!")
         if (qtde is None):
