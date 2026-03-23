@@ -147,7 +147,9 @@ class DemFormLocal(forms.Form):
         for item in cr_sld:
             v_saldo = item['MVS_RE_QUANTIDADE']
             v_pro_in_codigo = item['PRO_IN_CODIGO']
-            if v_saldo <= 0:
+            if v_pro_in_codigo == 0:
+                raise forms.ValidationError(" Item não encontrado no estoque, favor conferir a origem do lote!")
+            elif v_saldo <= 0:
                 raise forms.ValidationError(" Saldo insuficiente para baixar essa demanda!")
         for rs_dem in cr_dem:
             v_itens = rs_dem.get('com_in_codigo')
