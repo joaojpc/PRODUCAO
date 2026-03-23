@@ -132,6 +132,7 @@ class DemFormLocal(forms.Form):
         filial = self.cleaned_data.get("fil_in_codigo")
         v_pro_in_codigo = None
         v_item_valid = False
+        v_saldo = 0
         #Valida lote Já baixado
         req = {'ordem': ordem,'filial': filial, 'lote': loteDem}
         dados = IntAPI(req)        
@@ -144,13 +145,12 @@ class DemFormLocal(forms.Form):
             raise forms.ValidationError(" Demanda Já baixada nessa ordem!")
         #valida o item da demanda;
         for item in cr_sld:
-            print('forms 146',item)
+            v_saldo = item['MVS_RE_QUANTIDADE']
             v_pro_in_codigo = item['PRO_IN_CODIGO']
+            if v_saldo <= 0:
+                raise forms.ValidationError(" Saldo insuficiente para baixar essa demanda!")
         for rs_dem in cr_dem:
-            print('forms 148',rs_dem)
-            print('forms 149',v_pro_in_codigo)
             v_itens = rs_dem.get('com_in_codigo')
-            print('forms 151',v_itens)
             if v_itens == v_pro_in_codigo:
                 v_item_valid = True                                    
         if not v_item_valid:
