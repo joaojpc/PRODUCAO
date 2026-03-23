@@ -133,6 +133,10 @@ class DemFormLocal(forms.Form):
         v_pro_in_codigo = None
         v_item_valid = False
         v_saldo = 0
+        if (qtde == ''):
+            raise forms.ValidationError(" Quantidade obrigatória!")
+        if (qtde is None):
+            raise forms.ValidationError(" Quantidade obrigatória!")
         #Valida lote Já baixado
         req = {'ordem': ordem,'filial': filial, 'lote': loteDem}
         dados = IntAPI(req)        
@@ -149,19 +153,16 @@ class DemFormLocal(forms.Form):
                 raise forms.ValidationError(" Item não encontrado no estoque, favor conferir a origem do lote!")
             elif v_saldo <= 0:
                 raise forms.ValidationError(" Saldo insuficiente para baixar essa demanda!")
+        #valida o item da demanda;
         for rs_dem in cr_dem:
             v_itens = rs_dem.get('com_in_codigo')
             if v_itens == v_pro_in_codigo:
                 v_item_valid = True                                    
         if not v_item_valid:
             raise forms.ValidationError(" Este item não faz parte da demanda da ordem, favor inserir na ordem e baixar as informações novamente!")                    
-        #valida o item da demanda;
+        #valida a baixa do item da demanda;
         if c_demanda:
-            raise forms.ValidationError(" Demanda Já baixada nessa ordem!")
-        if (qtde == ''):
-            raise forms.ValidationError(" Quantidade obrigatória!")
-        if (qtde is None):
-            raise forms.ValidationError(" Quantidade obrigatória!")        
+            raise forms.ValidationError(" Demanda Já baixada nessa ordem!")                
         
 class RegLotForm(forms.Form):
     pro_in_codigo = forms.IntegerField(label='Item',widget=forms.HiddenInput(attrs={'readonly':'True'}))    
