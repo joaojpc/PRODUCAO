@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import json
 import requests
 import urllib3
