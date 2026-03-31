@@ -11,8 +11,8 @@ import json, requests
 from unicodedata import normalize
 from dateutil.relativedelta import *
 import oracledb as cxo
-from oracle_connection import getOracleConnection
-from url_projeto import geturlapp, geturlapi, geturlprod, geturlest, geturlinv
+from ..oracle_connection import getOracleConnection
+from ..url_projeto import geturlapp, geturlapi, geturlprod, geturlest, geturlinv
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 #from api_view import *
 import requests
