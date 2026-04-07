@@ -29,7 +29,7 @@ class ApontaDemandaListView(APIView):
         #ordem, filial e lote;
         elif v_total == 'S':
             total = Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO=v_ordem, FIL_IN_CODIGO=v_filial).aggregate(total=Sum('PRO_RE_QTDLOTE'))['total']
-            return Response({'total_lote': total,'ordem': v_ordem,'filial': v_filial)
+            return Response({'total_lote': total,'ordem': v_ordem,'filial': v_filial})
         elif v_ordem is not None and v_filial is not None and v_lote is not None:
             serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO = v_ordem,FIL_IN_CODIGO = v_filial, PRO_ST_LOTE = v_lote), many=True)
         elif v_ordem is not None and v_filial is not None:
