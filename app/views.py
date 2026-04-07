@@ -96,7 +96,7 @@ class ApontaOrdemListView(APIView):
         elif v_resumo is not None:   
             serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial, APT_CH_STATUS = v_status, RES_ST_STATUS = v_resumo).order_by('APT_IN_SEQUENCIA'), many=True)
         elif v_total == 'S':
-            total = Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO=v_ordem).aggregate(total=Sum('PRO_RE_QTDCONV'))['total']
+            total = Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO=v_ordem, FIL_IN_CODIGO=v_filial).aggregate(total=Sum('PRO_RE_QTDCONV'))['total']
             return Response({'total_ordem': total,'ordem': v_ordem})
         elif (v_status is not None) and (v_transacao is None):
             serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial, APT_CH_STATUS = v_status).order_by('APT_IN_SEQUENCIA'), many=True)
