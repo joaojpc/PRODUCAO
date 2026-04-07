@@ -691,6 +691,7 @@ class prep_producao:
         self.row_now = timezone.now()
         self.str_now = self.row_now.strftime('%Y-%m-%d')
         self.str_eti = self.row_now.strftime('%d/%m/%Y')
+
     def prepara_demandas(self,pparams):
         self.fil_in_codigo = pparams.get('filial')
         self.ord_in_codigo = pparams.get('ordem')
@@ -706,6 +707,24 @@ class prep_producao:
             #print('passou aqui linha 705',r_appitens)
             d2 = r_appitens['PRO_ST_DEMANDAS']
         return d2    
+    def total_apontamento(self,pparams):
+        funcao = 'apontamentos/'
+        app_url = geturlapp(funcao)
+        c_apontamentos = requests.get(app_url, params=pparams).json()
+        total_demanda = 0
+        total_qtd = 0
+        saldo_demanda = 0
+        funcao = 'demandas/'
+        app_url = geturlapp(funcao)
+        c_demandas = requests.get(app_url, params=pparams).json()
+        for r_apontamentos in c_apontamentos:
+            total_qtd += r_apontamentos['apt_re_quantidade']
+        for r_demandas in c_demandas:
+            total_demanda += r_demandas['dem_re_qtdemandada']
+        if total_qtd < total_demanda:
+            saldo_demanda = total_demanda - total_qtd 
+        resumo = {'total_ordem': total_qtd, 'ordem': self.ord_in_codigo, 'total_demanda': total_demanda, 'saldo_demanda': saldo_demanda}
+        return resumo
     def listar_saldo(self,pparams):
         self.fil_in_codigo = pparams.get('filial')
         self.lote = pparams.get('lote')
@@ -736,8 +755,11 @@ class prep_producao:
             v_lista.append(r_appitens['TPO_ST_CODIGO'])
             v_lista.append(r_appitens['PRO_IN_CODIGO'])            
             v_ord_st_id = r_appitens['ORD_ST_ID']
-            v_infoadic = r_appitens['PRO_ST_INFOADIC']            
-        v_ordem = {'ord_in_codigo': v_lista[0],'fil_in_codigo': v_lista[1],'ctl_in_codigo': v_lista[2],'cliente': v_lista[3],'pro_pad_in_codigo': v_lista[4],'tpo_st_codigo':v_lista[5],'pro_in_codigo': v_lista[6],'ord_st_id':v_ord_st_id}        
+            v_infoadic = r_appitens['PRO_ST_INFOADIC']
+        pay_tot = {'ordem': v_lista[0],'filial': v_lista[1],'total': 'S'}
+        v_totais = self.total_apontamento(pay_tot)            
+        v_ordem = {'ord_in_codigo': v_lista[0],'fil_in_codigo': v_lista[1],'ctl_in_codigo': v_lista[2],'cliente': v_lista[3],'pro_pad_in_codigo': v_lista[4],'tpo_st_codigo':v_lista[5],'pro_in_codigo': v_lista[6],'ord_st_id':v_ord_st_id,
+                   'total_apontamento': v_totais}        
         #Busca dados do equipamento cadastrado;
         funcao = 'equipamento/'
         app_url = geturlprod(funcao)

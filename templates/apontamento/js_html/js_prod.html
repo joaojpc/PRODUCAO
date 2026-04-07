@@ -28,6 +28,7 @@
         var dados_ordem = {{ordem | safe }};
         var item_pai;
         var v_tpo_st_codigo;
+        var v_resumoordem;
         var lote_fornecedor = "{{fornecedor}}";
         var lote_origem = "{{origem}}";
         defineVariaveis();
@@ -63,6 +64,7 @@
         };
 	//criatagitem();
 	criabtprod('produto');
+    criarBotoes(v_resumoordem);
 	criaButton();
         var v_ref_id;
         var var_concat;
@@ -110,6 +112,9 @@
                 }
                 if (key == 'tpo_st_codigo') {                   
                    v_tpo_st_codigo = value;                   
+                }
+                if (key == 'total_apontamento') {                   
+                   v_resumoordem = value;                   
                 }
             });
         }
@@ -440,6 +445,14 @@
                 }
             }
             return v_retorno
+        }
+        function criarBotoes(objeto) {
+        const botoesDiv = document.getElementById('botoes_exibir');
+        botoesDiv.innerHTML = `
+            <span class="btn btn-info">Total Ordem: ${objeto.total_ordem}</span>
+            <span class="btn btn-success">Total Demanda: ${objeto.total_demanda}</span>
+            <span class="btn btn-warning">Saldo Demanda: ${objeto.saldo_demanda}</span>
+        `;
         }
     </script>
 {% endblock %}
