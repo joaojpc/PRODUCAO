@@ -717,10 +717,8 @@ class prep_producao:
         funcao = 'demandas/'
         app_url = geturlapp(funcao)
         c_demandas = requests.get(app_url, params=pparams).json()
-        for r_apontamentos in c_apontamentos:
-            total_qtd = r_apontamentos['total_ordem']
-        for r_demandas in c_demandas:
-            total_demanda = r_demandas['total_lote']
+        total_qtd = c_apontamentos['total_ordem']
+        total_demanda = c_demandas['total_lote']
         if total_qtd < total_demanda:
             saldo_demanda = total_demanda - total_qtd 
         resumo = {'total_ordem': total_qtd, 'ordem': self.ord_in_codigo, 'total_demanda': total_demanda, 'saldo_demanda': saldo_demanda}
