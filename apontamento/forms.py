@@ -206,3 +206,8 @@ class LotesReceb(forms.Form):
     
 class TrocarImpressora(forms.Form):
     mvl_st_impressora = forms.CharField(max_length=15,label='impressora')
+
+class RelatorioForm(forms.Form):
+    fil_in_codigo = forms.IntegerField(label='Filial')
+    org_in_codigo = forms.IntegerField(label='Organização')
+    gerar_relatorio = forms.BooleanField(label='Gerar Relatório', required=False)
