@@ -23,9 +23,13 @@ class ApontaDemandaListView(APIView):
         v_status  = v_data.get('status')
         v_transacao  = v_data.get('ctl_in_codigo')
         pk = v_data.get('pk')
+        v_total = v_data.get('total')
         if pk:
             serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(MOV_IN_SEQUENCIA = pk), many=True)
         #ordem, filial e lote;
+        elif v_total == 'S':
+            total = Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO=v_ordem, FIL_IN_CODIGO=v_filial, PRO_ST_LOTE=v_lote).aggregate(total=Sum('PRO_RE_QTDLOTE'))['total']
+            return Response({'total_lote': total,'ordem': v_ordem,'filial': v_filial,'lote': v_lote})
         elif v_ordem is not None and v_filial is not None and v_lote is not None:
             serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO = v_ordem,FIL_IN_CODIGO = v_filial, PRO_ST_LOTE = v_lote), many=True)
         elif v_ordem is not None and v_filial is not None:
@@ -91,7 +95,7 @@ class ApontaOrdemListView(APIView):
             return Response(serializer)
         elif v_resumo is not None:   
             serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial, APT_CH_STATUS = v_status, RES_ST_STATUS = v_resumo).order_by('APT_IN_SEQUENCIA'), many=True)
-        elif v_total is not None:
+        elif v_total == 'S':
             total = Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO=v_ordem).aggregate(total=Sum('PRO_RE_QTDCONV'))['total']
             return Response({'total_ordem': total,'ordem': v_ordem})
         elif (v_status is not None) and (v_transacao is None):
