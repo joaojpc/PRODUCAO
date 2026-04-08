@@ -722,6 +722,8 @@ class prep_producao:
         if (total_qtd is not None) and (total_demanda is not None):
             if total_qtd < total_demanda:
                 saldo_demanda = total_demanda - total_qtd 
+        elif (total_demanda is not None):
+            saldo_demanda = total_demanda
         resumo = {'total_ordem': total_qtd, 'ordem': self.ord_in_codigo, 'total_demanda': total_demanda, 'saldo_demanda': saldo_demanda}
         return resumo
     def listar_saldo(self,pparams):
