@@ -719,8 +719,9 @@ class prep_producao:
         c_demandas = requests.get(app_url, params=pparams).json()
         total_qtd = c_apontamentos['total_ordem']
         total_demanda = c_demandas['total_lote']
-        if total_qtd < total_demanda:
-            saldo_demanda = total_demanda - total_qtd 
+        if (total_qtd is not None) and (total_demanda is not None):
+            if total_qtd < total_demanda:
+                saldo_demanda = total_demanda - total_qtd 
         resumo = {'total_ordem': total_qtd, 'ordem': self.ord_in_codigo, 'total_demanda': total_demanda, 'saldo_demanda': saldo_demanda}
         return resumo
     def listar_saldo(self,pparams):
