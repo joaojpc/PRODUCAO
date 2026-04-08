@@ -718,7 +718,11 @@ class prep_producao:
         app_url = geturlapp(funcao)
         c_demandas = requests.get(app_url, params=pparams).json()
         total_qtd = c_apontamentos['total_ordem']
+        if total_qtd is None:
+            total_qtd = 0
         total_demanda = c_demandas['total_lote']
+        if total_demanda is None:
+            total_demanda = 0
         if (total_qtd is not None) and (total_demanda is not None):
             if total_qtd < total_demanda:
                 saldo_demanda = total_demanda - total_qtd 
