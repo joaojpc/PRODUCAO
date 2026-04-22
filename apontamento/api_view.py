@@ -753,7 +753,7 @@ class prep_producao:
             d2 = r_appitens['PRO_ST_ITENS']
             Produto = [item for item in d2 if item.get('tipo_item') == 'Produto']
             for rs_item in Produto:
-                self.pro_st_descricao = rs_item.get('pro_st_descricao') if rs_item else None
+                self.pro_st_descricao = rs_item.get('pro_st_descricao').upper() if rs_item else None
         return self.pro_st_descricao
 
     def prepara_apontamento(self,plista):
