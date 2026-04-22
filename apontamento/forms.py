@@ -191,9 +191,13 @@ class RegLotForm(forms.Form):
             self.fields['itens'].choices = []'''
     def clean(self):
         #valida a quantidade apontada;
+        cleaned_data = super(RegLotForm, self).clean()
         v_qtde = int(self.cleaned_data.get("orl_re_qtdlote"))
+        ordem = self.cleaned_data.get("ord_in_codigo")
+        filial = self.cleaned_data.get("fil_in_codigo")
         #busca o tipo de ordem para validar a quantidade apontada;
-        dados = {"ordem": self.cleaned_data.get("ord_in_codigo"),'filial': self.cleaned_data.get("fil_in_codigo"),'retorno':'tpo'}
+        dados = {"ordem": ordem,'filial': filial,'retorno':'tpo'}
+        print('forms.py 200- RegLotForm - clean - dados: {}'.format(dados))
         v_ini = prep_producao()
         v_tpo = v_ini.get_dadosOrdem(dados)
         if (v_tpo == 'OP001') and v_qtde > 5:

@@ -568,7 +568,7 @@ def listarlotes(request):
 def reglote(request):
     v_session = carrega_sessao(request)
     pro_st_descricao = v_session.get('pro_st_descricao')
-    print('Linha 569 - views.py - pro_st_descricao: {}'.format(pro_st_descricao))
+    #print('Linha 569 - views.py - pro_st_descricao: {}'.format(pro_st_descricao))
     v_lista = []
     v_lista.append(request.session['ord_in_codigo'])
     v_lista.append(request.session['fil_in_codigo'])
