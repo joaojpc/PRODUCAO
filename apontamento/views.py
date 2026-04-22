@@ -589,8 +589,8 @@ def reglote(request):
     if v_logado:
         v_prep = prep_producao()
         if pro_st_descricao is None:
-            pay_item = {'ordem': v_lista[0],'filial': v_lista[1]}
-            pro_st_descricao = v_prep.get_itensOrdem(pay_item)
+            pay_item = {'ordem': v_lista[0],'filial': v_lista[1],'retorno': 'descricao'}
+            pro_st_descricao = v_prep.get_dadosOrdem(pay_item)
             request.session['pro_st_descricao'] = pro_st_descricao
         dados= v_prep.prepara_apontamento(v_lista)
         dados.update(v_form)        
