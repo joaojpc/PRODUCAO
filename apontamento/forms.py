@@ -196,7 +196,7 @@ class RegLotForm(forms.Form):
         ordem = self.cleaned_data.get("ord_in_codigo")
         filial = self.cleaned_data.get("fil_in_codigo")
         #busca o tipo de ordem para validar a quantidade apontada;
-        dados = {"ord_in_codigo": ordem,'fil_in_codigo': filial,'retorno':'tpo'}
+        dados = {"ordem": ordem,'filial': filial,'retorno':'tpo'}
         print('forms.py 200- RegLotForm - clean - dados: {}'.format(dados))
         v_ini = prep_producao()
         v_tpo = v_ini.get_dadosOrdem(dados)
