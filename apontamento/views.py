@@ -194,8 +194,10 @@ def session_demo(request):
                 for rs_ini in cr_ini:
                     v_logado = rs_ini['logado']
                     ctl_in_codigo = rs_ini['ctl_in_codigo']
+                    pro_st_descricao = rs_ini['pro_st_descricao']
                 if v_logado:
                     request.session['ctl_in_codigo'] = ctl_in_codigo
+                    request.session['pro_st_descricao'] = pro_st_descricao
                 else:
                     #if not(v_logado):
                     #criar novo apontamento para a ordem;

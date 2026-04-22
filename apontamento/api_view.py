@@ -1430,6 +1430,7 @@ class Login_inicial_sqlite:
     
     def userLogado_sqlite(self):
         logado = False
+        pro_st_descricao = None
         if self.usuario_in:
             con = sqlite3.connect(self.dbname)
             v_lista = []
@@ -1446,13 +1447,19 @@ class Login_inicial_sqlite:
             cur.close
             con.close
             lista = []
+            #busca o item principal da ordem para trazer a descrição do produto;
+            dados = {"ordem": self.ordem_in,'filial': self.ord_filial}
+            v_dados = prep_producao()
+            pro_st_descricao = v_dados.get_itensOrdem(dados)
             if c_rs:
                 for rs in c_rs:
                     lista.append(dict(ctl_in_codigo = int(rs[0]),
-                                      logado = True))
+                                      logado = True,
+                                      pro_st_descricao = pro_st_descricao))
             else:
                 lista.append(dict(ctl_in_codigo = None,
-                                  logado = False))
+                                  logado = False,
+                                  pro_st_descricao = pro_st_descricao))
             usuarios = json.dumps(lista)
         return usuarios
     def descontar_sqlite(self):
