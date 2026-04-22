@@ -492,7 +492,7 @@ def insDemandaslocal(request):
     if request.method == "POST":
         form = DemFormLocal(request.POST)
         if form.is_valid():
-            print('linha 482 Valido')
+            #print('linha 482 Valido')
             v_mvs_st_loteforne = form.cleaned_data['dem_st_lote']
             v_apt_re_quantidade = form.cleaned_data['dem_re_qtdlote']
             l_demandas.append(v_mvs_st_loteforne)
@@ -513,7 +513,7 @@ def insDemandaslocal(request):
                 funcao = 'controleApt/'
                 url = geturlprod(funcao)
                 payload = {'ord_in_codigo': l_demandas[0],'fil_in_codigo': l_demandas[1],'status': 'A'}
-                print(payload)
+                #print(payload)
                 c_rs = requests.get(url, params=payload).json()                
                 for rs in c_rs:
                     l_demandas.append(rs['ORD_ST_ID'])

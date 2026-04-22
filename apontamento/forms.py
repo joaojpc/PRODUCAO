@@ -197,6 +197,8 @@ class RegLotForm(forms.Form):
             v_qtde = int(self.cleaned_data.get("orl_re_qtdlote"))
             ordem = self.cleaned_data.get("ord_in_codigo")
             filial = self.cleaned_data.get("fil_in_codigo")
+            lote_refer = self.cleaned_data.get("orl_st_referencia")
+            lote_item  = self.cleaned_data.get("pro_in_codigo")
             #busca o tipo de ordem para validar a quantidade apontada;
             dados = {"ordem": ordem,'filial': filial,'retorno':'tpo'}
             #print('forms.py 200- RegLotForm - clean - dados: {}'.format(dados))
@@ -204,14 +206,9 @@ class RegLotForm(forms.Form):
             v_tpo = v_ini.get_dadosOrdem(dados)
             #print('forms.py 203- RegLotForm - clean - v_tpo: {}'.format(v_tpo))
             if (v_tpo == 'OP001') and (v_qtde > 5):
-                print('forms.py 205- RegLotForm - clean -  tem que gerar erro')
+                print('forms.py 205 - RegLotForm - clean -  tem que gerar erro')
                 raise forms.ValidationError("Favor conferir a quantidade apontada!")
             v_lista = []
-            cleaned_data = super(RegLotForm, self).clean()
-            lote_refer = self.cleaned_data.get("orl_st_referencia")
-            lote_item  = self.cleaned_data.get("pro_in_codigo")
-            ordem      = self.cleaned_data.get("ord_in_codigo")
-            filial      = self.cleaned_data.get("fil_in_codigo")
             v_lista.append(ordem)
             v_lista.append(filial)
             obj_itens = IntAPI_sqlite();
