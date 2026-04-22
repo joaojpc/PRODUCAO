@@ -752,7 +752,9 @@ class prep_producao:
         for r_appitens in c_appitens:
             d2 = r_appitens['PRO_ST_ITENS']
             Produto = [item for item in d2 if item.get('tipo_item') == 'Produto']
-        return Produto
+            for rs_item in Produto:
+                self.pro_st_descricao = rs_item.get('pro_st_descricao') if rs_item else None
+        return self.pro_st_descricao
 
     def prepara_apontamento(self,plista):
         v_lista = []
@@ -1488,6 +1490,7 @@ class Login_inicial_sqlite:
         impressora = None
         maquina_id = ''
         ordem_id = ''
+        pro_st_descricao = ''
         now = datetime.now()
         str_now = now.strftime('%Y-%m-%d %H:%M:%S')
         sequencia = self.seq_initapt_sqlite()
@@ -1508,8 +1511,9 @@ class Login_inicial_sqlite:
                 v_listOrd.append(self.ord_filial)
                 v_listOrd.append(self.ordem_in)
                 ini = IntOrdens()
-                ini.buscaOrdens(v_listOrd)
-                cur_ord = requests.get(app_url, params=payload).json()
+                while cur_ord is None:
+                    ini.buscaOrdens(v_listOrd)
+                    cur_ord = requests.get(app_url, params=payload).json()
                 for rs_ord in cur_ord:
                     ordem_id = rs_ord['ORD_ST_ID']
             else:
@@ -1517,6 +1521,10 @@ class Login_inicial_sqlite:
                     ordem_id = rs_ord['ORD_ST_ID']            
         except:
             pass
+        #busca o item principal da ordem para trazer a descrição do produto;
+        dados = {"ordem": self.ordem_in,'filial': self.ord_filial}
+        v_dados = prep_producao()
+        pro_st_descricao = v_dados.get_itensOrdem(dados)
         funcao = 'equipamento/'
         app_url = geturlprod(funcao)
         payload = {'cliente': v_params[4],'filial':self.ord_filial}
@@ -1554,10 +1562,12 @@ class Login_inicial_sqlite:
         try:
             response = requests.post(uri, data=dados)
             v_iniciar.append(dict(ctl_in_codigo = sequencia,
-                                   logado = True))
+                                   logado = True,
+                                   pro_st_descricao = pro_st_descricao))
         except:
             v_iniciar.append(dict(ctl_in_codigo = None,
-                                   logado = False))
+                                   logado = False,
+                                   pro_st_descricao = pro_st_descricao))
         v_conect = json.dumps(v_iniciar)
         return v_conect
 

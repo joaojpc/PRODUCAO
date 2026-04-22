@@ -22,6 +22,7 @@ from django.shortcuts import render
 
 from django import template
 import requests
+from secretstorage import item
 
 #from apontamento.custom_views import Listar_opcoes, User_logado, Login_inicial, IntProd
 from apontamento.custom_views_sqlite import Listar_opcoes_sqlite, User_logado_sqlite
@@ -105,9 +106,13 @@ def carrega_sessao(request):
         fornecedor = request.session['fornecedor']
     else:
         fornecedor = None
+    if 'pro_st_descricao' in request.session:
+        pro_st_descricao = request.session['pro_st_descricao'] 
+    else:
+        pro_st_descricao = None
     vreturn = {'ordem': ordem,'usuario': usuario, 'ord_in_codigo':ord_in_codigo,'fil_in_codigo':fil_in_codigo,
                'seq_in_operacao':seq_in_operacao,'usu_st_nome':usu_st_nome,'ctl_in_codigo':ctl_in_codigo,
-               'cliente':cliente, 'fornecedor':fornecedor,'origem':origem}
+               'cliente':cliente, 'fornecedor':fornecedor,'origem':origem, 'pro_st_descricao':pro_st_descricao}
     return vreturn    
 
 def session_demo(request):
@@ -120,7 +125,8 @@ def session_demo(request):
     seq_in_operacao = v_session.get('seq_in_operacao')
     usu_st_nome = v_session.get('usu_st_nome')
     ctl_in_codigo = v_session.get('ctl_in_codigo')
-    cliente = v_session.get('cliente')
+    cliente = v_session.get('cliente')  
+    pro_st_descricao = v_session.get('pro_st_descricao')
     template = "apontamento/session.html",
     if not(request.session.has_key('ordem')):
         request.session.flush()
@@ -182,6 +188,7 @@ def session_demo(request):
                 request.session['seq_in_operacao'] = seq_in_operacao
                 request.session['usu_st_nome'] = usu_st_nome
                 request.session['cliente'] = cliente
+                request.session['pro_st_descricao'] = pro_st_descricao
                 #Verificar se o usuário já tem apontamento aberto para a ordem;
                 cr_ini = json.loads(iniciar.userLogado_sqlite())
                 for rs_ini in cr_ini:
@@ -198,6 +205,7 @@ def session_demo(request):
                         if rs_ini2['logado']:
                             ctl_in_codigo = rs_ini2['ctl_in_codigo']
                             request.session['ctl_in_codigo'] = ctl_in_codigo
+                            request.session['pro_st_descricao'] = pro_st_descricao
                 funcao = 'ordens/'
                 url = geturlapp(funcao)
                 payload = {'fil_in_codigo': fil_in_codigo,'ord_in_codigo': ord_in_codigo}
