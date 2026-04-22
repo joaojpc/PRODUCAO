@@ -736,8 +736,23 @@ class prep_producao:
         payload = {'lote': self.lote,'filial': self.fil_in_codigo}
         funcao = 'get_saldolote/' 
         app_url = geturlapi(funcao)      
-        c_saldo = requests.get(app_url, params=payload).json()        
+        c_saldo = requests.get(app_url, params=payload).json()                
         return c_saldo
+    def get_itensOrdem(self,pparams):
+        self.fil_in_codigo = pparams.get('filial')
+        self.ord_in_codigo = pparams.get('ordem')
+        payload = {'ord_in_codigo': self.ord_in_codigo,'fil_in_codigo': self.fil_in_codigo}
+        funcao = 'ordens/'
+        d2 = {}
+        app_itens = geturlapp(funcao)
+        payload = {'org_in_codigo': None,
+                   'ord_in_codigo': self.ord_in_codigo,
+                   'fil_in_codigo': self.fil_in_codigo}
+        c_appitens = requests.get(app_itens, params=payload).json()
+        for r_appitens in c_appitens:
+            d2 = r_appitens['PRO_ST_ITENS']
+            Produto = [item for item in d2 if item.get('tipo_item') == 'Produto']
+        return Produto
 
     def prepara_apontamento(self,plista):
         v_lista = []

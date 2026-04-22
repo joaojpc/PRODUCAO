@@ -505,7 +505,7 @@ class GetDadosProducao:
         cur = con.cursor()
         ref_cursor = con.cursor()
         sparams =(self.fil_in,self.ordem_in,ref_cursor)
-        cur.callproc('idp.apt_intprod.apt_retornaitens',(sparams))
+        cur.callproc('idp.apt_intprod2.apt_retornaitens',(sparams))
         #columns = [col[0] for col in ref_cursor.description]
         #ref_cursor.rowfactory = lambda *args: dict(zip(columns, args))
         c_rs = ref_cursor.fetchall()
@@ -524,7 +524,9 @@ class GetDadosProducao:
                               pro_re_espessura = rs[8],
                               pro_st_madeira= rs[9],
                               mvs_st_referencia = rs[10],
-                              pro_st_id = rs[11]
+                              pro_st_id = rs[11],
+                              pro_re_perda = rs[12],
+                              tipo_item = rs[13]
                              ))
         json_itens= {}
         json_itens = json.dumps(lista)

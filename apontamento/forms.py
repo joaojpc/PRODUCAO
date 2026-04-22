@@ -174,6 +174,21 @@ class RegLotForm(forms.Form):
     fil_in_codigo   = forms.CharField(required=False,widget=forms.HiddenInput(),label='Filial')
     pro_st_loteori  = forms.CharField(max_length=22,widget=forms.HiddenInput(),required=False, label='Origem')
     pro_st_fornecedor  = forms.CharField(max_length=50,widget=forms.HiddenInput(),required=False, label='Fornecedor')
+    '''def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        try:
+            response = requests.get('https://sua-api.com/itens', timeout=5)
+            response.raise_for_status()
+            dados_api = response.json()
+            
+            # Ajusta aqui conforme o retorno da sua API
+            # Exemplo: [{'id': 1, 'nome': 'Item 1'}, {'id': 2, 'nome': 'Item 2'}]
+            choices = [(str(item['id']), item['nome']) for item in dados_api]
+            self.fields['itens'].choices = choices
+            
+        except requests.RequestException:
+            # Se a API falhar, deixa vazio ou usa um fallback
+            self.fields['itens'].choices = []'''
     def clean(self):
         v_validarefer = False
         if v_validarefer:
