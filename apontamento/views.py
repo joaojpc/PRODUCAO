@@ -565,11 +565,12 @@ def listarlotes(request):
 
 def reglote(request):
     v_session = carrega_sessao(request)
+    pro_st_descricao = v_session.get('pro_st_descricao')
     v_lista = []
     v_lista.append(request.session['ord_in_codigo'])
     v_lista.append(request.session['fil_in_codigo'])
     v_lista.append(request.session['ctl_in_codigo'])
-    v_lista.append(request.session['cliente'])
+    v_lista.append(request.session['cliente'])    
     try:
         v_lista.append(request.session['origem'])
     except:
@@ -584,6 +585,10 @@ def reglote(request):
     v_form = {'lote_form': lote_form}    
     if v_logado:
         v_prep = prep_producao()
+        if pro_st_descricao is None:
+            pay_item = {'ordem': v_lista[0],'filial': v_lista[1]}
+            pro_st_descricao = v_prep.get_itensOrdem(pay_item)
+            request.session['pro_st_descricao'] = pro_st_descricao
         dados= v_prep.prepara_apontamento(v_lista)
         dados.update(v_form)        
         v_ordem = {'list_ordem':json.loads(dados['ordem'])}
