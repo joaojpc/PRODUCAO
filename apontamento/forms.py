@@ -197,11 +197,11 @@ class RegLotForm(forms.Form):
         filial = self.cleaned_data.get("fil_in_codigo")
         #busca o tipo de ordem para validar a quantidade apontada;
         dados = {"ordem": ordem,'filial': filial,'retorno':'tpo'}
-        print('forms.py 200- RegLotForm - clean - dados: {}'.format(dados))
+        #print('forms.py 200- RegLotForm - clean - dados: {}'.format(dados))
         v_ini = prep_producao()
         v_tpo = v_ini.get_dadosOrdem(dados)
-        print('forms.py 203- RegLotForm - clean - v_tpo: {}'.format(v_tpo))
-        if (v_tpo == 'OP001') and v_qtde > 5:
+        #print('forms.py 203- RegLotForm - clean - v_tpo: {}'.format(v_tpo))
+        if (v_tpo == 'OP001') and (v_qtde > 5):
             raise forms.ValidationError(" Favor conferir a quantidade apontada!")
         v_validarefer = False
         if v_validarefer:
