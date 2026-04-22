@@ -647,6 +647,7 @@ class prep_producao:
         self.ord_in_codigo = None
         self.pro_in_codigo = None
         self.ctl_in_codigo = None
+        self.retorno = None
         self.ord_pro_in_codigo = None
         self.cliente = None
         self.origem = None
@@ -738,9 +739,10 @@ class prep_producao:
         app_url = geturlapi(funcao)      
         c_saldo = requests.get(app_url, params=payload).json()                
         return c_saldo
-    def get_itensOrdem(self,pparams):
+    def get_dadosOrdem(self,pparams):
         self.fil_in_codigo = pparams.get('filial')
         self.ord_in_codigo = pparams.get('ordem')
+        self.retorno = pparams.get('retorno')
         payload = {'ord_in_codigo': self.ord_in_codigo,'fil_in_codigo': self.fil_in_codigo}
         funcao = 'ordens/'
         d2 = {}
@@ -748,14 +750,17 @@ class prep_producao:
         payload = {'org_in_codigo': None,
                    'ord_in_codigo': self.ord_in_codigo,
                    'fil_in_codigo': self.fil_in_codigo}
-        c_appitens = requests.get(app_itens, params=payload).json()
-        for r_appitens in c_appitens:
-            d2 = r_appitens['PRO_ST_ITENS']
-            Produto = [item for item in d2 if item.get('tipo_item') == 'Produto']
-            for rs_item in Produto:
-                self.pro_st_descricao = rs_item.get('pro_st_descricao').upper() if rs_item else None
-        return self.pro_st_descricao
-
+        c_rs = requests.get(app_itens, params=payload).json()            
+        for r_cr in c_rs:
+            if self.retorno == 'descricao':
+                d2 = r_cr['PRO_ST_ITENS']
+                Produto = [item for item in d2 if item.get('tipo_item') == 'Produto']
+                for rs_item in Produto:
+                    self.pro_st_descricao = rs_item.get('pro_st_descricao').upper() if rs_item else None
+                return self.pro_st_descricao
+            elif self.retorno == 'tpo':
+                self.tpo_st_codigo = r_cr['TPO_ST_CODIGO']
+            return self.tpo_st_codigo
     def prepara_apontamento(self,plista):
         v_lista = []
         v_lista.append(plista[0])
@@ -1448,9 +1453,9 @@ class Login_inicial_sqlite:
             con.close
             lista = []
             #busca o item principal da ordem para trazer a descrição do produto;
-            dados = {"ordem": self.ordem_in,'filial': self.ord_filial}
+            dados = {"ordem": self.ordem_in,'filial': self.ord_filial, 'retorno':'descricao'}
             v_dados = prep_producao()
-            pro_st_descricao = v_dados.get_itensOrdem(dados)
+            pro_st_descricao = v_dados.get_dadosOrdem(dados)
             if c_rs:
                 for rs in c_rs:
                     lista.append(dict(ctl_in_codigo = int(rs[0]),
@@ -1529,9 +1534,9 @@ class Login_inicial_sqlite:
         except:
             pass
         #busca o item principal da ordem para trazer a descrição do produto;
-        dados = {"ordem": self.ordem_in,'filial': self.ord_filial}
+        dados = {"ordem": self.ordem_in,'filial': self.ord_filial, 'retorno':'descricao'}
         v_dados = prep_producao()
-        pro_st_descricao = v_dados.get_itensOrdem(dados)
+        pro_st_descricao = v_dados.get_dadosOrdem(dados)
         funcao = 'equipamento/'
         app_url = geturlprod(funcao)
         payload = {'cliente': v_params[4],'filial':self.ord_filial}

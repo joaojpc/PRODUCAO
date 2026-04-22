@@ -190,6 +190,14 @@ class RegLotForm(forms.Form):
             # Se a API falhar, deixa vazio ou usa um fallback
             self.fields['itens'].choices = []'''
     def clean(self):
+        #valida a quantidade apontada;
+        v_qtde = self.cleaned_data.get("orl_re_qtdlote")
+        #busca o tipo de ordem para validar a quantidade apontada;
+        dados = {"ordem": self.cleaned_data.get("ord_in_codigo"),'filial': self.cleaned_data.get("fil_in_codigo"),'retorno':'tpo'}
+        v_ini = prep_producao()
+        v_tpo = v_ini.get_dadosOrdem(dados)
+        if (v_tpo == 'OP001') and v_qtde > 5:
+            raise forms.ValidationError(" Favor conferir a quantidade apontada!")
         v_validarefer = False
         if v_validarefer:
             v_lista = []
