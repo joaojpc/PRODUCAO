@@ -202,7 +202,8 @@ class RegLotForm(forms.Form):
         v_tpo = v_ini.get_dadosOrdem(dados)
         #print('forms.py 203- RegLotForm - clean - v_tpo: {}'.format(v_tpo))
         if (v_tpo == 'OP001') and (v_qtde > 5):
-            raise forms.ValidationError(" Favor conferir a quantidade apontada!")
+            print('forms.py 205- RegLotForm - clean -  tem que gerar erro')
+            raise forms.ValidationError("Favor conferir a quantidade apontada!")
         v_validarefer = False
         if v_validarefer:
             v_lista = []
