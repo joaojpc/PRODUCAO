@@ -525,8 +525,8 @@ class GetDadosProducao:
                               pro_st_madeira= rs[9],
                               mvs_st_referencia = rs[10],
                               pro_st_id = rs[11],
-                              pro_re_perda = rs[12],
-                              tipo_item = rs[13]
+                              pro_re_perda = rs[13],
+                              tipo_item = rs[14]
                              ))
         json_itens= {}
         json_itens = json.dumps(lista)
