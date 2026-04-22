@@ -191,21 +191,21 @@ class RegLotForm(forms.Form):
             self.fields['itens'].choices = []'''
     def clean(self):
         #valida a quantidade apontada;
-        cleaned_data = super(RegLotForm, self).clean()
-        v_qtde = int(self.cleaned_data.get("orl_re_qtdlote"))
-        ordem = self.cleaned_data.get("ord_in_codigo")
-        filial = self.cleaned_data.get("fil_in_codigo")
-        #busca o tipo de ordem para validar a quantidade apontada;
-        dados = {"ordem": ordem,'filial': filial,'retorno':'tpo'}
-        #print('forms.py 200- RegLotForm - clean - dados: {}'.format(dados))
-        v_ini = prep_producao()
-        v_tpo = v_ini.get_dadosOrdem(dados)
-        #print('forms.py 203- RegLotForm - clean - v_tpo: {}'.format(v_tpo))
-        if (v_tpo == 'OP001') and (v_qtde > 5):
-            print('forms.py 205- RegLotForm - clean -  tem que gerar erro')
-            raise forms.ValidationError("Favor conferir a quantidade apontada!")
         v_validarefer = False
         if v_validarefer:
+            cleaned_data = super(RegLotForm, self).clean()
+            v_qtde = int(self.cleaned_data.get("orl_re_qtdlote"))
+            ordem = self.cleaned_data.get("ord_in_codigo")
+            filial = self.cleaned_data.get("fil_in_codigo")
+            #busca o tipo de ordem para validar a quantidade apontada;
+            dados = {"ordem": ordem,'filial': filial,'retorno':'tpo'}
+            #print('forms.py 200- RegLotForm - clean - dados: {}'.format(dados))
+            v_ini = prep_producao()
+            v_tpo = v_ini.get_dadosOrdem(dados)
+            #print('forms.py 203- RegLotForm - clean - v_tpo: {}'.format(v_tpo))
+            if (v_tpo == 'OP001') and (v_qtde > 5):
+                print('forms.py 205- RegLotForm - clean -  tem que gerar erro')
+                raise forms.ValidationError("Favor conferir a quantidade apontada!")
             v_lista = []
             cleaned_data = super(RegLotForm, self).clean()
             lote_refer = self.cleaned_data.get("orl_st_referencia")
