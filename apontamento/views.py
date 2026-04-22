@@ -490,7 +490,7 @@ def insDemandaslocal(request):
     if request.method == "POST":
         form = DemFormLocal(request.POST)
         if form.is_valid():
-            #print('linha 482 Valido')
+            print('linha 482 Valido')
             v_mvs_st_loteforne = form.cleaned_data['dem_st_lote']
             v_apt_re_quantidade = form.cleaned_data['dem_re_qtdlote']
             l_demandas.append(v_mvs_st_loteforne)
@@ -566,6 +566,7 @@ def listarlotes(request):
 def reglote(request):
     v_session = carrega_sessao(request)
     pro_st_descricao = v_session.get('pro_st_descricao')
+    print('Linha 569 - views.py - pro_st_descricao: {}'.format(pro_st_descricao))
     v_lista = []
     v_lista.append(request.session['ord_in_codigo'])
     v_lista.append(request.session['fil_in_codigo'])
