@@ -33,6 +33,17 @@
         var lote_origem = "{{origem}}";
         defineVariaveis();
         $(document).ready(function() {
+            // Previne submit com Enter em qualquer input
+            $('#formlotes, #formlotes input').on('keydown', function(e) {
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    e.preventDefault();
+                    // Opcional: pula pro próximo campo ao invés de travar
+                    const inputs = $(this).closest('form').find(':input:visible:enabled');
+                    const nextInput = inputs.eq(inputs.index(this) + 1);
+                    if (nextInput.length) nextInput.focus();
+                    return false;
+                }
+            });
             //$('#id_orl_re_qtdlote').numpad();
             $('#qtdeloteprod-btn').numpad({
 		      target: $('#numpadqtdeprod')
