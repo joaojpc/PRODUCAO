@@ -36,6 +36,7 @@ class gera_etiqueta:
         self.volume = None
         self.pilha = None
         self.fornecedor = None
+        self.notafiscal = None
         for v_lis in r_params:
             #print(v_lis)
             self.v_ordem = self.trata_None(str(v_lis['ordem']))
@@ -93,7 +94,8 @@ class gera_etiqueta:
             try:
                 self.v_origem = self.trata_None(v_lis['origem'])
                 if len(self.v_origem) == 22:
-                    self.v_origem = self.v_origem[11:-6]
+                    self.notafiscal = int(self.v_origem[:-6][-8:])
+                    self.v_origem = str(self.notafiscal)
             except:
                 pass
             try:
