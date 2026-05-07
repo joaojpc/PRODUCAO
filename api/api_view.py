@@ -264,19 +264,19 @@ class GetDadosProducao:
         v_retorno = {'situacao': 'AB'}
         try:
         #if 1==1:
-            con = getOracleConnection()
-            cur = con.cursor()
-            c_rs = cur.callfunc('apt_intprod2.f_valida_sitordem',str,[self.fil_in, self.ord_in])                        
-            cur.close
-            con.close            
-            if c_rs:
-                #print(c_rs)
-                v_retorno['situacao'] = c_rs
-            else:
-                v_retorno['situacao'] =  'AB'
+            with getOracleConnection() as con:
+                #print('Conexão estabelecida com sucesso!')
+                with con.cursor() as cur:
+                    #print('Cursor criado com sucesso!')
+                    c_rs = cur.callfunc('apt_intprod2.f_valida_sitordem',str,[self.fil_in, self.ord_in])                                                
+                    if c_rs:
+                        #print(c_rs)
+                        v_retorno['situacao'] = c_rs
+                    else:
+                        v_retorno['situacao'] =  'AB'
         except:
             v_retorno['situacao'] =  'AB'        
-        return v_retorno
+        return json.dumps(v_retorno)
     def get_saldo(self,pparams):
         self.fil_in = pparams['filial']
         self.lote = pparams['lote']
