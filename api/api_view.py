@@ -258,6 +258,25 @@ class GetDadosProducao:
         self.param = None
         self.lote = None
         #print('Iniciando')
+    def situacao_ordem(self,pparams):
+        self.fil_in = pparams.get('filial')
+        self.ord_in = pparams.get('ordem')
+        v_retorno = {'situacao': 'AB'}
+        try:
+        #if 1==1:
+            con = getOracleConnection()
+            cur = con.cursor()
+            c_rs = cur.callfunc('apt_intprod2.f_valida_sitordem',str,[self.fil_in, self.ord_in])                        
+            cur.close
+            con.close            
+            if c_rs:
+                #print(c_rs)
+                v_retorno['situacao'] = c_rs
+            else:
+                v_retorno['situacao'] =  'AB'
+        except:
+            v_retorno['situacao'] =  'AB'        
+        return v_retorno
     def get_saldo(self,pparams):
         self.fil_in = pparams['filial']
         self.lote = pparams['lote']

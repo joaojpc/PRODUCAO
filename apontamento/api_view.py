@@ -693,6 +693,15 @@ class prep_producao:
         self.str_now = self.row_now.strftime('%Y-%m-%d')
         self.str_eti = self.row_now.strftime('%d/%m/%Y')
 
+    def valida_situacao_ordem(self,pparams):
+        self.fil_in_codigo = pparams.get('fil_in_codigo')
+        self.ord_in_codigo = pparams.get('ord_in_codigo')
+        payload = {'ordem': self.ord_in_codigo,'filial': self.fil_in_codigo}
+        funcao = 'get_situacaoordem/'
+        app_itens = geturlapi(funcao)
+        c_sit = requests.get(app_itens, params=payload).json()
+        return c_sit
+    
     def prepara_demandas(self,pparams):
         self.fil_in_codigo = pparams.get('filial')
         self.ord_in_codigo = pparams.get('ordem')
