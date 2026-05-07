@@ -52,7 +52,7 @@ class FormLogin(forms.Form):
         #Validar se a ordem está liberada para apontamento
         dados = formatar_ordem(v_ordem)
         obj_api = prep_producao()
-        c_api = obj_api.situacao_ordem(dados)
+        c_api = obj_api.valida_situacao_ordem(dados)
         for s_ordem in c_api:
             if s_ordem['situacao'] != 'AB':
                 raise forms.ValidationError(" Essa ordem de produção não está liberada para apontamento!")
