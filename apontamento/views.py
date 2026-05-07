@@ -589,10 +589,10 @@ def reglote(request):
     if v_logado:
         v_prep = prep_producao()
         #valida situação da ordem para exibir ou não o formulário de registro de lote;
-        situacao_ordem = v_prep.valida_situacao_ordem(v_session)
+        '''situacao_ordem = v_prep.valida_situacao_ordem(v_session)
         for s_ordem in situacao_ordem:
             if s_ordem['situacao'] != 'AB':
-                return redirect('menu')
+                return redirect('menu')'''
         if pro_st_descricao is None:
             pay_item = {'ordem': v_lista[0],'filial': v_lista[1],'retorno': 'descricao'}
             pro_st_descricao = v_prep.get_dadosOrdem(pay_item)
