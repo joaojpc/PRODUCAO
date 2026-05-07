@@ -276,7 +276,7 @@ class GetDadosProducao:
                         v_retorno['situacao'] =  'AB'
         except:
             v_retorno['situacao'] =  'AB'        
-        return json.dumps([v_retorno], indent=2, ensure_ascii=False)
+        return [v_retorno]
     def get_saldo(self,pparams):
         self.fil_in = pparams['filial']
         self.lote = pparams['lote']
