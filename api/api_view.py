@@ -261,7 +261,7 @@ class GetDadosProducao:
     def situacao_ordem(self,pparams):
         self.fil_in = pparams.get('filial')
         self.ord_in = pparams.get('ordem')
-        v_retorno = [{'situacao': 'AB'}]
+        v_retorno = {'situacao': 'AB'}
         try:
         #if 1==1:
             with getOracleConnection() as con:
