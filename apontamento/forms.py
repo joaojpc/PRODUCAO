@@ -50,7 +50,7 @@ class FormLogin(forms.Form):
         if not (v_ordem != 0 ) or v_ordem is None:
             raise forms.ValidationError(" Informar a ordem!")
         #Validar se a ordem está liberada para apontamento
-        '''dados = formatar_ordem(v_ordem)
+        dados = json.loads(formatar_ordem(v_ordem))
         v_params = None
         for rs in dados:
             v_params = rs
@@ -58,7 +58,7 @@ class FormLogin(forms.Form):
         c_api = obj_api.valida_situacao_ordem(v_params)
         for s_ordem in c_api:
             if s_ordem['situacao'] != 'AB':
-                raise forms.ValidationError(" Essa ordem de produção não está liberada para apontamento!")'''
+                raise forms.ValidationError(" Essa ordem de produção não está liberada para apontamento!")
 
 class FormUser(forms.Form):
     ctl_in_usuario = forms.CharField(max_length=20,label='Operador')
