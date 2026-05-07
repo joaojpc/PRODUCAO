@@ -261,7 +261,7 @@ class GetDadosProducao:
     def situacao_ordem(self,pparams):
         self.fil_in = pparams.get('filial')
         self.ord_in = pparams.get('ordem')
-        v_retorno = {'situacao': 'AB'}
+        v_retorno = [{'situacao': 'AB'}]
         try:
         #if 1==1:
             with getOracleConnection() as con:
@@ -276,7 +276,7 @@ class GetDadosProducao:
                         v_retorno['situacao'] =  'AB'
         except:
             v_retorno['situacao'] =  'AB'        
-        return json.dumps(v_retorno)
+        return (v_retorno)
     def get_saldo(self,pparams):
         self.fil_in = pparams['filial']
         self.lote = pparams['lote']
