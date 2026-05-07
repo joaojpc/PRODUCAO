@@ -8,10 +8,13 @@ from django.utils import timezone
 
 from django import forms
 
+#from almoxarifado.api_view_oracle import GetDadosProducao
+
 #from apontamento.custom_views import Login_inicial, Listar_opcoes, IntProd
 #from apontamento.custom_views_sqlite import Listar_opcoes_sqlite, Login_inicial_sqlite
 from .custom_views_sqlite import *
 from apontamento.api_view import *
+from .api_view import prep_producao
 
 #from apontamento.models import Apt_controle, Lotes_Apt, Apt_ocorrencia
 import requests
@@ -46,6 +49,13 @@ class FormLogin(forms.Form):
             raise forms.ValidationError("Usuário não cadastrado!")
         if not (v_ordem != 0 ) or v_ordem is None:
             raise forms.ValidationError(" Informar a ordem!")
+        #Validar se a ordem está liberada para apontamento
+        dados = formatar_ordem(v_ordem)
+        obj_api = prep_producao()
+        c_api = obj_api.situacao_ordem(dados)
+        for s_ordem in c_api:
+            if s_ordem['situacao'] != 'AB':
+                raise forms.ValidationError(" Essa ordem de produção não está liberada para apontamento!")
 
 class FormUser(forms.Form):
     ctl_in_usuario = forms.CharField(max_length=20,label='Operador')
