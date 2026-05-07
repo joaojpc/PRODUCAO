@@ -694,8 +694,8 @@ class prep_producao:
         self.str_eti = self.row_now.strftime('%d/%m/%Y')
 
     def valida_situacao_ordem(self,pparams):
-        self.fil_in_codigo = pparams.get('fil_in_codigo')
-        self.ord_in_codigo = pparams.get('ord_in_codigo')
+        self.fil_in_codigo = pparams.get('filial')
+        self.ord_in_codigo = pparams.get('ordem')
         payload = {'ordem': self.ord_in_codigo,'filial': self.fil_in_codigo}
         funcao = 'get_situacaoordem/'
         app_itens = geturlapi(funcao)
