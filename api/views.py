@@ -382,6 +382,6 @@ class GetSituacao_ordem(APIView):
     def get(self, request, format=None):
         ini_get = GetDadosProducao()
         dados = request.GET
-        c_get = ini_get.get_situacao_ordem(dados)
+        c_get = ini_get.situacao_ordem(dados)
         response = Response(c_get, status=status.HTTP_200_OK)
         return response
