@@ -1513,6 +1513,7 @@ class Login_inicial_sqlite:
         ordem_id = ''
         pro_st_descricao = ''
         now = datetime.now()
+        v_count = 0
         str_now = now.strftime('%Y-%m-%d %H:%M:%S')
         sequencia = self.seq_initapt_sqlite()
         v_params.append(sequencia)
@@ -1535,6 +1536,9 @@ class Login_inicial_sqlite:
                 while cur_ord is None:
                     ini.buscaOrdens(v_listOrd)
                     cur_ord = requests.get(app_url, params=payload).json()
+                    v_count += 1
+                    if v_count > 5:  # Evitar loop infinito
+                        break
                 for rs_ord in cur_ord:
                     ordem_id = rs_ord['ORD_ST_ID']
             else:
