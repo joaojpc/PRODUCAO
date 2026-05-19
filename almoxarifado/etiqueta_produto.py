@@ -38,7 +38,7 @@ class gera_etiqueta:
         label5 += r'^FT120,119^A0N,23,28^FH\^FD'+v_id_item+'^FS'+'\n'
         label5 += r'^PQ1,0,1,Y^XZ'+'\n'
         v_print = upper(label5)
-        #print(v_print)
+        print(v_print)
         if self.imprimir:
             try:
                 TCP_IP = '192.168.1.192'
