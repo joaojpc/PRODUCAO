@@ -23,6 +23,7 @@ class gera_etiqueta:
         v_id_item = pparams[2]
         v_descr = pparams[3]
         label5 = r'^XA'+'\n'
+        label5 += r'~SD20'+'\n'
         label5 += r'^MMT'+'\n'
         label5 += r'^CI28'+'\n'
         label5 += r'^PW799'+'\n'
