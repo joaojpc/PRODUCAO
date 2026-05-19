@@ -237,6 +237,8 @@ def EtiquetaItem(request):
         v_padrao = 302
     elif v_fil_in_codigo == 312:
         v_padrao = 302
+     elif v_fil_in_codigo == 31:
+        v_padrao = 31
     else:
         v_padrao = 1
     v_item.append(v_padrao)    
