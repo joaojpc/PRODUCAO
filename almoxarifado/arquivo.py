@@ -1,2 +1,2 @@
 #teste
-print("teste")
+print("teste de sincronização")
