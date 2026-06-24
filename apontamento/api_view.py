@@ -748,8 +748,7 @@ class prep_producao:
         app_url = geturlapi(funcao)      
         c_saldo = requests.get(app_url, params=payload).json()                
         return c_saldo
-    def get_dadosOrdem(self,pparams):
-        print('Linha 752',pparams)
+    def get_dadosOrdem(self,pparams):        
         self.fil_in_codigo = pparams.get('filial')
         self.ord_in_codigo = pparams.get('ordem')
         self.retorno = pparams.get('retorno')
@@ -762,6 +761,7 @@ class prep_producao:
                    'fil_in_codigo': self.fil_in_codigo}
         c_rs = requests.get(app_itens, params=payload).json()            
         for r_cr in c_rs:
+            print('Linha 752',r_cr)
             if self.retorno == 'descricao':
                 d2 = r_cr['PRO_ST_ITENS']
                 Produto = [item for item in d2 if item.get('tipo_item') == 'Produto']
