@@ -749,6 +749,7 @@ class prep_producao:
         c_saldo = requests.get(app_url, params=payload).json()                
         return c_saldo
     def get_dadosOrdem(self,pparams):
+        print('Linha 752',pparams)
         self.fil_in_codigo = pparams.get('filial')
         self.ord_in_codigo = pparams.get('ordem')
         self.retorno = pparams.get('retorno')
