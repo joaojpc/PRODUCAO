@@ -761,7 +761,7 @@ class prep_producao:
                    'fil_in_codigo': self.fil_in_codigo}
         c_rs = requests.get(app_itens, params=payload).json()            
         for r_cr in c_rs:
-            print('Linha 752',r_cr)
+            #print('Linha 764',r_cr)
             if self.retorno == 'descricao':
                 d2 = r_cr['PRO_ST_ITENS']
                 Produto = [item for item in d2 if item.get('tipo_item') == 'Produto']
