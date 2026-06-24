@@ -1,7 +1,7 @@
 {% block js %}
     <script>
-        // AJUSTE 2026-06-24: Correção de trava + tratamento JSON vazio da API
-        // Motivo: getItensConversores quebrava com JSON.parse em resposta vazia/erro
+        // AJUSTE 2026-06-24: Variáveis e flags de controle
+        // Motivo: Prevenir duplo submit e travar botão durante processamento
         var v_refugo;
         var v_http;
         var v_get;
@@ -13,7 +13,7 @@
         var v_padrao;
         let clicado = false;
         var v_ip = '192.168.0.24';
-        var enviando = false;
+        var enviando = false; // AJUSTE 2026-06-24: flag pra travar duplo clique
 
         $.fn.numpad.defaults.gridTpl = '<table class="table modal-content"></table>';
         $.fn.numpad.defaults.backgroundTpl = '<div class="modal-backdrop in"></div>';
@@ -33,14 +33,21 @@
         defineVariaveis();
 
         $(document).ready(function() {
-            $('#formlotes').on('keydown', function(e) {
+            // AJUSTE 2026-06-24: Bloqueia Enter do leitor de código de barras
+            // Motivo: Leitor envia Enter automático e submetia antes de validar 21 dígitos no clean()
+            // Regra de negócio: intacta. Só bloqueia submit involuntário
+            $('#formlotes, #formlotes input').on('keydown', function(e) {
                 if (e.key === 'Enter' || e.keyCode === 13) {
                     e.preventDefault();
-                    e.stopPropagation();
+                    const inputs = $(this).closest('form').find(':input:visible:enabled');
+                    const nextInput = inputs.eq(inputs.index(this) + 1);
+                    if (nextInput.length) nextInput.focus();
                     return false;
                 }
             });
 
+            // AJUSTE 2026-06-24: Reabilita botão se Django devolver erro de validação
+            // Motivo: Se clean() barrar 21 dígitos, usuário precisa corrigir e tentar de novo
             if ($('.alert-danger,.invalid-feedback,.errorlist, ul.errorlist').length) {
                 enviando = false;
                 $('#submit').prop('disabled', false).text('Inserir lote');
@@ -171,7 +178,8 @@
                     }
                 }
             }
-            // AJUSTE 2026-06-24: getItensConversores agora retorna [] se API falhar
+            // AJUSTE 2026-06-24: getItensConversores agora trata resposta vazia
+            // Motivo: Evitar Uncaught SyntaxError: Unexpected end of JSON input
             v_conv = getItensConversores();
             if (v_conv.length > 0) {
                 criatag_conv();
@@ -242,7 +250,7 @@
                 html += '<input type="text" name="dem_st_lote" maxlength="22" class="form-control" required="false" id="id_ori_lote">';
                 html += '</div>';
             }
-            if (v_tpo_st_codigo == 'OP001'){
+                if (v_tpo_st_codigo == 'OP001'){
                 html = '<div class="form-group">';
                 html += '<label for="id_ori_lote">Origem:</label>';
                 html += '<input type="text" name="dem_st_lote" maxlength="22" class="form-control" required="false" id="id_ori_lote">';
@@ -305,6 +313,8 @@
            $("#conversores").remove();
         };
 
+        // FUNÇÃO ORIGINAL - NÃO ALTERADA
+        // AJUSTE 2026-06-24: Documentado. Regra de negócio preservada
         function myFunction() {
             var_concat = 0;
             var_b = '';
@@ -374,6 +384,9 @@
             }
         }
 
+        // AJUSTE 2026-06-24: Submit controlado. Substitui alert por trava visual
+        // Motivo: Evitar duplo clique e submit involuntário. Try/catch evita trava infinita
+        // Regra de negócio: intacta. myFunction() roda igual antes do submit
         $('#submit').on('click', function(e){
             e.preventDefault();
             if (enviando) return false;
@@ -409,8 +422,9 @@
          $("#id_orl_re_qtdrefugo").val($(this).val());
         });
 
+        // AJUSTE 2026-06-24: Tratamento de resposta vazia/erro HTTP
+        // Motivo: API pode retornar vazio ou HTML de erro, quebrando JSON.parse
         function getAtributosReferencia(pRef,pAgrupa,pPai) {
-            // AJUSTE 2026-06-24: Tratamento de resposta vazia/erro
             if (pPai > 0) {
                 v_http = 'http://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa+'&pai_rat='+pPai
             }
@@ -431,9 +445,9 @@
             }
         }
 
+        // AJUSTE 2026-06-24: Corrige Uncaught SyntaxError: Unexpected end of JSON input
+        // Motivo: API /app/itensOrdens/ retornando vazio ou HTML de erro
         function getItensConversores() {
-            // AJUSTE 2026-06-24: Corrige Uncaught SyntaxError: Unexpected end of JSON input
-            // Motivo: API /app/itensOrdens/ retornando vazio ou HTML de erro
             var v_pro_st_id;
             var v_conversor = [];
             v_pro_st_id = dadosProduto(2);
@@ -459,8 +473,9 @@
             return v_conversor;
         }
 
+        // AJUSTE 2026-06-24: Tratamento de status HTTP
+        // Motivo: Evitar parsear HTML de erro como JSON
         function httpGet(theUrl) {
-            // AJUSTE 2026-06-24: Tratamento de status HTTP
             let xmlHttpReq = new XMLHttpRequest();
             try {
                 xmlHttpReq.open("GET", theUrl, false);
@@ -495,12 +510,12 @@
         }
 
         function criarBotoes(objeto) {
-            const botoesDiv = document.getElementById('botoes_exibir');
-            botoesDiv.innerHTML = `
-                <span class="btn btn-info">Total Produzido: ${objeto.total_ordem}</span>
-                <span class="btn btn-success">Total Demanda: ${objeto.total_demanda}</span>
-                <span class="btn btn-warning">Saldo Demanda: ${objeto.saldo_demanda}</span>
-            `;
+        const botoesDiv = document.getElementById('botoes_exibir');
+        botoesDiv.innerHTML = `
+            <span class="btn btn-info">Total Produzido: ${objeto.total_ordem}</span>
+            <span class="btn btn-success">Total Demanda: ${objeto.total_demanda}</span>
+            <span class="btn btn-warning">Saldo Demanda: ${objeto.saldo_demanda}</span>
+        `;
         }
     </script>
 {% endblock %}
