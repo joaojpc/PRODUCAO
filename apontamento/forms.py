@@ -230,7 +230,7 @@ class RegLotForm(forms.Form):
             # 1. Valida quantidade > 5 pra OP001
             if v_qtde > 5:
                 raise forms.ValidationError("Favor conferir a quantidade apontada!")
-        
+        return cleaned_data
         # 2. Checa se referência é obrigatória
         '''v_validarefer = False
         if v_validarefer:
@@ -246,8 +246,6 @@ class RegLotForm(forms.Form):
             
             if lote_refer == '' and v_validarefer:
                 raise forms.ValidationError("Campo referência é obrigatório!")'''
-            
-        return cleaned_data
 class ListLotForm(forms.Form):
     lote_st_sequencial  = forms.CharField(required=False,label='Lote')
 
