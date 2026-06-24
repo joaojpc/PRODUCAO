@@ -617,6 +617,10 @@ def reglote(request):
                     request.session['fornecedor'] = lote_form.cleaned_data['pro_st_fornecedor']
                 except:
                     pass
+                print(request.session['origem'])
+                print(request.session['fornecedor'])
+                if request.session.get('usuario') == '0000041873':
+                    return redirect('incluir_lote')
                 v_aponta = dict(ord_in_codigo = v_lista[0],
                                 fil_in_codigo = v_lista[1],
                                 v_quantidade = lote_form.cleaned_data['orl_re_qtdlote'],
