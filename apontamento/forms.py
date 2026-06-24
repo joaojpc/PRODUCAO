@@ -204,6 +204,7 @@ class RegLotForm(forms.Form):
             self.fields['itens'].choices = []'''
     def clean(self):
         #valida a quantidade apontada;
+        cleaned_data = super().clean()  # tem que ser a primeira linha
         v_validarefer = False
         v_origem = self.cleaned_data.get("pro_st_loteori")
         ordem = self.cleaned_data.get("ord_in_codigo")
@@ -214,14 +215,14 @@ class RegLotForm(forms.Form):
 
         dados = {"ordem": ordem,'filial': filial,'retorno':'tpo'}        
         v_ini = prep_producao()
-        '''v_tpo = v_ini.get_dadosOrdem(dados)
+        v_tpo = v_ini.get_dadosOrdem(dados)
         print('forms.py 216- RegLotForm - clean - dados: {}'.format(v_tpo))
         if (v_tpo == 'OP001'):
             print('forms.py 219- RegLotForm - clean - dados: {}'.format(dados))
             if (len(v_origem) > 8) and (len(v_origem) < 22):
                 raise forms.ValidationError("Leitura Inválida")
             elif len(v_origem) > 22:
-                raise forms.ValidationError("Leitura Inválida") '''
+                raise forms.ValidationError("Leitura Inválida") 
         if v_validarefer:
             cleaned_data = super(RegLotForm, self).clean()
             v_qtde = int(self.cleaned_data.get("orl_re_qtdlote"))
