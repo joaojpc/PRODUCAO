@@ -232,7 +232,7 @@ class RegLotForm(forms.Form):
                 raise forms.ValidationError("Favor conferir a quantidade apontada!")
         
         # 2. Checa se referência é obrigatória
-        v_validarefer = False
+        '''v_validarefer = False
         if v_validarefer:
             v_lista = [ordem, filial]
             obj_itens = IntAPI_sqlite()
@@ -245,7 +245,7 @@ class RegLotForm(forms.Form):
                         break
             
             if lote_refer == '' and v_validarefer:
-                raise forms.ValidationError("Campo referência é obrigatório!")
+                raise forms.ValidationError("Campo referência é obrigatório!")'''
             
         return cleaned_data
 class ListLotForm(forms.Form):
