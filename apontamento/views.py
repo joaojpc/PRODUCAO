@@ -610,6 +610,7 @@ def reglote(request):
             #try:
             if lote_form.is_valid():
                 v_retorno = lote_form.cleaned_data
+                print(v_retorno)
                 try:
                     lote_ori = v_retorno.get('pro_st_loteori', '')
                     request.session['origem']  = lote_ori[8:16] if len(lote_ori) == 22 else lote_ori
