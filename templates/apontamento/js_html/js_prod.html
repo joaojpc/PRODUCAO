@@ -304,14 +304,12 @@
            $("#conversores").remove();
         };
 
-        // AJUSTE 2026-06-24: Corrigidos 2 bugs que travavam o submit
-        // Bug 1: if (var_concat = 1) fazia atribuição. Trocado pra == comparação
-        // Bug 2: $(':Input', referencias) seletor quebrado. Trocado pra $('#referencias :input')
+        // AJUSTE 2026-06-24: Removeu declaração duplicada de var_b que travava o loop
+        // AJUSTE 2026-06-24: Seletor corrigido de $(':Input', referencias) pra $('#referencias :input')
+        // AJUSTE 2026-06-24: == ao invés de = pra não travar em loop infinito
         function myFunction() {
             var_concat = 0;
-            var_b = '';
             var var_a = '';
-            var var_b = '';
             var var_c = '';
             var var_d = ';';
             var var_e = '';
@@ -319,7 +317,8 @@
             var var_conversor = 0;
             var qtde_prod = 0;
             var qtde_refugo = 0;
-            arr = []; // AJUSTE 2026-06-24: zera array global pra não acumular lixo
+            var temp_b = ''; // AJUSTE 2026-06-24: renomeado pra não conflitar com global
+            arr = []; // AJUSTE 2026-06-24: zera array global
             var_cod = $("#id_produto").val();
             $("#id_pro_in_codigo").val(var_cod);
              qtde_prod = $("#id_orl_re_qtdlote").val().replace(",", ".");
@@ -344,31 +343,31 @@
                 $("#id_pro_st_loteori").val('Indefinido');
                 $("#id_pro_st_fornecedor").val('Indefinido');
             }
-            // AJUSTE 2026-06-24: Seletor corrigido de $(':Input', referencias) pra $('#referencias :input')
+            // AJUSTE 2026-06-24: Seletor corrigido. Antes: $(':Input', referencias) travava
             $('#referencias :input').each(function() {
                 if ($(this).val()!= ''){
                     var_a = var_e;
                     if($(this).attr("type")=="hidden"){
-                        var_b = $(this).val();
+                        temp_b = $(this).val();
                         var_concat = 1;
                     }
                     else
                     {
                         // AJUSTE 2026-06-24: == ao invés de = pra não travar em loop
                         if (var_concat == 1){
-                            arr.push(var_b+$(this).val());
-                            var_c = var_b+$(this).val();
+                            arr.push(temp_b+$(this).val());
+                            var_c = temp_b+$(this).val();
                             var_concat = 0;
-                            var_b = '';
+                            temp_b = '';
                         }
                         else
                         {
-                            var_b = '';
+                            temp_b = '';
                             arr.push($(this).val());
                             var_c = $(this).val();
                             var_concat = 0;
                         }
-                        var_e = var_a+var_b+var_c+var_d;
+                        var_e = var_a+var_c+var_d;
                     }
                 }
             });
@@ -379,7 +378,7 @@
             }
         }
 
-        // AJUSTE 2026-06-24: Remove alert. Trava duplo clique
+        // AJUSTE 2026-06-24: Desliga eventos antigos antes de ligar pra evitar duplo bind
         $('#submit').off('click').on('click', function(e){
             e.preventDefault();
             if (enviando) return false;
