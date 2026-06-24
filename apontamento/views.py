@@ -607,10 +607,13 @@ def reglote(request):
         template = 'apontamento/reglote.html'        
         if request.method == 'POST':
             lote_form = RegLotForm(data=request.POST)
+            v_retorno = lote_form.cleaned_data
             #try:
             if lote_form.is_valid():
                 try:
-                    request.session['origem'] = lote_form.cleaned_data['pro_st_loteori']
+                    lote_ori = v_retorno.get('pro_st_loteori', '')
+                    request.session['origem']  = lote_ori[8:16] if len(lote_ori) == 22 else lote_ori
+                    
                 except:
                     pass
                 try:
