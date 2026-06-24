@@ -610,7 +610,7 @@ def reglote(request):
             #try:
             if lote_form.is_valid():
                 v_retorno = lote_form.cleaned_data
-                print(v_retorno)
+                #print(v_retorno)
                 try:
                     lote_ori = v_retorno.get('pro_st_loteori', '')
                     request.session['origem'] = int(lote_ori[8:16]) if len(lote_ori) == 22 else lote_ori
@@ -621,8 +621,8 @@ def reglote(request):
                     request.session['fornecedor'] = lote_form.cleaned_data['pro_st_fornecedor']
                 except:
                     pass
-                print(request.session['origem'])
-                print(request.session['fornecedor'])
+                #print(request.session['origem'])
+                #print(request.session['fornecedor'])
                 if request.session.get('usuario') == '0000041873':
                     return redirect('incluir_lote')
                 v_aponta = dict(ord_in_codigo = v_lista[0],
