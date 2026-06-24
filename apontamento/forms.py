@@ -215,13 +215,13 @@ class RegLotForm(forms.Form):
         dados = {"ordem": ordem,'filial': filial,'retorno':'tpo'}        
         v_ini = prep_producao()
         v_tpo = v_ini.get_dadosOrdem(dados)
-        print('forms.py 216- RegLotForm - clean - dados: {}'.format(v_tpo))
+        '''print('forms.py 216- RegLotForm - clean - dados: {}'.format(v_tpo))
         if (v_tpo == 'OP001'):
             print('forms.py 219- RegLotForm - clean - dados: {}'.format(dados))
             if (len(v_origem) > 8) and (len(v_origem) < 22):
                 raise forms.ValidationError("Leitura Inválida")
             elif len(v_origem) > 22:
-                raise forms.ValidationError("Leitura Inválida") 
+                raise forms.ValidationError("Leitura Inválida") '''
         if v_validarefer:
             cleaned_data = super(RegLotForm, self).clean()
             v_qtde = int(self.cleaned_data.get("orl_re_qtdlote"))
