@@ -213,7 +213,7 @@ class RegLotForm(forms.Form):
         #busca o tipo de ordem para validar a quantidade apontada;
 
         dados = {"ordem": ordem,'filial': filial,'retorno':'tpo'}
-        #print('forms.py 200- RegLotForm - clean - dados: {}'.format(dados))
+        print('forms.py 216- RegLotForm - clean - dados: {}'.format(dados))
         v_ini = prep_producao()
         v_tpo = v_ini.get_dadosOrdem(dados)
         if (v_tpo == 'OP001'):
