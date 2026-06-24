@@ -1,8 +1,7 @@
 {% block js %}
     <script>
-        // AJUSTE 2026-06-24: Trava submit involuntário e duplo clique
-        // Motivo: Enter do leitor de código de barras e duplo clique submetiam antes da validação
-        // Regra de negócio: intacta. Só controle de UI pra evitar submit com 21 dígitos
+        // AJUSTE 2026-06-24: Trava duplo clique + correção de trava infinita
+        // Motivo: Botão ficava em "Processando..." se myFunction() quebrasse ou submit falhasse
         var v_refugo;
         var v_http;
         var v_get;
@@ -14,7 +13,7 @@
         var v_padrao;
         let clicado = false;
         var v_ip = '192.168.0.24';
-        var enviando = false; // AJUSTE 2026-06-24: flag pra travar duplo submit
+        var enviando = false;
 
         $.fn.numpad.defaults.gridTpl = '<table class="table modal-content"></table>';
         $.fn.numpad.defaults.backgroundTpl = '<div class="modal-backdrop in"></div>';
@@ -34,8 +33,7 @@
         defineVariaveis();
 
         $(document).ready(function() {
-            // AJUSTE 2026-06-24: Bloqueia Enter no form - leitor de código de barras incluso
-            // Motivo: Leitor envia Enter automático e submetia antes de validar 21 dígitos no clean()
+            // AJUSTE 2026-06-24: Bloqueia Enter do leitor
             $('#formlotes').on('keydown', function(e) {
                 if (e.key === 'Enter' || e.keyCode === 13) {
                     e.preventDefault();
@@ -44,9 +42,9 @@
                 }
             });
 
-            // AJUSTE 2026-06-24: Reabilita botão se Django devolver erro de validação
-            // Motivo: Se clean() barrar 21 dígitos, usuário precisa corrigir e tentar de novo
-            if ($('.alert-danger,.invalid-feedback').length) {
+            // AJUSTE 2026-06-24: Reabilita sempre que a página carrega com erro do Django
+            // Verifica qualquer elemento de erro comum do Django
+            if ($('.alert-danger,.invalid-feedback,.errorlist, ul.errorlist').length) {
                 enviando = false;
                 $('#submit').prop('disabled', false).text('Inserir lote');
             }
@@ -311,7 +309,6 @@
 
         function myFunction() {
             // FUNÇÃO ORIGINAL - NÃO ALTERADA
-            // AJUSTE 2026-06-24: Mantida intacta. Regra de negócio preservada
             var_concat = 0;
             var_b = '';
             var var_a = '';
@@ -380,22 +377,35 @@
             }
         }
 
-        // AJUSTE 2026-06-24: Submit controlado. Substitui alert por trava visual
-        // Motivo: Evitar duplo clique e submit involuntário do leitor
-        // Regra de negócio: intacta. myFunction() roda igual antes do submit
-        $('#submit').click(function(e){
+        // AJUSTE 2026-06-24: Submit com proteção contra trava infinita
+        // Motivo: Try/catch garante reabilitar se myFunction() falhar. Timeout de segurança se submit travar
+        $('#submit').on('click', function(e){
             e.preventDefault();
             if (enviando) return false;
 
             enviando = true;
-            $(this).prop('disabled', true).text('Processando...');
+            var btn = $(this);
+            btn.prop('disabled', true).text('Processando...');
 
-            myFunction();
+            // Timeout de segurança: se em 10s não submeteu, reabilita
+            var timeoutSeguranca = setTimeout(function(){
+                enviando = false;
+                btn.prop('disabled', false).text('Inserir lote');
+                alert('Tempo excedido. Tente novamente.');
+            }, 10000);
 
-            // Garante que hiddens estejam habilitados pro Django ler no POST
-            $('#formlotes input[type=hidden]').prop('disabled', false);
-
-            $('#formlotes').off('submit').submit();
+            try {
+                myFunction();
+                $('#formlotes input[type=hidden]').prop('disabled', false);
+                clearTimeout(timeoutSeguranca);
+                $('#formlotes').submit(); // submit nativo, sem off()
+            } catch (err) {
+                clearTimeout(timeoutSeguranca);
+                enviando = false;
+                btn.prop('disabled', false).text('Inserir lote');
+                console.error('Erro ao processar:', err);
+                alert('Erro ao processar. Verifique os campos.');
+            }
         });
 
         $('#numpadqtdeprod').on('change', function() {
