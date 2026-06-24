@@ -206,44 +206,49 @@ class RegLotForm(forms.Form):
         #valida a quantidade apontada;
         cleaned_data = super().clean()  # tem que ser a primeira linha
         v_validarefer = False
-        v_origem = self.cleaned_data.get("pro_st_loteori")
-        ordem = self.cleaned_data.get("ord_in_codigo")
-        filial = self.cleaned_data.get("fil_in_codigo")
-        lote_refer = self.cleaned_data.get("orl_st_referencia")
-        lote_item  = self.cleaned_data.get("pro_in_codigo")
+        v_origem = cleaned_data.get("pro_st_loteori")
+        ordem = cleaned_data.get("ord_in_codigo")
+        filial = cleaned_data.get("fil_in_codigo")
+        lote_refer = cleaned_data.get("orl_st_referencia")
+        lote_item  = cleaned_data.get("pro_in_codigo")
         #busca o tipo de ordem para validar a quantidade apontada;
 
         dados = {"ordem": ordem,'filial': filial,'retorno':'tpo'}        
         v_ini = prep_producao()
         v_tpo = v_ini.get_dadosOrdem(dados)
-        print('forms.py 216- RegLotForm - clean - dados: {}'.format(v_tpo))
-        if (v_tpo == 'OP001'):
-            print('forms.py 219- RegLotForm - clean - dados: {}'.format(dados))
-            if (len(v_origem) > 8) and (len(v_origem) < 22):
+        if v_tpo == 'OP001':
+            tam = len(v_origem)
+            # invalida se: >8 e <22  OU  >22
+            if (tam > 8 and tam < 22) or (tam > 22):
                 raise forms.ValidationError("Leitura Inválida")
-            elif len(v_origem) > 22:
-                raise forms.ValidationError("Leitura Inválida") 
-        if v_validarefer:
-            cleaned_data = super(RegLotForm, self).clean()
-            v_qtde = int(self.cleaned_data.get("orl_re_qtdlote"))
             
-            #print('forms.py 203- RegLotForm - clean - v_tpo: {}'.format(v_tpo))
-            if (v_tpo == 'OP001') and (v_qtde > 5):
-                print('forms.py 205 - RegLotForm - clean -  tem que gerar erro')
-                raise forms.ValidationError("Favor conferir a quantidade apontada!")
-            v_lista = []
-            v_lista.append(ordem)
-            v_lista.append(filial)
-            obj_itens = IntAPI_sqlite();
-            itens = json.loads(obj_itens.itens_ordem_sqlite(v_lista))
-            # print('forms 141',itens)
-            for itn in itens:
-                #print (itn['pro_in_codigo'])
-                if (itn['pro_in_codigo'] == lote_item):
-                    if(itn['rfc_in_codigo'] != 0):
-                        v_validarefer = True
-            if (lote_refer == '') and (v_validarefer):
-                raise forms.ValidationError(" Campo referência é obrigatório!")            
+            # Extrai origem se tiver pelo menos 16 chars
+            if tam >= 16:
+                cleaned_data['origem_extraida'] = v_origem[8:16]
+            else:
+                cleaned_data['origem_extraida'] = ''
+            if v_validarefer:
+                #cleaned_data = super(RegLotForm, self).clean()
+                v_qtde = int(cleaned_data.get("orl_re_qtdlote"))
+            
+                #print('forms.py 203- RegLotForm - clean - v_tpo: {}'.format(v_tpo))
+                if (v_tpo == 'OP001') and (v_qtde > 5):
+                    print('forms.py 205 - RegLotForm - clean -  tem que gerar erro')
+                    raise forms.ValidationError("Favor conferir a quantidade apontada!")
+                v_lista = []
+                v_lista.append(ordem)
+                v_lista.append(filial)
+                obj_itens = IntAPI_sqlite();
+                itens = json.loads(obj_itens.itens_ordem_sqlite(v_lista))
+                # print('forms 141',itens)
+                for itn in itens:
+                    #print (itn['pro_in_codigo'])
+                    if (itn['pro_in_codigo'] == lote_item):
+                        if(itn['rfc_in_codigo'] != 0):
+                            v_validarefer = True
+                if (lote_refer == '') and (v_validarefer):
+                    raise forms.ValidationError(" Campo referência é obrigatório!") 
+        return cleaned_data           
 class ListLotForm(forms.Form):
     lote_st_sequencial  = forms.CharField(required=False,label='Lote')
 
