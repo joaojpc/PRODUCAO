@@ -213,7 +213,7 @@ class RegLotForm(forms.Form):
         v_qtde = int(cleaned_data.get("orl_re_qtdlote") or 0)  # evita int(None)
 
         dados = {"ordem": ordem, 'filial': filial, 'retorno': 'tpo'}        
-        v_ini = prep_producao()
+        '''v_ini = prep_producao()
         v_tpo = v_ini.get_dadosOrdem(dados)
         
         if v_tpo == 'OP001':
@@ -232,7 +232,7 @@ class RegLotForm(forms.Form):
                 raise forms.ValidationError("Favor conferir a quantidade apontada!")
         return cleaned_data
         # 2. Checa se referência é obrigatória
-        '''v_validarefer = False
+        v_validarefer = False
         if v_validarefer:
             v_lista = [ordem, filial]
             obj_itens = IntAPI_sqlite()
