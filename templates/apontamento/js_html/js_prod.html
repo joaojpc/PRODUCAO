@@ -304,8 +304,9 @@
            $("#conversores").remove();
         };
 
-        // AJUSTE 2026-06-24: Corrigido bug de loop infinito que travava o submit
-        // Motivo: if (var_concat = 1) fazia atribuição. Troquei pra == comparação
+        // AJUSTE 2026-06-24: Corrigidos 2 bugs que travavam o submit
+        // Bug 1: if (var_concat = 1) fazia atribuição. Trocado pra == comparação
+        // Bug 2: $(':Input', referencias) seletor quebrado. Trocado pra $('#referencias :input')
         function myFunction() {
             var_concat = 0;
             var_b = '';
@@ -318,6 +319,7 @@
             var var_conversor = 0;
             var qtde_prod = 0;
             var qtde_refugo = 0;
+            arr = []; // AJUSTE 2026-06-24: zera array global pra não acumular lixo
             var_cod = $("#id_produto").val();
             $("#id_pro_in_codigo").val(var_cod);
              qtde_prod = $("#id_orl_re_qtdlote").val().replace(",", ".");
@@ -342,7 +344,8 @@
                 $("#id_pro_st_loteori").val('Indefinido');
                 $("#id_pro_st_fornecedor").val('Indefinido');
             }
-            $(':Input', referencias).each(function() {
+            // AJUSTE 2026-06-24: Seletor corrigido de $(':Input', referencias) pra $('#referencias :input')
+            $('#referencias :input').each(function() {
                 if ($(this).val()!= ''){
                     var_a = var_e;
                     if($(this).attr("type")=="hidden"){
@@ -351,7 +354,7 @@
                     }
                     else
                     {
-                        // AJUSTE 2026-06-24: == ao invés de = pra não travar
+                        // AJUSTE 2026-06-24: == ao invés de = pra não travar em loop
                         if (var_concat == 1){
                             arr.push(var_b+$(this).val());
                             var_c = var_b+$(this).val();
@@ -368,8 +371,8 @@
                         var_e = var_a+var_b+var_c+var_d;
                     }
                 }
-                $("#id_orl_st_referencia").val(var_e);
             });
+            $("#id_orl_st_referencia").val(var_e);
 
             if ($("#id_orl_st_referencia").val()=='') {
                 $("#id_orl_st_referencia").val('*');
@@ -377,7 +380,7 @@
         }
 
         // AJUSTE 2026-06-24: Remove alert. Trava duplo clique
-        $('#submit').on('click', function(e){
+        $('#submit').off('click').on('click', function(e){
             e.preventDefault();
             if (enviando) return false;
 
