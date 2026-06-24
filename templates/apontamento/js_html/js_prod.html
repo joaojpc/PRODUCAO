@@ -1,7 +1,6 @@
 {% block js %}
     <script>
-        // AJUSTE 2026-06-24: Variáveis e flags de controle
-        // Motivo: Prevenir duplo submit e travar botão durante processamento
+        // AJUSTE 2026-06-24: flag pra travar duplo submit
         var v_refugo;
         var v_http;
         var v_get;
@@ -13,7 +12,7 @@
         var v_padrao;
         let clicado = false;
         var v_ip = '192.168.0.24';
-        var enviando = false; // AJUSTE 2026-06-24: flag pra travar duplo clique
+        var enviando = false; // AJUSTE 2026-06-24: controla estado do submit
 
         $.fn.numpad.defaults.gridTpl = '<table class="table modal-content"></table>';
         $.fn.numpad.defaults.backgroundTpl = '<div class="modal-backdrop in"></div>';
@@ -34,20 +33,16 @@
 
         $(document).ready(function() {
             // AJUSTE 2026-06-24: Bloqueia Enter do leitor de código de barras
-            // Motivo: Leitor envia Enter automático e submetia antes de validar 21 dígitos no clean()
-            // Regra de negócio: intacta. Só bloqueia submit involuntário
+            // Motivo: Leitor envia Enter automático e submetia antes de validar 21 dígitos
             $('#formlotes, #formlotes input').on('keydown', function(e) {
                 if (e.key === 'Enter' || e.keyCode === 13) {
                     e.preventDefault();
-                    const inputs = $(this).closest('form').find(':input:visible:enabled');
-                    const nextInput = inputs.eq(inputs.index(this) + 1);
-                    if (nextInput.length) nextInput.focus();
                     return false;
                 }
             });
 
             // AJUSTE 2026-06-24: Reabilita botão se Django devolver erro de validação
-            // Motivo: Se clean() barrar 21 dígitos, usuário precisa corrigir e tentar de novo
+            // Motivo: Se clean() barrar, página recarrega com erro e botão precisa voltar
             if ($('.alert-danger,.invalid-feedback,.errorlist, ul.errorlist').length) {
                 enviando = false;
                 $('#submit').prop('disabled', false).text('Inserir lote');
@@ -105,6 +100,7 @@
         $("#id_ord_in_codigo").val(ordem);
         $("#id_fil_in_codigo").val(filial);
         $('#id_produto').change(function(){addInput_new(this)});
+
         populateBrand();
 
         function populateBrand() {
@@ -137,6 +133,7 @@
             });
         }
 
+        // ORIGINAL - MANTIDO COM CONVERSORES
         function addInput_new() {
             document.getElementById("caracteristica").style.visibility = "visible";
             document.getElementById("id_refugo").style.visibility = "hidden";
@@ -178,8 +175,7 @@
                     }
                 }
             }
-            // AJUSTE 2026-06-24: getItensConversores agora trata resposta vazia
-            // Motivo: Evitar Uncaught SyntaxError: Unexpected end of JSON input
+            //Busca conversores dos itens - ORIGINAL MANTIDO
             v_conv = getItensConversores();
             if (v_conv.length > 0) {
                 criatag_conv();
@@ -308,13 +304,13 @@
             $("#conversores").append(html)
         };
 
+        // ORIGINAL MANTIDO
         function remInput() {
            $("#referencias").remove();
            $("#conversores").remove();
         };
 
-        // FUNÇÃO ORIGINAL - NÃO ALTERADA
-        // AJUSTE 2026-06-24: Documentado. Regra de negócio preservada
+        // ORIGINAL - NÃO ALTERADA
         function myFunction() {
             var_concat = 0;
             var_b = '';
@@ -329,7 +325,7 @@
             var qtde_refugo = 0;
             var_cod = $("#id_produto").val();
             $("#id_pro_in_codigo").val(var_cod);
-            qtde_prod = $("#id_orl_re_qtdlote").val().replace(",", ".");
+             qtde_prod = $("#id_orl_re_qtdlote").val().replace(",", ".");
             $("#id_orl_re_qtdlote").val(qtde_prod);
             if ($("#id_orl_re_qtdrefugo").val()=='') {
                 $("#id_orl_re_qtdrefugo").val(qtde_refugo);
@@ -340,7 +336,7 @@
                 lote_origem = $("#id_ori_lote").val();
                 $("#id_pro_st_loteori").val(lote_origem);
                 $("#id_pro_st_fornecedor").val('Indefinido');
-            }
+            }	
             else if (v_tpo_st_codigo == 'OP001'){
                 lote_fornecedor = $("#id_ori_fornec").val();
                 lote_origem = $("#id_ori_lote").val();
@@ -384,9 +380,8 @@
             }
         }
 
-        // AJUSTE 2026-06-24: Submit controlado. Substitui alert por trava visual
-        // Motivo: Evitar duplo clique e submit involuntário. Try/catch evita trava infinita
-        // Regra de negócio: intacta. myFunction() roda igual antes do submit
+        // AJUSTE 2026-06-24: Remove alert. Trava duplo clique com Processando e reabilita no erro
+        // Motivo: Leitor dispara Enter. Se Django barrar no clean(), volta pra tela com botão ativo
         $('#submit').on('click', function(e){
             e.preventDefault();
             if (enviando) return false;
@@ -398,12 +393,10 @@
             var timeoutSeguranca = setTimeout(function(){
                 enviando = false;
                 btn.prop('disabled', false).text('Inserir lote');
-                alert('Tempo excedido. Tente novamente.');
             }, 10000);
 
             try {
                 myFunction();
-                $('#formlotes input[type=hidden]').prop('disabled', false);
                 clearTimeout(timeoutSeguranca);
                 $('#formlotes').submit();
             } catch (err) {
@@ -411,7 +404,6 @@
                 enviando = false;
                 btn.prop('disabled', false).text('Inserir lote');
                 console.error('Erro ao processar:', err);
-                alert('Erro ao processar. Verifique os campos.');
             }
         });
 
@@ -422,8 +414,6 @@
          $("#id_orl_re_qtdrefugo").val($(this).val());
         });
 
-        // AJUSTE 2026-06-24: Tratamento de resposta vazia/erro HTTP
-        // Motivo: API pode retornar vazio ou HTML de erro, quebrando JSON.parse
         function getAtributosReferencia(pRef,pAgrupa,pPai) {
             if (pPai > 0) {
                 v_http = 'http://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa+'&pai_rat='+pPai
@@ -432,63 +422,28 @@
                 v_http = 'http://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa
             }
             v_json = httpGet(v_http);
-            if (!v_json || v_json.trim() === '') {
-                console.warn('API referencia retornou vazio:', v_http);
-                return [];
-            }
-            try {
-                v_Return = JSON.parse(v_json);
-                return v_Return;
-            } catch(e) {
-                console.error('Erro ao parsear JSON referencia:', e, v_json);
-                return [];
-            }
+            v_Return = JSON.parse(v_json);
+            return v_Return;
         }
 
-        // AJUSTE 2026-06-24: Corrige Uncaught SyntaxError: Unexpected end of JSON input
-        // Motivo: API /app/itensOrdens/ retornando vazio ou HTML de erro
         function getItensConversores() {
             var v_pro_st_id;
-            var v_conversor = [];
+            var v_conversor;
             v_pro_st_id = dadosProduto(2);
             v_http = 'http://'+v_ip+'/app/itensOrdens/?pro_st_id='+v_pro_st_id
             v_json = httpGet(v_http);
-
-            if (!v_json || v_json.trim() === '') {
-                console.warn('API itensOrdens retornou vazio para:', v_pro_st_id);
-                return [];
-            }
-
-            try {
-                v_Return = JSON.parse(v_json);
-                for (var i = 0, len = v_Return.length; i < len; ++i) {
-                    if (v_Return[i].PRO_ST_CONVERSOR) {
-                        v_conversor = JSON.parse(v_Return[i].PRO_ST_CONVERSOR);
-                    }
-                }
-            } catch(e) {
-                console.error('Erro ao parsear JSON itensOrdens:', e, 'Resposta:', v_json);
-                return [];
+            v_Return = JSON.parse(v_json);
+            for (var i = 0, len = v_Return.length; i < len; ++i) {
+                v_conversor = JSON.parse(v_Return[i].PRO_ST_CONVERSOR);
             }
             return v_conversor;
         }
 
-        // AJUSTE 2026-06-24: Tratamento de status HTTP
-        // Motivo: Evitar parsear HTML de erro como JSON
         function httpGet(theUrl) {
             let xmlHttpReq = new XMLHttpRequest();
-            try {
-                xmlHttpReq.open("GET", theUrl, false);
-                xmlHttpReq.send(null);
-                if (xmlHttpReq.status!== 200) {
-                    console.error('HTTP erro:', xmlHttpReq.status, theUrl);
-                    return '';
-                }
-                return xmlHttpReq.responseText;
-            } catch(e) {
-                console.error('Erro na requisição:', theUrl, e);
-                return '';
-            }
+            xmlHttpReq.open("GET", theUrl, false);
+            xmlHttpReq.send(null);
+            return xmlHttpReq.responseText;
         }
 
         function dadosProduto(value){
