@@ -1,7 +1,7 @@
 {% block js %}
     <script>
-        // AJUSTE 2026-06-24: Trava duplo clique + correção de trava infinita
-        // Motivo: Botão ficava em "Processando..." se myFunction() quebrasse ou submit falhasse
+        // AJUSTE 2026-06-24: Correção de trava + tratamento JSON vazio da API
+        // Motivo: getItensConversores quebrava com JSON.parse em resposta vazia/erro
         var v_refugo;
         var v_http;
         var v_get;
@@ -33,7 +33,6 @@
         defineVariaveis();
 
         $(document).ready(function() {
-            // AJUSTE 2026-06-24: Bloqueia Enter do leitor
             $('#formlotes').on('keydown', function(e) {
                 if (e.key === 'Enter' || e.keyCode === 13) {
                     e.preventDefault();
@@ -42,8 +41,6 @@
                 }
             });
 
-            // AJUSTE 2026-06-24: Reabilita sempre que a página carrega com erro do Django
-            // Verifica qualquer elemento de erro comum do Django
             if ($('.alert-danger,.invalid-feedback,.errorlist, ul.errorlist').length) {
                 enviando = false;
                 $('#submit').prop('disabled', false).text('Inserir lote');
@@ -174,6 +171,7 @@
                     }
                 }
             }
+            // AJUSTE 2026-06-24: getItensConversores agora retorna [] se API falhar
             v_conv = getItensConversores();
             if (v_conv.length > 0) {
                 criatag_conv();
@@ -308,7 +306,6 @@
         };
 
         function myFunction() {
-            // FUNÇÃO ORIGINAL - NÃO ALTERADA
             var_concat = 0;
             var_b = '';
             var var_a = '';
@@ -377,8 +374,6 @@
             }
         }
 
-        // AJUSTE 2026-06-24: Submit com proteção contra trava infinita
-        // Motivo: Try/catch garante reabilitar se myFunction() falhar. Timeout de segurança se submit travar
         $('#submit').on('click', function(e){
             e.preventDefault();
             if (enviando) return false;
@@ -387,7 +382,6 @@
             var btn = $(this);
             btn.prop('disabled', true).text('Processando...');
 
-            // Timeout de segurança: se em 10s não submeteu, reabilita
             var timeoutSeguranca = setTimeout(function(){
                 enviando = false;
                 btn.prop('disabled', false).text('Inserir lote');
@@ -398,7 +392,7 @@
                 myFunction();
                 $('#formlotes input[type=hidden]').prop('disabled', false);
                 clearTimeout(timeoutSeguranca);
-                $('#formlotes').submit(); // submit nativo, sem off()
+                $('#formlotes').submit();
             } catch (err) {
                 clearTimeout(timeoutSeguranca);
                 enviando = false;
@@ -416,6 +410,7 @@
         });
 
         function getAtributosReferencia(pRef,pAgrupa,pPai) {
+            // AJUSTE 2026-06-24: Tratamento de resposta vazia/erro
             if (pPai > 0) {
                 v_http = 'http://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa+'&pai_rat='+pPai
             }
@@ -423,28 +418,62 @@
                 v_http = 'http://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa
             }
             v_json = httpGet(v_http);
-            v_Return = JSON.parse(v_json);
-            return v_Return;
+            if (!v_json || v_json.trim() === '') {
+                console.warn('API referencia retornou vazio:', v_http);
+                return [];
+            }
+            try {
+                v_Return = JSON.parse(v_json);
+                return v_Return;
+            } catch(e) {
+                console.error('Erro ao parsear JSON referencia:', e, v_json);
+                return [];
+            }
         }
 
         function getItensConversores() {
+            // AJUSTE 2026-06-24: Corrige Uncaught SyntaxError: Unexpected end of JSON input
+            // Motivo: API /app/itensOrdens/ retornando vazio ou HTML de erro
             var v_pro_st_id;
-            var v_conversor;
+            var v_conversor = [];
             v_pro_st_id = dadosProduto(2);
             v_http = 'http://'+v_ip+'/app/itensOrdens/?pro_st_id='+v_pro_st_id
             v_json = httpGet(v_http);
-            v_Return = JSON.parse(v_json);
-            for (var i = 0, len = v_Return.length; i < len; ++i) {
-                v_conversor = JSON.parse(v_Return[i].PRO_ST_CONVERSOR);
+
+            if (!v_json || v_json.trim() === '') {
+                console.warn('API itensOrdens retornou vazio para:', v_pro_st_id);
+                return [];
+            }
+
+            try {
+                v_Return = JSON.parse(v_json);
+                for (var i = 0, len = v_Return.length; i < len; ++i) {
+                    if (v_Return[i].PRO_ST_CONVERSOR) {
+                        v_conversor = JSON.parse(v_Return[i].PRO_ST_CONVERSOR);
+                    }
+                }
+            } catch(e) {
+                console.error('Erro ao parsear JSON itensOrdens:', e, 'Resposta:', v_json);
+                return [];
             }
             return v_conversor;
         }
 
         function httpGet(theUrl) {
+            // AJUSTE 2026-06-24: Tratamento de status HTTP
             let xmlHttpReq = new XMLHttpRequest();
-            xmlHttpReq.open("GET", theUrl, false);
-            xmlHttpReq.send(null);
-            return xmlHttpReq.responseText;
+            try {
+                xmlHttpReq.open("GET", theUrl, false);
+                xmlHttpReq.send(null);
+                if (xmlHttpReq.status!== 200) {
+                    console.error('HTTP erro:', xmlHttpReq.status, theUrl);
+                    return '';
+                }
+                return xmlHttpReq.responseText;
+            } catch(e) {
+                console.error('Erro na requisição:', theUrl, e);
+                return '';
+            }
         }
 
         function dadosProduto(value){
