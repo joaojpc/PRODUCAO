@@ -613,7 +613,7 @@ def reglote(request):
                 print(v_retorno)
                 try:
                     lote_ori = v_retorno.get('pro_st_loteori', '')
-                    request.session['origem'] = lote_ori[8:16] if len(lote_ori) == 22 else lote_ori
+                    request.session['origem'] = int(lote_ori[8:16]) if len(lote_ori) == 22 else lote_ori
 
                 except:
                     pass
