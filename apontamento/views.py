@@ -573,7 +573,7 @@ def reglote(request):
     v_lista.append(request.session['ord_in_codigo'])
     v_lista.append(request.session['fil_in_codigo'])
     v_lista.append(request.session['ctl_in_codigo'])
-    v_lista.append(request.session['cliente'])    
+    v_lista.append(request.session['cliente'])
     try:
         v_lista.append(request.session['origem'])
     except:
@@ -581,30 +581,30 @@ def reglote(request):
     try:
         v_lista.append(request.session['fornecedor'])
     except:
-        v_lista.append('')        
+        v_lista.append('')
     v_df = True
     v_logado = True
     lote_form = RegLotForm()
-    v_form = {'lote_form': lote_form}    
+    v_form = {'lote_form': lote_form}
     if v_logado:
         v_prep = prep_producao()
         #valida situação da ordem para exibir ou não o formulário de registro de lote;
         '''situacao_ordem = v_prep.valida_situacao_ordem(v_session)
         for s_ordem in situacao_ordem:
-            if s_ordem['situacao'] != 'AB':
+            if s_ordem['situacao']!= 'AB':
                 return redirect('menu')'''
         if pro_st_descricao is None:
             pay_item = {'ordem': v_lista[0],'filial': v_lista[1],'retorno': 'descricao'}
             pro_st_descricao = v_prep.get_dadosOrdem(pay_item)
             request.session['pro_st_descricao'] = pro_st_descricao
         dados= v_prep.prepara_apontamento(v_lista)
-        dados.update(v_form)        
+        dados.update(v_form)
         v_ordem = {'list_ordem':json.loads(dados['ordem'])}
         lista = {'lista':dados['lista']}
         v_ord_infoadic = {'ord_infoadic':dados['ord_infoadic']}
-        v_printer =  {'equipamento':dados['equipamento']}
+        v_printer = {'equipamento':dados['equipamento']}
         v_maquina = {'maquina':dados['maquina']}
-        template = 'apontamento/reglote.html'        
+        template = 'apontamento/reglote.html'
         if request.method == 'POST':
             lote_form = RegLotForm(data=request.POST)
             #try:
@@ -613,8 +613,8 @@ def reglote(request):
                 print(v_retorno)
                 try:
                     lote_ori = v_retorno.get('pro_st_loteori', '')
-                    request.session['origem']  = lote_ori[8:16] if len(lote_ori) == 22 else lote_ori
-                    
+                    request.session['origem'] = lote_ori[8:16] if len(lote_ori) == 22 else lote_ori
+
                 except:
                     pass
                 try:
@@ -633,16 +633,23 @@ def reglote(request):
                                 v_refugo = lote_form.cleaned_data['orl_re_qtdrefugo'],
                                 v_origem = lote_form.cleaned_data['pro_st_loteori'],
                                 v_fornecedor = lote_form.cleaned_data['pro_st_fornecedor']
-                                )                
+                                )
                 v_aponta.update(v_ordem)
                 v_aponta.update(lista)
                 v_aponta.update(v_ord_infoadic)
                 v_aponta.update(v_printer)
                 v_aponta.update(v_maquina)
-                #v_aponta.update(v_conv)                
+                #v_aponta.update(v_conv)
                 v_sequencia = v_prep.incluir_apontamento(v_aponta)
                 request.session['apt_in_sequencia'] = v_sequencia
                 return redirect('incluir_lote')
+
+            # AJUSTE 2026-06-24: Retorno para form inválido
+            # Motivo: Quando clean() levanta ValidationError, is_valid()=False não tinha return
+            # Resultava em None → Erro 500. Agora renderiza template com form.errors
+            # Não altera regra de negócio. Apenas garante exibição do erro "Leitura Inválida"
+            dados['lote_form'] = lote_form
+            return render(request, template, dados)
         else:
             return render(request, template, dados)
 

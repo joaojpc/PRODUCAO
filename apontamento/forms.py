@@ -213,7 +213,7 @@ class RegLotForm(forms.Form):
         v_qtde = int(cleaned_data.get("orl_re_qtdlote") or 0)  # evita int(None)
 
         dados = {"ordem": ordem, 'filial': filial, 'retorno': 'tpo'}        
-        '''v_ini = prep_producao()
+        v_ini = prep_producao()
         v_tpo = v_ini.get_dadosOrdem(dados)
         
         if v_tpo == 'OP001':
@@ -245,7 +245,7 @@ class RegLotForm(forms.Form):
                         break
             
             if lote_refer == '' and v_validarefer:
-                raise forms.ValidationError("Campo referência é obrigatório!")'''
+                raise forms.ValidationError("Campo referência é obrigatório!")
 class ListLotForm(forms.Form):
     lote_st_sequencial  = forms.CharField(required=False,label='Lote')
 
