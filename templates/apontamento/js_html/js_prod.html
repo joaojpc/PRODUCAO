@@ -1,6 +1,5 @@
 {% block js %}
     <script>
-        // AJUSTE 2026-06-24: flag pra travar duplo submit
         var v_refugo;
         var v_http;
         var v_get;
@@ -12,7 +11,7 @@
         var v_padrao;
         let clicado = false;
         var v_ip = '192.168.0.24';
-        var enviando = false; // AJUSTE 2026-06-24: controla estado do submit
+        var enviando = false; // AJUSTE 2026-06-24
 
         $.fn.numpad.defaults.gridTpl = '<table class="table modal-content"></table>';
         $.fn.numpad.defaults.backgroundTpl = '<div class="modal-backdrop in"></div>';
@@ -32,8 +31,7 @@
         defineVariaveis();
 
         $(document).ready(function() {
-            // AJUSTE 2026-06-24: Bloqueia Enter do leitor de código de barras
-            // Motivo: Leitor envia Enter automático e submetia antes de validar 21 dígitos
+            // AJUSTE 2026-06-24: Bloqueia Enter do leitor
             $('#formlotes, #formlotes input').on('keydown', function(e) {
                 if (e.key === 'Enter' || e.keyCode === 13) {
                     e.preventDefault();
@@ -41,8 +39,7 @@
                 }
             });
 
-            // AJUSTE 2026-06-24: Reabilita botão se Django devolver erro de validação
-            // Motivo: Se clean() barrar, página recarrega com erro e botão precisa voltar
+            // AJUSTE 2026-06-24: Reabilita botão se Django devolver erro
             if ($('.alert-danger,.invalid-feedback,.errorlist, ul.errorlist').length) {
                 enviando = false;
                 $('#submit').prop('disabled', false).text('Inserir lote');
@@ -133,7 +130,6 @@
             });
         }
 
-        // ORIGINAL - MANTIDO COM CONVERSORES
         function addInput_new() {
             document.getElementById("caracteristica").style.visibility = "visible";
             document.getElementById("id_refugo").style.visibility = "hidden";
@@ -175,7 +171,6 @@
                     }
                 }
             }
-            //Busca conversores dos itens - ORIGINAL MANTIDO
             v_conv = getItensConversores();
             if (v_conv.length > 0) {
                 criatag_conv();
@@ -304,13 +299,13 @@
             $("#conversores").append(html)
         };
 
-        // ORIGINAL MANTIDO
         function remInput() {
            $("#referencias").remove();
            $("#conversores").remove();
         };
 
-        // ORIGINAL - NÃO ALTERADA
+        // AJUSTE 2026-06-24: Corrigido bug de loop infinito que travava o submit
+        // Motivo: if (var_concat = 1) fazia atribuição. Troquei pra == comparação
         function myFunction() {
             var_concat = 0;
             var_b = '';
@@ -356,7 +351,8 @@
                     }
                     else
                     {
-                        if (var_concat = 1){
+                        // AJUSTE 2026-06-24: == ao invés de = pra não travar
+                        if (var_concat == 1){
                             arr.push(var_b+$(this).val());
                             var_c = var_b+$(this).val();
                             var_concat = 0;
@@ -380,8 +376,7 @@
             }
         }
 
-        // AJUSTE 2026-06-24: Remove alert. Trava duplo clique com Processando e reabilita no erro
-        // Motivo: Leitor dispara Enter. Se Django barrar no clean(), volta pra tela com botão ativo
+        // AJUSTE 2026-06-24: Remove alert. Trava duplo clique
         $('#submit').on('click', function(e){
             e.preventDefault();
             if (enviando) return false;
