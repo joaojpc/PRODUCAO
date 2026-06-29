@@ -1,0 +1,490 @@
+{% block js %}
+    <script>
+        var v_ip = '192.168.0.24';
+        function getSO() {
+            const ua = navigator.userAgent.toLowerCase();
+            const pf = navigator.platform.toLowerCase();
+            
+            if (ua.includes('win') || pf.includes('win')) return 'win';
+            if (ua.includes('mac') || pf.includes('mac')) return 'Mac';
+            if (ua.includes('linux') && !ua.includes('android')) return 'Linux';
+            if (ua.includes('android')) return 'Android';
+            if (ua.includes('iphone') || ua.includes('ipad')) return 'iOS';
+            
+            return 'Desconhecido';
+        }
+
+        const so = getSO();
+        if (so === 'win') {
+            // faz algo só no Windows
+            v_ip = '127.0.0.1:8000';
+        }                   
+        var v_refugo;
+        var v_http;
+        var v_get;
+        var v_json;
+        var v_args;
+        var v_Return;
+        var mydata;
+        var v_texto;
+        var v_padrao;
+        let clicado = false;        
+        
+        $.fn.numpad.defaults.gridTpl = '<table class="table modal-content"></table>';
+		$.fn.numpad.defaults.backgroundTpl = '<div class="modal-backdrop in"></div>';
+		$.fn.numpad.defaults.displayTpl = '<input type="text" class="form-control" />';
+		$.fn.numpad.defaults.buttonNumberTpl =  '<button type="button" class="btn btn-default"></button>';
+		$.fn.numpad.defaults.buttonFunctionTpl = '<button type="button" class="btn" style="width: 100%;"></button>';
+		$.fn.numpad.defaults.onKeypadCreate = function(){$(this).find('.done').addClass('btn-primary');};
+		//$('[data-toggle="tooltip"]').tooltip();
+        //$('[data-toggle="popover"]').popover();
+        //  $('#id_orl_re_qtdlote').keynumpad({
+        //     trigger:  '#id_orl_re_qtdlote'
+        //     }
+        //  );
+        var tipo_ordem = "{{tipo_op}}";
+        var filial = "{{fil_in_codigo}}";
+        var dados_ordem = {{ordem | safe }};
+        var item_pai;
+        var v_tpo_st_codigo;
+        var v_resumoordem;
+        var lote_fornecedor = "{{fornecedor}}";
+        var lote_origem = "{{origem}}";
+
+
+        defineVariaveis();
+        $(document).ready(function() {
+            // Previne submit com Enter em qualquer input
+            $('#formlotes, #formlotes input').on('keydown', function(e) {
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    e.preventDefault();
+                    // Opcional: pula pro próximo campo ao invés de travar
+                    const inputs = $(this).closest('form').find(':input:visible:enabled');
+                    const nextInput = inputs.eq(inputs.index(this) + 1);
+                    if (nextInput.length) nextInput.focus();
+                    return false;
+                }
+            });
+            //$('#id_orl_re_qtdlote').numpad();
+            $('#qtdeloteprod-btn').numpad({
+		      target: $('#numpadqtdeprod')
+		    });
+            $('#qtdeloterefugo-btn').numpad({
+		      target: $('#numpadqtderefugo')
+		    });
+            v_refugo = 0;        
+            $("#numpadqtderefugo").val(v_refugo);
+            if (tipo_ordem == 'S'){
+                $("#id_ori_lote").val(lote_origem);
+            }
+            if (v_tpo_st_codigo == 'OP001'){            
+                $("#id_ori_fornec").val(lote_fornecedor);
+                $("#id_ori_lote").val(lote_origem);
+            }
+            //$("#id_ori_lote").val(0);            
+            //addConversores();
+            //v_get = getAtributosReferencia(45,'S',0);
+            //alert(v_get);
+        });
+	 function criatagitem() {
+            var div = $("<div />", {
+                id: 'Produtos',
+                title: 'Produtos',
+                class: 'form-group'
+            });
+            $("#formlotes").append(div);
+        };
+	//criatagitem();
+	criabtprod('produto');
+    criarBotoes(v_resumoordem);
+	criaButton();
+        var v_ref_id;
+        var var_concat;
+        var var_cod_prod;
+        var var_nome_prod;
+        var v_refpadrao;
+        var arr = [];
+        var count = 0;
+        var var_name;
+        var var_type;
+        var var_nmId;
+        var v_itn_id;
+        var v_parent_id;
+        var v_ref_id;
+        var v_lista;
+        var sel_key;
+        var sel_value;
+        var var_input;
+        litens = {{lista | safe}};
+        ordem = {{ord_in_codigo | safe}};
+        $("#id_ord_in_codigo").val(ordem);
+        $("#id_fil_in_codigo").val(filial);
+        $('#id_produto').change(function(){addInput_new(this)});
+	    //criar o botão produto;
+        populateBrand();
+        function populateBrand() {
+            $('#id_produto').empty();
+            $("#id_produto").append('<option value="" disabled selected>Selecionar o item</option>');
+            $.each(litens, function(){
+                $.each(this, function (name, value) {
+                   if (name == 'pro_in_codigo') {
+                      var_cod_prod = value;
+                   };
+                   if (name == 'pro_st_descricao') {
+                      var_nome_prod = value;
+                   };
+                });
+                $('#id_produto').append( '<option value="'+var_cod_prod+'">'+var_cod_prod+' - '+var_nome_prod+'</option>' );
+            });
+        }
+        function defineVariaveis() {
+            $.each(dados_ordem, function(key, value){
+                if (key == 'pro_in_codigo') {
+                   item_pai = value;
+                }
+                if (key == 'tpo_st_codigo') {                   
+                   v_tpo_st_codigo = value;                   
+                }
+                if (key == 'total_apontamento') {                   
+                   v_resumoordem = value;                   
+                }
+            });
+        }
+        function addInput_new() {
+            // Desabilita apontamento de refugo para subprodutos;
+            document.getElementById("caracteristica").style.visibility = "visible";
+            document.getElementById("id_refugo").style.visibility = "hidden";
+            document.querySelector('#numpadqtderefugo').disabled = true;
+            document.querySelector('#qtdeloterefugo-btn').disabled = true;
+            if ($('#id_produto').val() == item_pai ) {
+                document.getElementById("id_refugo").style.visibility = "visible";
+                document.querySelector('#numpadqtderefugo').disabled = false;
+                document.querySelector('#qtdeloterefugo-btn').disabled = false;
+            }
+            remInput();
+            // Novo trecho a partir de 13/06/2023
+            var v_referencia;
+            var v_ref;
+            var v_atributos;
+            var v_conv;
+            v_ref = dadosProduto(1);
+            var v_descricaoRef;
+            v_refpadrao = dadosProduto(3);
+            if (v_ref > 0) {
+                criatag();
+                v_referencia = getAtributosReferencia(v_ref,'S',0);
+                //alert('Passou aqui linha 138 - Referência padrão: '+v_referencia.length);
+                for (var i = 0, len = v_referencia.length; i < len; ++i) {
+                    v_descricaoRef = v_referencia[i].RAT_ST_DESCRICAO.replaceAll(' ', '_');
+                    if (v_referencia[i].RAT_CH_TIPO == 'L') {
+                        criainput(v_descricaoRef, v_referencia[i].RAT_VALUE);
+                    }
+                    else
+                    {
+                        criaselect(v_descricaoRef);
+                        //$('#'+var_nmId).append('<option value="" disabled selected>Selecionar o atributo</option>');
+                        //Popular componentes
+                        v_atributos = getAtributosReferencia(v_ref,'N',v_referencia[i].RAT_IN_CODIGO);
+                        for (var j = 0, leng = v_atributos.length; j < leng; ++j) {
+                            if (v_refpadrao.includes(v_atributos[j].RAT_VALUE)){
+                                $('#'+var_nmId).append( '<option selected value="'+v_atributos[j].RAT_VALUE+'">'+v_atributos[j].RAT_VALUE+' - '+v_atributos[j].RAT_ST_DESCRICAO+'</option>' );
+                            }
+                            else {
+                                $('#'+var_nmId).append( '<option value="'+v_atributos[j].RAT_VALUE+'">'+v_atributos[j].RAT_VALUE+' - '+v_atributos[j].RAT_ST_DESCRICAO+'</option>' );
+                          }
+                        }
+                    }
+
+                }
+
+            }
+            //Busca conversores dos itens
+            v_conv = getItensConversores();
+            if (v_conv.length > 0) {
+                criatag_conv();
+                criaselectConv('Conversores');
+                $("#id_Conversores").append('<option value="" disabled selected>Selecionar o conversor</option>');
+                for (var i = 0, len = v_conv.length; i < len; ++i) {
+                    $('#id_Conversores').append( '<option selected value="'+v_conv[i].UNI_ST_FORMULA+'">'+v_conv[i].FMT_ST_NOME+' ('+v_conv[i].UNI_ST_FORMULA+')</option>' );
+                }
+                if (v_conv.length == 1){
+                    document.getElementById("id_Conversores").selectedIndex = "1";
+                }
+                else {
+                    document.getElementById("id_Conversores").selectedIndex = "0";
+                }
+            }
+        };
+        function addConversores() {
+             var itn;
+            $.each(conversores, function(key, value){
+                //alert(key);
+                itn = value;
+                //alert(itn.FMT_ST_NOME);
+                //$.each(itn, function(key, value){
+                //     alert(key)
+                //})
+
+            })
+        };
+
+        function criatag() {
+            var div = $("<div />", {
+                id: 'referencias',
+                title: 'estilo',
+                class: 'module aligned'
+            });
+            $("#caracteristica").append(div);
+        };
+        function criatag_conv() {
+            var div = $("<div />", {
+                id: 'conversores',
+                title: 'estilo',
+                class: 'module aligned'
+            });
+            $("#caracteristica").append(div);
+        };
+        function criainput(nome, valor,atributo) {
+            var_nome = 'id_'+nome
+            var html  = '<p><label for=\"name\">'+nome+'</label>';
+            html += '<input type="hidden" id="hiddenField" value='+valor+' class="hiddenField"/> '
+            html += '<input type="text" id="id_'+nome+'" class="select-style" style="text-align:left" size="20" value="" placeholder=""/>';
+            html += '<button class="btn btn-default" id="id_'+nome+'-btn" type="button"><i class="glyphicon glyphicon-th"></i></button>';
+            html += '</span></p>';
+            $("#referencias").append(html)
+                if (var_nome=='id_Largura') {
+                    $('#id_Largura-btn').numpad({
+		                target: $('#id_Largura')
+		            });
+		        }
+		        if (var_nome=='id_ComprImento') {
+                    $('#id_ComprImento-btn').numpad({
+		                target: $('#id_ComprImento')
+		            });
+		        }
+	    };
+	    function criaButton() {
+	        var html = '';
+	        if (tipo_ordem == 'S'){
+                html  = '<div class="form-group">';
+                html += '<label for="id_ori_lote">Origem:</label>';
+                html += '<input type="text" name="dem_st_lote" maxlength="22" class="form-control" required="false" id="id_ori_lote">';
+                html += '</div>';
+            }                
+                if (v_tpo_st_codigo == 'OP001'){
+                html  = '<div class="form-group">';
+                html += '<label for="id_ori_lote">Origem:</label>';
+                html += '<input type="text" name="dem_st_lote" maxlength="22" class="form-control" required="false" id="id_ori_lote">';                                
+                html += '<label for="id_ori_fornec">Fornecedor:</label>';
+                html += '<input type="text" name="ori_st_fornec" maxlength="30" class="form-control" required="false" id="id_ori_fornec">';
+                html += '</div>';
+            }
+            html += '<label for="numpadButton">Quantidade do Lote:</label>';
+            html += '<div class="form-group input-group">';
+            html += '<input type="number" id="numpadqtdeprod" step="0.001" class="form-control" placeholder="Enter a number" aria-describedby="numpadButton-btn" required>';
+            html += '<span class="input-group-btn">';
+            html += '<button class="btn btn-default" id="qtdeloteprod-btn" type="button"><i class="glyphicon glyphicon-th"></i></button>';
+            html += '</span>';
+            html += '</div>';
+            html += '<div id="id_refugo">';
+            html += '<label for="numpadButton">Quantidade Refugo:</label>';
+            html += '<div class="form-group input-group">';
+            html += '<input type="number" id="numpadqtderefugo" step="0.001" class="form-control" placeholder="Enter a number" aria-describedby="numpadButton-btn" required>';
+            html += '<span class="input-group-btn">';
+            html += '<button class="btn btn-default" id="qtdeloterefugo-btn" type="button"><i class="glyphicon glyphicon-th"></i></button>';
+            html += '</span>';
+            html += '</div>';
+            html += '</div>';
+            $("#Itens").append(html)
+	    };
+	    function criabtprod(args) {
+	        var_nmId = 'id_'+args;
+	        var_IdVal = '#id_'+args;
+            var html  = '<p><label for=\"name\">'+args+'</label>';
+            //html += '<div class="form-group input-group">';
+	    html += '<select name='+args+' id="id_'+args+'" step="any" class="form-control form-control is-invalid" required>';
+            html += '<option value="" disabled selected>Selecionar o item</option>';
+            html += '</select> </p>';
+	    //html += '</div>';
+            //$(".form-group").append(html)
+	    $("#Itens").append(html)
+	    };
+
+	    function criaselect(args) {
+	        var_nmId = 'id_'+args;
+	        var_IdVal = '#id_'+args;
+            var html  = '<p><label for=\"name\">'+args+'</label>';
+            html += '<select name='+args+' id="id_'+args+'" step="any" class="form-control is-invalid" required>';
+            if (v_refpadrao == 'Indefinido'){
+               html += '<option value="" disabled selected>Selecionar o atributo</option>';
+            }
+            html += '</select> </p>';
+            $("#referencias").append(html)
+	    };
+	    function criaselectConv(args) {
+	        var_nmId = 'id_'+args;
+	        var_IdVal = '#id_'+args;
+            var html  = '<p><label for=\"name\">'+args+'</label>';
+            html += '<select name='+args+' id="id_'+args+'" step="any" class="form-control is-invalid" required>';
+            html += '</select> </p>';
+            $("#conversores").append(html)
+	    };
+
+        function remInput() {
+           $("#referencias").remove();
+           $("#conversores").remove();
+		};
+	function myFunction() {
+            var_concat = 0;
+            var_b = '';
+            var var_a = '';
+            var var_b = '';
+            var var_c = '';
+            var var_d = ';';
+            var var_e = '';
+	    var var_cod = 0;
+            var var_conversor = 0;
+	    var qtde_prod = 0;
+	    var qtde_refugo = 0;
+            var_cod = $("#id_produto").val();
+            //var_conversor = $("#id_Conversores").val();
+            //alert(var_conversor);
+	        $("#id_pro_in_codigo").val(var_cod);
+	         qtde_prod = $("#id_orl_re_qtdlote").val().replace(",", ".");
+	        $("#id_orl_re_qtdlote").val(qtde_prod);
+	        if ($("#id_orl_re_qtdrefugo").val()=='') {
+                $("#id_orl_re_qtdrefugo").val(qtde_refugo);
+            }
+	        qtde_refugo = $("#id_orl_re_qtdrefugo").val().replace(",", ".");
+	        $("#id_orl_re_qtdrefugo").val(qtde_refugo);
+	        if (tipo_ordem == 'S'){
+	            lote_origem = $("#id_ori_lote").val();
+	            $("#id_pro_st_loteori").val(lote_origem);
+                    $("#id_pro_st_fornecedor").val('Indefinido');
+	        }	        
+                else if (v_tpo_st_codigo == 'OP001'){
+	            lote_fornecedor = $("#id_ori_fornec").val();
+                    lote_origem = $("#id_ori_lote").val();
+	            $("#id_pro_st_loteori").val(lote_origem);
+	            $("#id_pro_st_fornecedor").val(lote_fornecedor);
+	        }
+	        else {
+                    $("#id_pro_st_loteori").val('Indefinido');
+	            $("#id_pro_st_fornecedor").val('Indefinido');
+	        }
+            $(':Input', referencias).each(function() {
+                if ($(this).val() != ''){
+                    var_a = var_e;
+                    if($(this).attr("type")=="hidden"){
+                        var_b = $(this).val();
+                        var_concat = 1;
+                    }
+                    else
+                    {
+                        if (var_concat == 1){
+                            arr.push(var_b+$(this).val());
+                            var_c = var_b+$(this).val();
+                            var_concat = 0;
+                            var_b = '';
+                        }
+                        else
+                        {
+                            var_b = '';
+                            arr.push($(this).val());
+                            var_c = $(this).val();
+                            var_concat = 0;
+                        }
+                        var_e = var_a+var_b+var_c+var_d;
+                    }
+                }
+                $("#id_orl_st_referencia").val(var_e);
+            });
+
+	        if ($("#id_orl_st_referencia").val()=='') {
+                $("#id_orl_st_referencia").val('*');
+            }
+            //alert("Valor original: " + $("#id_orl_re_qtdlote").val());
+            //alert("Valor com virgula: " + $("#id_orl_re_qtdlote").val().replace(",", "."));
+            //var qtde_refugo= 0;
+        }
+        $('#submit').click(function(){
+            alert('Aguarde a conclusão do processo de inserção do lote!');
+            myFunction(); 
+            //document.getElementById("submit").disabled = true;
+            /*if (!clicado) {
+               clicado = true;
+            }*/
+            // código a ser executado                        
+            //const timeoutId = setTimeout(() => {
+            //document.getElementById("submit").disabled = false;
+            //}, 2000);
+            //clicado = false;            
+        });
+        $('#numpadqtdeprod').on('change', function() {
+         $("#id_orl_re_qtdlote").val($(this).val());
+        });
+        $('#numpadqtderefugo').on('change', function() {
+         $("#id_orl_re_qtdrefugo").val($(this).val());
+        });
+        function getAtributosReferencia(pRef,pAgrupa,pPai) {
+            //Busca o cadastro de atributos/referencias
+            if (pPai > 0) {
+                v_http = 'http://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa+'&pai_rat='+pPai
+            }
+            else {
+                v_http = 'http://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa
+            }
+            v_json = httpGet(v_http);
+            v_Return = JSON.parse(v_json);
+            return v_Return;
+        }
+        //***** Busca os conversores do item *****
+        function getItensConversores() {
+            var v_pro_st_id;
+            var v_conversor;
+            v_pro_st_id = dadosProduto(2);
+            v_http = 'http://'+v_ip+'/app/itensOrdens/?pro_st_id='+v_pro_st_id
+            v_json = httpGet(v_http);
+            v_Return = JSON.parse(v_json);
+            for (var i = 0, len = v_Return.length; i < len; ++i) {
+                v_conversor = JSON.parse(v_Return[i].PRO_ST_CONVERSOR);
+            }
+            return v_conversor;
+        }
+        function httpGet(theUrl) {
+            let xmlHttpReq = new XMLHttpRequest();
+            xmlHttpReq.open("GET", theUrl, false);
+            xmlHttpReq.send(null);
+            return xmlHttpReq.responseText;
+        }    
+        //***** Busca dados do produto *****
+        function dadosProduto(value){
+            var v_retorno;
+            for (var i = 0, len = litens.length; i < len; ++i) {
+                if (litens[i].pro_in_codigo == $("#id_produto").val()) {
+                    if (value == 1) {
+                        //***** CARACTERISTICAS DO ITEM *****
+                        v_retorno = litens[i].rfc_in_codigo;
+                    }
+                    if (value == 2) {
+                        //***** ID DO ITEM *****
+                        v_retorno = litens[i].pro_st_id;
+                    }
+                    if (value == 3) {
+                        //***** CARACTERÍSTICAS PADRÃO DO ITEM *****
+                        v_retorno = litens[i].mvs_st_referencia;
+                    }
+                }
+            }
+            return v_retorno
+        }
+        function criarBotoes(objeto) {
+        const botoesDiv = document.getElementById('botoes_exibir');
+        botoesDiv.innerHTML = `
+            <span class="btn btn-info">Total Produzido: ${objeto.total_ordem}</span>
+            <span class="btn btn-success">Total Demanda: ${objeto.total_demanda}</span>
+            <span class="btn btn-warning">Saldo Demanda: ${objeto.saldo_demanda}</span>
+        `;
+        }
+    </script>
+{% endblock %}

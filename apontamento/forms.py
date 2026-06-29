@@ -204,7 +204,6 @@ class RegLotForm(forms.Form):
             self.fields['itens'].choices = []'''
     def clean(self):
         cleaned_data = super().clean()
-        
         v_origem = cleaned_data.get("pro_st_loteori") or ''  # evita TypeError no len()
         ordem = cleaned_data.get("ord_in_codigo")
         filial = cleaned_data.get("fil_in_codigo")
@@ -214,19 +213,21 @@ class RegLotForm(forms.Form):
 
         dados = {"ordem": ordem, 'filial': filial, 'retorno': 'tpo'}        
         v_ini = prep_producao()
-        v_tpo = v_ini.get_dadosOrdem(dados)
+        v_tpo = v_ini.get_dadosOrdem(dados)    
         
         if v_tpo == 'OP001':
             tam = len(v_origem)
+            if '/' in v_origem: # Se tiver barra, aceita sem validar
+                cleaned_data['origem_extraida'] = v_origem
             # tua regra: invalida se >8 e <22  OU  >22
-            if (tam > 8 and tam < 22) or (tam > 22):
+            elif (tam > 8 and tam < 22) or (tam > 22):
                 raise forms.ValidationError("Leitura Inválida")
-            
-            if tam >= 16:
+
+            elif tam >= 16:
                 cleaned_data['origem_extraida'] = v_origem[8:16]
             else:
-                cleaned_data['origem_extraida'] = ''
-        
+                cleaned_data['origem_extraida'] = v_origem
+    
             # 1. Valida quantidade > 5 pra OP001
             if v_qtde > 5:
                 raise forms.ValidationError("Favor conferir a quantidade apontada!")

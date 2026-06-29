@@ -154,17 +154,20 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 
 GRAVAR_LOCAL = True
-URL_LOCAL = '127.0.0.1:8000'
+URL_LOCAL = '192.168.0.24'
 URL_REMOTO = '192.168.0.24'
 URL_PRODUCAO = '192.168.0.24'
 URL_SQLITE = '192.168.0.24'
 PAY = None
 nome_so = platform.system()
 if nome_so == "Linux":
-    DATABASE = "/home/suporte/prod/producao.db"
+    DATABASE = "/home/suporte/prod/producao.db"    
 elif nome_so == "Windows":
     DATABASE = r"C:\Clonar\projetos_python\PRODUCAO\producao.db"
-
+    URL_LOCAL = '127.0.0.1:8000'
+    URL_REMOTO = '127.0.0.1:8000'
+    URL_PRODUCAO = '127.0.0.1:8000'
+    URL_SQLITE = '127.0.0.1:8000'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field

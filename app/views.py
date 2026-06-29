@@ -225,7 +225,10 @@ class ManItensOrdens(APIView):
         v_data=request.GET
         pro_pad = v_data.get('pro_pad_in_codigo')
         pro_in = v_data.get('pro_in_codigo')
-        if pro_in == None:
+        pro_id = v_data.get('pro_st_id')
+        if pro_id is not None:
+            serializer = self.serializer_class(apt_itens_ordens.objects.filter(PRO_ST_ID = pro_id), many=True)        
+        elif pro_in == None:
             serializer = self.serializer_class(apt_itens_ordens.objects.all(), many=True)
         else:
             serializer = self.serializer_class(apt_itens_ordens.objects.filter(PRO_PAD_IN_CODIGO = pro_pad,

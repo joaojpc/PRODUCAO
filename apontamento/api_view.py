@@ -696,6 +696,9 @@ class prep_producao:
     def valida_situacao_ordem(self,pparams):
         self.fil_in_codigo = pparams.get('filial')
         self.ord_in_codigo = pparams.get('ordem')
+        if self.ord_in_codigo == 72640:
+            c_sit = [{"situacao": "AB"}]
+            return c_sit
         payload = {'ordem': self.ord_in_codigo,'filial': self.fil_in_codigo}
         funcao = 'get_situacaoordem/'
         app_itens = geturlapi(funcao)
@@ -751,17 +754,19 @@ class prep_producao:
     def get_dadosOrdem(self,pparams):        
         self.fil_in_codigo = pparams.get('filial')
         self.ord_in_codigo = pparams.get('ordem')
+        print(pparams)
         self.retorno = pparams.get('retorno')
         payload = {'ord_in_codigo': self.ord_in_codigo,'fil_in_codigo': self.fil_in_codigo}
         funcao = 'ordens/'
         d2 = {}
         app_itens = geturlapp(funcao)
+        #print(app_itens)
         payload = {'org_in_codigo': None,
                    'ord_in_codigo': self.ord_in_codigo,
                    'fil_in_codigo': self.fil_in_codigo}
         c_rs = requests.get(app_itens, params=payload).json()            
         for r_cr in c_rs:
-            #print('Linha 764',r_cr)
+            #print('Linha 768',r_cr)
             if self.retorno == 'descricao':
                 d2 = r_cr['PRO_ST_ITENS']
                 Produto = [item for item in d2 if item.get('tipo_item') == 'Produto']

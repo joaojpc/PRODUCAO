@@ -51,13 +51,14 @@
 
   <div class="btn-group btn-group-justified" role="group">
       <div id="Itens" class="form-group"></div>
-      <div id="caracteristica" title="estilo" class="module aligned">
+      <ul id="caracteristica" title="estilo" class="module aligned" style="padding-left: 0;"> 
           <li>Referencias</li>
-      </div>
+      </ul>
   </div>
 
   <div class="mt-3">
-     <button type="submit" name="submit" id="submit" class="btn btn-primary" style="width:150px">
+     <!-- ÚNICA MUDANÇA: tirei name="submit". Mantive id="submit" pro seu JS não quebrar -->
+     <button type="submit" id="submit" class="btn btn-primary" style="width:150px">
          Inserir lote
      </button>
      <button type="button" class="btn btn-light" style="width:100px" disabled></button>
