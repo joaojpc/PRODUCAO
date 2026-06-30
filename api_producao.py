@@ -349,7 +349,8 @@ class integrador:
                         str_now = v_dtapontamento.strftime('%Y-%m-%d')                
                         #Busca ordens pendentes de integração;
                         self.funcao = 'apontamentos/'
-                        self.get_urlapp = geturlapp(self.funcao)                                                    
+                        self.get_urlapp = geturlapp(self.funcao) 
+                        print('Iniciando integração dos lotes!',self.get_urlapp)                                                   
                         #try:
                         if 1==1:
                             v_ordens = requests.get(self.get_urlapp, params=self.payload, verify=False).json()
