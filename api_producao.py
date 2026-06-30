@@ -104,7 +104,7 @@ class integrador:
                 self.payload = {'ordem': rs['ORD_IN_CODIGO'],'filial': rs['FIL_IN_CODIGO'],'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'A'}
                 #print(self.payload)
                 try:                    
-                    v_ordens = requests.get(self.get_urlapp, params=self.payload).json()
+                    v_ordens = requests.get(self.get_urlapp, params=self.payload, verify=False).json()
                     print(requests.url)
                     if v_ordens:
                         tem_ordem = 'S'
@@ -115,7 +115,7 @@ class integrador:
                 self.get_urlapp = geturlapp(self.funcao)
                 self.payload = {'ordem': rs['ORD_IN_CODIGO'],'filial': rs['FIL_IN_CODIGO'],'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'A'}
                 try:
-                    v_demanda = requests.get(self.get_urlapp, params=self.payload).json()
+                    v_demanda = requests.get(self.get_urlapp, params=self.payload, verify=False).json()
                     if v_demanda:
                         tem_demanda = 'S'                        
                 except:
@@ -123,7 +123,7 @@ class integrador:
                 #print(tem_demanda)
                 if (tem_ordem =='N') and(tem_demanda =='N'):
                     self.payload = {'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'E'}
-                    c_update = requests.put(self.get_urlprod, params=self.payload)    
+                    c_update = requests.put(self.get_urlprod, params=self.payload, verify=False)    
         except:
             pass                            
         
@@ -138,7 +138,7 @@ class integrador:
             self.payload = {'org_in_codigo': self.org_in,'fil_in_codigo': self.fil_in,'ord_in_codigo': self.ord_in}        
         #try:        
         if 1==1:
-            v_response = requests.get(self.get_urlapi, params=self.payload).json()
+            v_response = requests.get(self.get_urlapi, params=self.payload, verify=False).json()
             #Se encontrar ordem pendente segue continua;
             if v_response:
                 for ord in v_response:                    
@@ -325,7 +325,7 @@ class integrador:
         #try:        
         if 1==1:
             #Busca os apontamentos em aberto                        
-            v_rs = requests.get(self.get_urlprod, params=self.payload).json() 
+            v_rs = requests.get(self.get_urlprod, params=self.payload, verify=False).json() 
             print('Linha 330', v_rs)
             if v_rs:                
                 for rs in v_rs:
@@ -338,7 +338,7 @@ class integrador:
                         print('Ordem encerrada! ',self.ord_in)
                         #Encerra a ordem;
                         self.payload = {'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'E'}
-                        c_update = requests.put(self.get_urlprod, params=self.payload)
+                        c_update = requests.put(self.get_urlprod, params=self.payload, verify=False)
                     else:
                         #print(self.ord_in)
                         self.ord_st_extenso = rs['ORD_ST_EXTENSO']                        
@@ -352,7 +352,7 @@ class integrador:
                         self.get_urlapp = geturlapp(self.funcao)                                                    
                         try:
                         #if 1==1:
-                            v_ordens = requests.get(self.get_urlapp, params=self.payload).json()
+                            v_ordens = requests.get(self.get_urlapp, params=self.payload, verify=False).json()
                             if v_ordens:
                                 print('Iniciando integração dos lotes!')
                                 for r_ord in v_ordens:
@@ -397,7 +397,7 @@ class integrador:
                                                     self.funcao = 'apontamentos/'
                                                     self.get_urlapp = geturlapp(self.funcao)
                                                     self.payload = {'ctl_in_codigo': r_ord['CTL_IN_CODIGO'],'sequencia': r_ord['APT_IN_SEQUENCIA'],'status': 'I'}
-                                                    c_update_prod = requests.put(self.get_urlapp, params=self.payload)
+                                                    c_update_prod = requests.put(self.get_urlapp, params=self.payload, verify=False)
                                     except:
                                         pass                                            
                         except:
@@ -408,7 +408,7 @@ class integrador:
                         self.payload = {'ordem': rs['ORD_IN_CODIGO'],'filial': rs['FIL_IN_CODIGO'],'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'A'}
                         try:
                         #if 1==1:
-                            v_demanda = requests.get(self.get_urlapp, params=self.payload).json()
+                            v_demanda = requests.get(self.get_urlapp, params=self.payload, verify=False).json()
                             if v_demanda:
                                 #print('linha 403 => Iniciando integração das demandas!')
                                 for r_dem in v_demanda:
@@ -445,7 +445,7 @@ class integrador:
                                                     #print(self.payload)
                                                     self.funcao = 'demandas/'
                                                     self.get_urlapp = geturlapp(self.funcao)                                                    
-                                                    c_update_dem = requests.put(self.get_urlapp, params=self.payload)                                                
+                                                    c_update_dem = requests.put(self.get_urlapp, params=self.payload, verify=False)                                                
                                     except:
                                         pass
                         except:
