@@ -1,8 +1,8 @@
 # -*- encoding: utf-8 -*-
 # api_producao.py
-"""
+''' 
 Cérebro. Fluxo FK: Busca Pai -> Busca Filhos -> INSERT Oracle -> UPDATE I
-"""
+'''
 import time, fcntl, os
 import services
 #from __future__ import unicode_literals
