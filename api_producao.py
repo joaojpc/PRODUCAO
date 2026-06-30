@@ -1,4 +1,10 @@
 # -*- encoding: utf-8 -*-
+# api_producao.py
+"""
+Cérebro. Fluxo FK: Busca Pai -> Busca Filhos -> INSERT Oracle -> UPDATE I
+"""
+import time, fcntl, os
+import services
 from __future__ import unicode_literals
 import sys
 import json
@@ -8,11 +14,12 @@ import urllib as ul
 import oracledb as cxo
 from oracle_connection import getOracleConnection
 from url_projeto import geturlapp, geturlapi, geturlprod, geturlest
-import time
 from datetime import datetime, date, timedelta
 import json, requests
 from unicodedata import normalize
 from dateutil.relativedelta import *
+from typing import List, Tuple
+from collections import defaultdict
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 v_dirlog = '/home/admin/prod/log'
@@ -320,12 +327,13 @@ class integrador:
             #print(self.payload)
             if v_rs:                
                 for rs in v_rs:
+                    print("Apontamentos", rs['ORD_IN_CODIGO'])
                     self.ord_in = rs['ORD_IN_CODIGO']
                     self.payload = {'ordem': rs['ORD_IN_CODIGO'],'filial': rs['FIL_IN_CODIGO'],'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'A'}                
                     #Busca a situação da ordem
                     v_sit = self.situacao_ordem()                    
                     if v_sit == 'EN':
-                        #print('Ordem encerrada! ',self.ord_in)
+                        print('Ordem encerrada! ',self.ord_in)
                         #Encerra a ordem;
                         self.payload = {'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'E'}
                         c_update = requests.put(self.get_urlprod, params=self.payload)
@@ -376,7 +384,7 @@ class integrador:
                                     try:
                                     #if 1==1:
                                         # Grava os dados no Mega
-                                        #print(v_dadosProd)
+                                        print('Lote',r_ord['PRO_ST_LOTE'])
                                         resp_Prod = json.loads(self.apt_integrarlote(v_dadosProd))
                                         #resp_Prod = requests.post(self.get_urlapi, data=v_dadosProd).json()
                                         if resp_Prod:
@@ -565,7 +573,34 @@ class integrador:
         except:
             v_retorno =  'AB'        
         return v_retorno
-        
+class IntegracaoProducao:
+    def _now(self) -> str: return datetime.now().strftime("%H:%M:%S")
+
+    def executar(self) -> int:
+        start = time.time()
+        try:
+            controles = services.select_controles_pendentes()
+            if not controles: print(f"[{self._now()}] Nada pra integrar."); return 0
+            ctl_ids = [c['CTL_IN_CODIGO'] for c in controles]
+            ordens, demandas = services.select_filhos_por_ctl(ctl_ids)
+            print(f"[{self._now()}] {len(controles)} Controles, {len(ordens)} Ordens, {len(demandas)} Demandas")
+
+            ord_map = defaultdict(list)
+            dem_map = defaultdict(list)
+            for o in ordens: ord_map[o['CTL_IN_CODIGO']].append(o)
+            for d in demandas: dem_map[d['CTL_IN_CODIGO']].append(d)
+
+            with services.oracle_tx() as con:
+                cur = con.cursor()
+                for d_ctl in controles:
+                    services.processa_controle(cur, d_ctl, ord_map.get(d_ctl['CTL_IN_CODIGO'], []), dem_map.get(d_ctl['CTL_IN_CODIGO'], []))
+
+            services.bulk_update_status_tudo(ctl_ids)
+            print(f"[{self._now()}] OK FULL. {len(ctl_ids)} controles em {time.time()-start:.2f}s")
+            return len(ctl_ids)
+        except Exception as e:
+            print(f"[{self._now()}] ROLLBACK TOTAL: {e}")
+            return -1
 if __name__ == '__main__':    
     contador = 1
     v_params = []
