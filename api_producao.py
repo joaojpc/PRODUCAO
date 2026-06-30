@@ -326,8 +326,9 @@ class integrador:
         try:        
         #if 1==1:
             #Busca os apontamentos em aberto                        
-            v_rs = requests.get(self.get_urlprod, params=self.payload).json()            
-            #print(self.payload)
+            v_rs = requests.get(self.get_urlprod, params=self.payload).json() 
+            print(requests.url)           
+            print('Linha 330', v_rs)
             if v_rs:                
                 for rs in v_rs:
                     print("Apontamentos", rs['ORD_IN_CODIGO'])
