@@ -316,6 +316,7 @@ class integrador:
         print('Bucando dados de controle')
         #busca Ordens Pendentes
         self.funcao = 'controleApt/'
+        print('Linha 319',self.funcao)
         self.get_urlprod = geturlprod(self.funcao)
         print(self.get_urlprod)
         if self.ord_in is not None:
