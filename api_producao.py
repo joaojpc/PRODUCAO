@@ -350,8 +350,8 @@ class integrador:
                         #Busca ordens pendentes de integração;
                         self.funcao = 'apontamentos/'
                         self.get_urlapp = geturlapp(self.funcao)                                                    
-                        try:
-                        #if 1==1:
+                        #try:
+                        if 1==1:
                             v_ordens = requests.get(self.get_urlapp, params=self.payload, verify=False).json()
                             if v_ordens:
                                 print('Iniciando integração dos lotes!')
@@ -400,8 +400,8 @@ class integrador:
                                                     c_update_prod = requests.put(self.get_urlapp, params=self.payload, verify=False)
                                     #except:
                                     #    pass                                            
-                        except:
-                            pass
+                        #except:
+                        #    pass
                         #busca demandas pendentes de integração para a ordem.                
                         self.funcao = 'demandas/'
                         self.get_urlapp = geturlapp(self.funcao)
