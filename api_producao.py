@@ -383,8 +383,8 @@ class integrador:
                                                'pro_st_fornecedor': r_ord['PRO_ST_FORNECEDOR']}                        
                                     self.funcao = 'post_producao/'                        
                                     self.get_urlapi = geturlapi(self.funcao)
-                                    try:
-                                    #if 1==1:
+                                    #try:
+                                    if 1==1:
                                         # Grava os dados no Mega
                                         print('Lote',r_ord['PRO_ST_LOTE'])
                                         resp_Prod = json.loads(self.apt_integrarlote(v_dadosProd))
@@ -398,8 +398,8 @@ class integrador:
                                                     self.get_urlapp = geturlapp(self.funcao)
                                                     self.payload = {'ctl_in_codigo': r_ord['CTL_IN_CODIGO'],'sequencia': r_ord['APT_IN_SEQUENCIA'],'status': 'I'}
                                                     c_update_prod = requests.put(self.get_urlapp, params=self.payload, verify=False)
-                                    except:
-                                        pass                                            
+                                    #except:
+                                    #    pass                                            
                         except:
                             pass
                         #busca demandas pendentes de integração para a ordem.                
