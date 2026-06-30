@@ -10,7 +10,7 @@ from producao import settings
 import requests
 def geturlapp(funcao):
     url_remoto = settings.URL_SQLITE
-    url_principal = 'http//'+url_remoto+'/app/'+funcao
+    url_principal = 'http://'+url_remoto+'/app/'+funcao
     return url_principal
 def geturlapi(funcao):
     url_remoto = settings.URL_SQLITE
