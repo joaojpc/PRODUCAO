@@ -406,8 +406,8 @@ class integrador:
                         self.funcao = 'demandas/'
                         self.get_urlapp = geturlapp(self.funcao)
                         self.payload = {'ordem': rs['ORD_IN_CODIGO'],'filial': rs['FIL_IN_CODIGO'],'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'A'}
-                        try:
-                        #if 1==1:
+                        #try:
+                        if 1==1:
                             v_demanda = requests.get(self.get_urlapp, params=self.payload, verify=False).json()
                             if v_demanda:
                                 #print('linha 403 => Iniciando integração das demandas!')
@@ -426,8 +426,8 @@ class integrador:
                                               'ord_st_extenso' : rs['ORD_ST_EXTENSO']}
                                     self.funcao = 'post_demanda/'
                                     self.get_urlapi = geturlapi(self.funcao)
-                                    try:
-                                    #if 1==1:
+                                    #try:
+                                    if 1==1:
                                         # Grava os dados no Mega                                                        
                                         #resp_Dem = requests.post(self.get_urlapi, data=v_dadosDem).json()
                                         
@@ -446,10 +446,10 @@ class integrador:
                                                     self.funcao = 'demandas/'
                                                     self.get_urlapp = geturlapp(self.funcao)                                                    
                                                     c_update_dem = requests.put(self.get_urlapp, params=self.payload, verify=False)                                                
-                                    except:
-                                        pass
-                        except:
-                            pass                                   
+                                    #except:
+                                    #    pass
+                        #except:
+                        #    pass                                   
                 #faz Update da transação;
                 #self.payload = {'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'E'}
                 #c_update = requests.put(self.get_urlprod, params=self.payload)
