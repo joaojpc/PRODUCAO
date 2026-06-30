@@ -318,16 +318,14 @@ class integrador:
         self.funcao = 'controleApt/'
         print('Linha 319',self.funcao)
         self.get_urlprod = geturlprod(self.funcao)
-        print(self.get_urlprod)
         if self.ord_in is not None:
             self.payload = {'fil_in_codigo': self.fil_in,'status': 'A', 'ord_in_codigo':self.ord_in}
         else:
             self.payload = {'fil_in_codigo': self.fil_in,'status': 'A'}        
-        try:        
-        #if 1==1:
+        #try:        
+        if 1==1:
             #Busca os apontamentos em aberto                        
             v_rs = requests.get(self.get_urlprod, params=self.payload).json() 
-            print(requests.url)           
             print('Linha 330', v_rs)
             if v_rs:                
                 for rs in v_rs:
@@ -455,8 +453,8 @@ class integrador:
                 #faz Update da transação;
                 #self.payload = {'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'E'}
                 #c_update = requests.put(self.get_urlprod, params=self.payload)
-        except:
-            pass
+        #except:
+            #pass
         print('Integração dos lotes e demandas finalizado!')
     def apt_integrarlote(self, pparams):
         #print(pparams)
