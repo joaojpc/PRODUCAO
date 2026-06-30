@@ -5,7 +5,7 @@ Cérebro. Fluxo FK: Busca Pai -> Busca Filhos -> INSERT Oracle -> UPDATE I
 """
 import time, fcntl, os
 import services
-from __future__ import unicode_literals
+#from __future__ import unicode_literals
 import sys
 import json
 import requests
