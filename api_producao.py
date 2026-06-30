@@ -326,10 +326,10 @@ class integrador:
         if 1==1:
             #Busca os apontamentos em aberto                        
             v_rs = requests.get(self.get_urlprod, params=self.payload, verify=False).json() 
-            print('Linha 330', v_rs)
+            #print('Linha 330', v_rs)
             if v_rs:                
                 for rs in v_rs:
-                    #print("Apontamentos", rs['ORD_IN_CODIGO'])
+                    print("Apontamentos", rs['ORD_IN_CODIGO'])
                     self.ord_in = rs['ORD_IN_CODIGO']
                     self.payload = {'ordem': rs['ORD_IN_CODIGO'],'filial': rs['FIL_IN_CODIGO'],'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'A'}                
                     #Busca a situação da ordem
