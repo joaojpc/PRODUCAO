@@ -387,7 +387,7 @@ class integrador:
                                     #try:
                                     if 1==1:
                                         # Grava os dados no Mega
-                                        print('Lote',r_ord['PRO_ST_LOTE'])
+                                        print('Lote',v_dadosProd)
                                         resp_Prod = json.loads(self.apt_integrarlote(v_dadosProd))
                                         #resp_Prod = requests.post(self.get_urlapi, data=v_dadosProd).json()
                                         if resp_Prod:
