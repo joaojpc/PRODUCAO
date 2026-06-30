@@ -96,7 +96,7 @@ class integrador:
         self.payload = {'fil_in_codigo': self.fil_in,'status': 'A'}
         try:
             #Busca os apontamentos em aberto                        
-            v_rs = requests.get(self.get_urlprod, params=self.payload).json()            
+            v_rs = requests.get(self.get_urlprod, params=self.payload, verify=False).json()            
             for rs in v_rs:                                
                 #Busca ordens pendentes de integração;
                 self.funcao = 'apontamentos/'
