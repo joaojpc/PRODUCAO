@@ -410,7 +410,7 @@ class integrador:
                         if 1==1:
                             v_demanda = requests.get(self.get_urlapp, params=self.payload, verify=False).json()
                             if v_demanda:
-                                #print('linha 403 => Iniciando integração das demandas!')
+                                print('linha 403 => Iniciando integração das demandas!')
                                 for r_dem in v_demanda:
                                     #print(f'linha 405 => Dados da demanda: {r_dem}')
                                     v_dadosDem = {'fil_in_codigo': r_dem['FIL_IN_CODIGO'],
