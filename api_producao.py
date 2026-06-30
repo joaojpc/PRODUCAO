@@ -20,6 +20,7 @@ from unicodedata import normalize
 from dateutil.relativedelta import *
 from typing import List, Tuple
 from collections import defaultdict
+import services
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 v_dirlog = '/home/admin/prod/log'
