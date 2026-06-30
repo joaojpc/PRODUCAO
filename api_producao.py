@@ -322,8 +322,8 @@ class integrador:
             self.payload = {'fil_in_codigo': self.fil_in,'status': 'A', 'ord_in_codigo':self.ord_in}
         else:
             self.payload = {'fil_in_codigo': self.fil_in,'status': 'A'}        
-        #try:        
-        if 1==1:
+        try:        
+        #if 1==1:
             #Busca os apontamentos em aberto                        
             v_rs = requests.get(self.get_urlprod, params=self.payload, verify=False).json() 
             #print('Linha 330', v_rs)
@@ -351,8 +351,8 @@ class integrador:
                         self.funcao = 'apontamentos/'
                         self.get_urlapp = geturlapp(self.funcao) 
                         print('Iniciando integração dos lotes!',self.get_urlapp)                                                   
-                        #try:
-                        if 1==1:
+                        try:
+                        #if 1==1:
                             v_ordens = requests.get(self.get_urlapp, params=self.payload, verify=False).json()
                             if v_ordens:
                                 print('Iniciando integração dos lotes!')
@@ -384,10 +384,10 @@ class integrador:
                                                'pro_st_fornecedor': r_ord['PRO_ST_FORNECEDOR']}                        
                                     self.funcao = 'post_producao/'                        
                                     self.get_urlapi = geturlapi(self.funcao)
-                                    #try:
-                                    if 1==1:
+                                    try:
+                                    #if 1==1:
                                         # Grava os dados no Mega
-                                        print('Lote',v_dadosProd)
+                                        #print('Lote',v_dadosProd)
                                         resp_Prod = json.loads(self.apt_integrarlote(v_dadosProd))
                                         #resp_Prod = requests.post(self.get_urlapi, data=v_dadosProd).json()
                                         if resp_Prod:
@@ -399,16 +399,16 @@ class integrador:
                                                     self.get_urlapp = geturlapp(self.funcao)
                                                     self.payload = {'ctl_in_codigo': r_ord['CTL_IN_CODIGO'],'sequencia': r_ord['APT_IN_SEQUENCIA'],'status': 'I'}
                                                     c_update_prod = requests.put(self.get_urlapp, params=self.payload, verify=False)
-                                    #except:
-                                    #    pass                                            
-                        #except:
-                        #    pass
+                                    except:
+                                        pass                                            
+                        except:
+                            pass
                         #busca demandas pendentes de integração para a ordem.                
                         self.funcao = 'demandas/'
                         self.get_urlapp = geturlapp(self.funcao)
                         self.payload = {'ordem': rs['ORD_IN_CODIGO'],'filial': rs['FIL_IN_CODIGO'],'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'A'}
-                        #try:
-                        if 1==1:
+                        try:
+                        #if 1==1:
                             v_demanda = requests.get(self.get_urlapp, params=self.payload, verify=False).json()
                             if v_demanda:
                                 print('linha 403 => Iniciando integração das demandas!')
@@ -427,8 +427,8 @@ class integrador:
                                               'ord_st_extenso' : rs['ORD_ST_EXTENSO']}
                                     self.funcao = 'post_demanda/'
                                     self.get_urlapi = geturlapi(self.funcao)
-                                    #try:
-                                    if 1==1:
+                                    try:
+                                    #if 1==1:
                                         # Grava os dados no Mega                                                        
                                         #resp_Dem = requests.post(self.get_urlapi, data=v_dadosDem).json()
                                         
@@ -447,15 +447,15 @@ class integrador:
                                                     self.funcao = 'demandas/'
                                                     self.get_urlapp = geturlapp(self.funcao)                                                    
                                                     c_update_dem = requests.put(self.get_urlapp, params=self.payload, verify=False)                                                
-                                    #except:
-                                    #    pass
-                        #except:
-                        #    pass                                   
+                                    except:
+                                        pass
+                        except:
+                            pass                                   
                 #faz Update da transação;
                 #self.payload = {'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'E'}
                 #c_update = requests.put(self.get_urlprod, params=self.payload)
-        #except:
-            #pass
+        except:
+            pass
         print('Integração dos lotes e demandas finalizado!')
     def apt_integrarlote(self, pparams):
         #print(pparams)
