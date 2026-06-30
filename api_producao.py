@@ -317,6 +317,7 @@ class integrador:
         #busca Ordens Pendentes
         self.funcao = 'controleApt/'
         self.get_urlprod = geturlprod(self.funcao)
+        print(self.get_urlprod)
         if self.ord_in is not None:
             self.payload = {'fil_in_codigo': self.fil_in,'status': 'A', 'ord_in_codigo':self.ord_in}
         else:
