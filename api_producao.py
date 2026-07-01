@@ -20,7 +20,6 @@ from unicodedata import normalize
 from dateutil.relativedelta import *
 from typing import List, Tuple
 from collections import defaultdict
-import services
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 v_dirlog = '/home/admin/prod/log'
@@ -576,7 +575,7 @@ class integrador:
         except:
             v_retorno =  'AB'        
         return v_retorno
-class IntegracaoProducao:
+'''class IntegracaoProducao:
     def _now(self) -> str: return datetime.now().strftime("%H:%M:%S")
 
     def executar(self) -> int:
@@ -603,7 +602,7 @@ class IntegracaoProducao:
             return len(ctl_ids)
         except Exception as e:
             print(f"[{self._now()}] ROLLBACK TOTAL: {e}")
-            return -1
+            return -1'''
 if __name__ == '__main__':    
     contador = 1
     v_params = []
