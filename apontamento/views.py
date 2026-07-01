@@ -211,7 +211,7 @@ def session_demo(request):
                 funcao = 'ordens/'
                 url = geturlapp(funcao)
                 payload = {'fil_in_codigo': fil_in_codigo,'ord_in_codigo': ord_in_codigo}
-                c_ordem = requests.get(url, params=payload).json()
+                c_ordem = requests.get(url, params=payload, verify=False).json()
                 #f.write(str(c_ordem))                
                 if not (c_ordem):
                     v_listOrd = []
@@ -315,7 +315,7 @@ def testar_impressao(request):
                 v_lote.append(request.session['fil_in_codigo'])
                 v_lote.append(v_seq)
                 payload = {'ordem': v_lote[0],'filial': v_lote[1],'sequencial': int(v_lote[2])}
-                vresponse = requests.get(api_listalotes, params=payload)
+                vresponse = requests.get(api_listalotes, params=payload, verify=False)
                 cr = json.loads(vresponse.content)                
                 for rs in cr:
                     c_lote = rs['PRO_ST_ETIQUETA']
@@ -499,7 +499,7 @@ def insDemandaslocal(request):
             l_demandas.append(v_apt_re_quantidade)
             #Valida lote já baixado
             payload = {'ordem': l_demandas[0],'filial': l_demandas[1],'lote': l_demandas[3]}
-            c_demanda = requests.get(api_demandas, params=payload).json()
+            c_demanda = requests.get(api_demandas, params=payload, verify=False).json()
             if not c_demanda:
                 v_iniseq = IntAPI_sqlite(l_demandas)
                 v_seqmov = v_iniseq.seq_movdem_sqlite()
@@ -514,7 +514,7 @@ def insDemandaslocal(request):
                 url = geturlprod(funcao)
                 payload = {'ord_in_codigo': l_demandas[0],'fil_in_codigo': l_demandas[1],'status': 'A'}
                 #print(payload)
-                c_rs = requests.get(url, params=payload).json()                
+                c_rs = requests.get(url, params=payload, verify=False).json()                
                 for rs in c_rs:
                     l_demandas.append(rs['ORD_ST_ID'])
                     l_demandas.append(rs['CMAQ_ST_ID'])
@@ -549,7 +549,7 @@ def listarlotes_sqllite(request):
         funcao = 'apontamentos'
         api_listalotes = geturlapp(funcao)
         payload = {'ordem': v_lista[0],'filial': v_lista[1],}
-        vresponse = requests.get(api_listalotes, params=payload)
+        vresponse = requests.get(api_listalotes, params=payload, verify=False)
         listLotes = json.loads(vresponse.content)
         return render(request, template,{'listLotes': listLotes})
     else:
@@ -671,7 +671,7 @@ def manutencao(request):
                     funcao = 'itensOrdens/'
                     api_atividade = geturlapp(funcao)
                     payload = {'pro_in': None}
-                    c_atividade = requests.get(api_atividade, params=payload).json()
+                    c_atividade = requests.get(api_atividade, params=payload, verify=False).json()
                     for c_a in c_atividade:
                         pass
                         #print(c_a['PRO_ST_REFERENCIA'])
@@ -758,7 +758,7 @@ def apontamento(request):
         app_url = geturlprod(funcao)
         payload = {'cmaq_id': maquina}
         try:
-            cr_maquina = requests.get(app_url, params=payload).json()
+            cr_maquina = requests.get(app_url, params=payload, verify=False).json()
             if cr_maquina:
                 for rs_maquina in cr_maquina:
                     if rs_maquina['MAQ_CH_APONTAMENTO']:
@@ -780,7 +780,7 @@ def demandas(request):
     app_url = geturlprod(funcao)
     payload = {'cliente': host,'filial':filial}    
     try:
-        cr_printer = requests.get(app_url, params=payload).json()
+        cr_printer = requests.get(app_url, params=payload, verify=False).json()
         for rs_printer in cr_printer:
             maquina = rs_printer['MAQ_IN_CODIGO']
     except:
@@ -793,7 +793,7 @@ def demandas(request):
         app_url = geturlprod(funcao)
         payload = {'cmaq_id': maquina}        
         try:
-            cr_maquina = requests.get(app_url, params=payload).json()
+            cr_maquina = requests.get(app_url, params=payload, verify=False).json()
             if cr_maquina:
                 for rs_maquina in cr_maquina:
                     if rs_maquina['MAQ_CH_DEMANDA']:
@@ -860,7 +860,7 @@ def integrarProducao(pparams):
     payload = {'fil_in_codigo': fil_in,'status': 'A', 'ord_in_codigo':ord_in}        
     try:        
         #Busca os apontamentos em aberto        
-        c_rs = requests.get(get_urlprod, params=payload).json()        
+        c_rs = requests.get(get_urlprod, params=payload, verify=False).json()        
         for rs in c_rs:
             v_dtapontamento = trata_data_sqlite(rs['CTL_DT_LOGIN'])
             str_now = v_dtapontamento.strftime('%Y-%m-%d')
@@ -870,7 +870,7 @@ def integrarProducao(pparams):
             get_urlapp = geturlapp(funcao)
             payload = {'ordem': rs['ORD_IN_CODIGO'],'filial': rs['FIL_IN_CODIGO'],'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'A'}
             try:
-                v_ordens = requests.get(get_urlapp, params=payload).json()
+                v_ordens = requests.get(get_urlapp, params=payload, verify=False).json()
                 #print(v_ordens)
                 for r_ord in v_ordens:
                     maq_id = r_ord['CMAQ_ST_ID']
@@ -902,14 +902,14 @@ def integrarProducao(pparams):
                     get_urlapi = geturlapi(funcao)
                     try:
                         # Grava os dados no Mega
-                        resp_Prod = requests.post(get_urlapi, data=v_dadosProd).json()
+                        resp_Prod = requests.post(get_urlapi, data=v_dadosProd, verify=False).json()
                         for rs_prod in resp_Prod:
                             if (rs_prod['mensagem'] == 'Ok') and (rs_prod['mensagem_sub'] == 'Ok'):
                                 #faz Update da transação da ordem;
                                 funcao = 'apontamentos/'
                                 get_urlapp = geturlapp(funcao)
                                 payload = {'ctl_in_codigo': r_ord['CTL_IN_CODIGO'],'sequencia': r_ord['APT_IN_SEQUENCIA'],'status': 'I'}
-                                c_update_prod = requests.put(get_urlapp, params=payload)
+                                c_update_prod = requests.put(get_urlapp, params=payload, verify=False)
                     except:
                         pass
             except:
@@ -919,7 +919,7 @@ def integrarProducao(pparams):
             get_urlapp = geturlapp(funcao)
             payload = {'ordem': rs['ORD_IN_CODIGO'],'filial': rs['FIL_IN_CODIGO'],'ctl_in_codigo': rs['CTL_IN_CODIGO'],'status': 'A'}
             try:
-                v_demanda = requests.get(get_urlapp, params=payload).json()
+                v_demanda = requests.get(get_urlapp, params=payload, verify=False).json()
                 for r_dem in v_demanda:
                     v_dadosDem = {'fil_in_codigo': r_dem['FIL_IN_CODIGO'],
                                   'ord_in_codigo': r_dem['ORD_IN_CODIGO'],
@@ -936,7 +936,7 @@ def integrarProducao(pparams):
                     get_urlapi = geturlapi(funcao)
                     try:                        
                         # Grava os dados no Mega
-                        resp_Dem = requests.post(get_urlapi, data=v_dadosDem).json()
+                        resp_Dem = requests.post(get_urlapi, data=v_dadosDem, verify=False).json()
                         for rs_dem in resp_Dem:
                             if rs_dem['mensagem'] == 'Ok':
                                 #faz Update da transação de demanda;
@@ -1030,7 +1030,7 @@ def total_prod(request):
     funcao = 'ordens/'
     api_listalotes = geturlapp(funcao)
     payload = {'ord_in_codigo': vparams[0],'fil_in_codigo': vparams[1]}
-    vresp = requests.get(api_listalotes, params=payload).json()
+    vresp = requests.get(api_listalotes, params=payload, verify=False).json()
     for rs in vresp:
         vparams.append(rs['ORD_ST_ID'])
         v_itens = rs['PRO_ST_ITENS']                
@@ -1039,13 +1039,13 @@ def total_prod(request):
     funcao = 'apontamentos/'
     api_listalotes = geturlapp(funcao)
     payload = {'ordem': vparams[0],'filial': vparams[1]}
-    vresponse = requests.get(api_listalotes, params=payload).json()
+    vresponse = requests.get(api_listalotes, params=payload, verify=False).json()
     for v_rs in vresponse:        
         if v_rs['PRO_ST_ID'] is None:
             for v_itn in v_itens:
                 if v_rs['PRO_IN_CODIGO'] ==  v_itn['pro_in_codigo']:
                     payload = {'ctl_in_codigo': v_rs['CTL_IN_CODIGO'],'sequencia': v_rs['APT_IN_SEQUENCIA'], 'status': 'A','ord_st_id':vparams[3],'pro_st_id':v_itn['pro_st_id']}
-                    c_tr = requests.put(api_listalotes, data=payload)    
+                    c_tr = requests.put(api_listalotes, data=payload, verify=False)    
     #print(vresponse)
     seq_resumo = 1
     #iniciar.seq_resumoprod()
@@ -1082,13 +1082,13 @@ def integrarAponta(request):
     plf_in_sqoperacao = v_session.get('seq_in_operacao')
     api_listalotes = geturlapp(funcao)
     payload = {'ordem': v_session.get('ord_in_codigo'),'filial': v_session.get('fil_in_codigo'),'status': 'A','ctl_in_codigo': v_session.get('ctl_in_codigo')}
-    vresponse = requests.get(api_listalotes, params=payload).json()
+    vresponse = requests.get(api_listalotes, params=payload, verify=False).json()
     Lotes = json.dumps(vresponse)
     #busca demandas pendentes de integração para a ordem.
     funcao = 'demandas/'
     get_urlapp = geturlapp(funcao)
     payload = {'ordem': v_session.get('ord_in_codigo'),'filial': v_session.get('fil_in_codigo'),'ctl_in_codigo': v_session.get('ctl_in_codigo'),'status': 'A'}
-    v_demanda = requests.get(get_urlapp, params=payload).json()
+    v_demanda = requests.get(get_urlapp, params=payload, verify=False).json()
     v_baixas = json.dumps(v_demanda)
     if request.method == "GET":
         if 'action' in request.GET:
@@ -1123,7 +1123,7 @@ def avisoRecebimento(request):
     get_urlapi = geturlapi(funcao)
     payload = {'id': v_id}
     print(geturlapi,payload)
-    vresponse = requests.get(get_urlapi, params=payload).json()
+    vresponse = requests.get(get_urlapi, params=payload, verify=False).json()
     Lotes = json.dumps(vresponse)
     print(Lotes)
     if request.method == "GET":
