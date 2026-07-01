@@ -702,7 +702,7 @@ class prep_producao:
         payload = {'ordem': self.ord_in_codigo,'filial': self.fil_in_codigo}
         funcao = 'get_situacaoordem/'
         app_itens = geturlapi(funcao)
-        c_sit = requests.get(app_itens, params=payload, verify=False).json()
+        c_sit = requests.get(app_itens, params=payload).json()
         return c_sit
     
     def prepara_demandas(self,pparams):
