@@ -96,6 +96,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'producao.db'),
+        'OPTIONS': {
+            'timeout': 30.0,        # Espera 30s antes de dar "database is locked"
+            'isolation_level': None # Deixa o Django no autocommit
+        }
     },
     'custom': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
