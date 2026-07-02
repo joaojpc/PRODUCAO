@@ -211,7 +211,7 @@ def session_demo(request):
                 funcao = 'ordens/'
                 url = geturlapp(funcao)
                 payload = {'fil_in_codigo': fil_in_codigo,'ord_in_codigo': ord_in_codigo}
-                c_ordem = requests.get(url, params=payload, verify=False).json()
+                c_ordem = requests.get(url, params=payload).json()
                 #f.write(str(c_ordem))                
                 if not (c_ordem):
                     v_listOrd = []

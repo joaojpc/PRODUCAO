@@ -456,9 +456,9 @@ class IntOrdens:
             #Reabre a ordem para atualização
             if (pparams[3] == 'S'):
                 pay = {'ORG_IN_CODIGO': pparams[0], 'ORD_SEQ_IN_CODIGO': pparams[1],'ORD_IN_CODIGO': pparams[2],'param': pparams[3]}
-                vput = requests.put(api_ordenspendentes, data=pay, verify=False)                
+                vput = requests.put(api_ordenspendentes, data=pay)                
             #baixa novamente todos os dados
-            vresponse = requests.get(api_ordenspendentes, params=payload, verify=False).json()
+            vresponse = requests.get(api_ordenspendentes, params=payload).json()
             #Se encontrar ordem pendente segue continua;
             if vresponse:
                 for ord in vresponse:                    
@@ -470,7 +470,7 @@ class IntOrdens:
                         payload = {'org_in_codigo': ord['org_in_codigo'],
                                    'ord_seq_in_codigo': ord['ord_seq_in_codigo'],
                                    'ord_in_codigo': ord['ord_in_codigo']}
-                        c_getordens = requests.get(api_getordens, params=payload, verify=False).json()
+                        c_getordens = requests.get(api_getordens, params=payload).json()
                         #Se encontrar a ordem segue adiante;
                         if c_getordens:
                             for d_ord in c_getordens:
@@ -479,12 +479,12 @@ class IntOrdens:
                                 #Busca Demandas da Ordem;
                                 funcao = 'get_demandaordens/'
                                 uri = geturlapi(funcao)
-                                c_get_demandas = requests.get(uri, params=payload, verify=False).json()
+                                c_get_demandas = requests.get(uri, params=payload).json()
                                 #Busca Item da Ordem + SubProdutos;
                                 funcao = 'itensordem/'
                                 uri = geturlapi(funcao)
                                 payload = {'ordem': d_ord['ORD_IN_CODIGO'],'filial': d_ord['FIL_IN_CODIGO']}
-                                c_get_itens = requests.get(uri, params=payload, verify=False).json()
+                                c_get_itens = requests.get(uri, params=payload).json()
                                 v_dados = {'ORG_TAB_IN_CODIGO':d_ord['ORG_TAB_IN_CODIGO'],
                                            'ORG_PAD_IN_CODIGO':d_ord['ORG_PAD_IN_CODIGO'],
                                            'ORG_IN_CODIGO':d_ord['ORG_IN_CODIGO'],
@@ -511,8 +511,8 @@ class IntOrdens:
                                 payload = {'org_in_codigo': ord['org_in_codigo'],
                                            'ord_seq_in_codigo': ord['ord_seq_in_codigo'],
                                            'ord_in_codigo': ord['ord_in_codigo']}
-                                c_apagaordem = requests.put(dadosOrdens, params=payload, verify=False)
-                                c_response = requests.post(dadosOrdens, data=v_dados, verify=False)
+                                c_apagaordem = requests.put(dadosOrdens, params=payload)
+                                c_response = requests.post(dadosOrdens, data=v_dados)
                                 # faz update nas ordens atualizadas;
                                 v_update_ordem = {'ORG_IN_CODIGO': d_ord['ORG_IN_CODIGO'],
                                                   'ORD_SEQ_IN_CODIGO': d_ord['ORD_SEQ_IN_CODIGO'],
@@ -521,7 +521,7 @@ class IntOrdens:
                                 print(v_update_ordem)
                                 funcao = 'GetOrdensPendentes/'
                                 api_ordenspendentes = geturlapi(funcao)
-                                do_response = requests.put(api_ordenspendentes, data=v_update_ordem, verify=False)
+                                do_response = requests.put(api_ordenspendentes, data=v_update_ordem)
                                 #Busca Itens da ordem
                                 if c_get_itens:
                                     for d_itens in c_get_itens:
@@ -534,7 +534,7 @@ class IntOrdens:
                                         funcao = 'get_proconversor/'
                                         payload = {'fil_in_codigo': self.fil_in,'pro_in_codigo':self.pro_in}
                                         conv_url = geturlapi(funcao)
-                                        pro_conversor =requests.get(conv_url, params=payload, verify=False).json()
+                                        pro_conversor =requests.get(conv_url, params=payload).json()
                                         if not(pro_conversor):
                                             lista_conv = []
                                             lista_conv.append(dict(CONVERSORES = None))
@@ -544,11 +544,11 @@ class IntOrdens:
                                             funcao = 'listaatributos/'
                                             uri = geturlapi(funcao)
                                             payload = {'item': d_itens['pro_in_codigo'],'filial': d_ord['FIL_IN_CODIGO']}
-                                            c_get_atrib = requests.get(uri, params=payload, verify=False).json()
+                                            c_get_atrib = requests.get(uri, params=payload).json()
                                             #Busca Características dos Itens
                                             funcao = 'listareferencias/'
                                             uri = geturlapi(funcao)
-                                            c_get_ref = requests.get(uri, params=payload, verify=False).json()
+                                            c_get_ref = requests.get(uri, params=payload).json()
                                             #grava itens na tabela
                                             v_dados_produtos = {'PRO_TAB_IN_CODIGO': d_ord['PRO_TAB_IN_CODIGO'],
                                                                 'PRO_PAD_IN_CODIGO': d_ord['PRO_PAD_IN_CODIGO'],
@@ -566,18 +566,18 @@ class IntOrdens:
                                             uri = geturlapi(funcao)
                                             payload = {'filial': d_ord['FIL_IN_CODIGO'], 'referencia': d_itens['rfc_in_codigo']}
                                             #busca no Mega as caracteristicas vinculadas ao item
-                                            itn_ref = requests.get(uri, params=payload, verify=False).json()
+                                            itn_ref = requests.get(uri, params=payload).json()
                                             if itn_ref:
                                                 for rs in itn_ref:
                                                     funcao = 'referencia/'
                                                     uri = geturlapp(funcao)
                                                     car_st_id = rs.get('CAR_ST_ID')
                                                     payload = {'car_st_id': car_st_id}
-                                                    vget = requests.get(uri, params=payload, verify=False).json()
+                                                    vget = requests.get(uri, params=payload).json()
                                                     if vget:
                                                         pass
                                                     else:
-                                                        requests.post(uri, data=rs, verify=False)
+                                                        requests.post(uri, data=rs)
                                         else:
                                             lista_atrb = []
                                             lista_atrb.append(dict(PRO_ST_ATRIBUTOS = None,))
@@ -602,9 +602,9 @@ class IntOrdens:
                                         payload = {'pro_pad_in_codigo': d_itens['pro_pad_in_codigo'],
                                                    'pro_in_codigo': d_itens['pro_in_codigo'],
                                                    'rfc_in_codigo':d_itens['rfc_in_codigo']}
-                                        c_appitens = requests.get(uriapp, params=payload, verify=False).json()
+                                        c_appitens = requests.get(uriapp, params=payload).json()
                                         if c_appitens:
-                                            v_delete = requests.delete(uriapp, data=v_dados_produtos, verify=False)
+                                            v_delete = requests.delete(uriapp, data=v_dados_produtos)
                                         respio = requests.post(uriapp, data=v_dados_produtos)                                                                                
                     #except:
                     #    pass
@@ -614,14 +614,14 @@ class IntOrdens:
         funcao = 'GetCadMaquinas/'
         uri = geturlapi(funcao)
         payload = {'org': self.org_in,'filial': self.fil_in}
-        cur_maq = requests.get(uri, params=payload, verify=False).json()        
+        cur_maq = requests.get(uri, params=payload).json()        
         for v_maq in cur_maq:
             if v_maq['CTR_ST_ID']!= '0':
                 #Busca dados da máquina;
                 funcao = 'maquina/'
                 app_url = geturlprod(funcao)
                 payload = {'cmaq_id': v_maq['CMAQ_ST_ID'], 'ctr_id':v_maq['CTR_ST_ID']}
-                v_maquina = requests.get(app_url, params=payload, verify=False).json()
+                v_maquina = requests.get(app_url, params=payload).json()
                 if not(v_maquina):
                     v_dados_maq = {'CTR_ST_ID': v_maq['CTR_ST_ID'],
                                    'CMAQ_ST_ID': v_maq['CMAQ_ST_ID'],
@@ -631,12 +631,12 @@ class IntOrdens:
                                    'MAQ_CH_APONTAMENTO':1,                                
                                   'MAQ_CH_DEMANDA':0}                    
                     try:
-                        ret_maq = requests.post(app_url, data=v_dados_maq, verify=False)
+                        ret_maq = requests.post(app_url, data=v_dados_maq)
                         #atualiza
                         funcao = 'GetCadMaquinas/'
                         uri_put = geturlapi(funcao)
                         payload = {'CTR_ST_ID': v_maq['CTR_ST_ID'],'CMAQ_ST_ID': v_maq['CMAQ_ST_ID']}
-                        ret_PutMaq = requests.put(uri_put, data=payload, verify=False)                    
+                        ret_PutMaq = requests.put(uri_put, data=payload)                    
                     except:
                         pass   
 class prep_producao:
@@ -702,7 +702,7 @@ class prep_producao:
         payload = {'ordem': self.ord_in_codigo,'filial': self.fil_in_codigo}
         funcao = 'get_situacaoordem/'
         app_itens = geturlapi(funcao)
-        c_sit = requests.get(app_itens, params=payload, verify=False).json()
+        c_sit = requests.get(app_itens, params=payload).json()
         return c_sit
     
     def prepara_demandas(self,pparams):
@@ -715,7 +715,7 @@ class prep_producao:
         payload = {'org_in_codigo': None,
                    'ord_in_codigo': self.ord_in_codigo,
                    'fil_in_codigo': self.fil_in_codigo}
-        c_appitens = requests.get(app_itens, params=payload, verify=False).json()
+        c_appitens = requests.get(app_itens, params=payload).json()
         for r_appitens in c_appitens:
             #print('passou aqui linha 705',r_appitens)
             d2 = r_appitens['PRO_ST_DEMANDAS']
@@ -723,13 +723,13 @@ class prep_producao:
     def total_apontamento(self,pparams):
         funcao = 'apontamentos/'
         app_url = geturlapp(funcao)
-        c_apontamentos = requests.get(app_url, params=pparams, verify=False).json()
+        c_apontamentos = requests.get(app_url, params=pparams).json()
         total_demanda = 0
         total_qtd = 0
         saldo_demanda = 0
         funcao = 'demandas/'
         app_url = geturlapp(funcao)
-        c_demandas = requests.get(app_url, params=pparams, verify=False).json()
+        c_demandas = requests.get(app_url, params=pparams).json()
         total_qtd = c_apontamentos['total_ordem']
         if total_qtd is None:
             total_qtd = 0
@@ -749,7 +749,7 @@ class prep_producao:
         payload = {'lote': self.lote,'filial': self.fil_in_codigo}
         funcao = 'get_saldolote/' 
         app_url = geturlapi(funcao)      
-        c_saldo = requests.get(app_url, params=payload, verify=False).json()                
+        c_saldo = requests.get(app_url, params=payload).json()                
         return c_saldo
     def get_dadosOrdem(self,pparams):        
         self.fil_in_codigo = pparams.get('filial')
@@ -764,7 +764,7 @@ class prep_producao:
         payload = {'org_in_codigo': None,
                    'ord_in_codigo': self.ord_in_codigo,
                    'fil_in_codigo': self.fil_in_codigo}
-        c_rs = requests.get(app_itens, params=payload, verify=False).json()            
+        c_rs = requests.get(app_itens, params=payload).json()            
         for r_cr in c_rs:
             #print('Linha 768',r_cr)
             if self.retorno == 'descricao':
@@ -790,7 +790,7 @@ class prep_producao:
         payload = {'org_in_codigo': None,
                    'ord_in_codigo': v_lista[0],
                    'fil_in_codigo': v_lista[1]}
-        c_appitens = requests.get(app_itens, params=payload, verify=False).json()
+        c_appitens = requests.get(app_itens, params=payload).json()
         for r_appitens in c_appitens:
             d2 = r_appitens['PRO_ST_ITENS']
             v_lista.append(r_appitens['PRO_PAD_IN_CODIGO'])
@@ -806,7 +806,7 @@ class prep_producao:
         funcao = 'equipamento/'
         app_url = geturlprod(funcao)
         payload = {'cliente': v_lista[3],'filial':v_lista[1]}
-        v_printer = requests.get(app_url, params=payload, verify=False).json()
+        v_printer = requests.get(app_url, params=payload).json()
         for rs_printer in v_printer:
                 self.maquina = rs_printer['MAQ_IN_CODIGO']
                 self.host = rs_printer['PRINTER_ST_IP']
@@ -817,7 +817,7 @@ class prep_producao:
             payload = {'cmaq_id': self.maquina}
         else:
             payload = {'cmaq_id': self.maquina}
-        v_maquina = requests.get(app_url, params=payload, verify=False).json()
+        v_maquina = requests.get(app_url, params=payload).json()
         try:
             lista = d2
             if (v_lista[1] == 3) and (v_lista[5]== 'OP002'):
@@ -889,7 +889,7 @@ class prep_producao:
             funcao = 'referencia/'
             url = geturlapp(funcao)
             payload = {'rfc_in_codigo': self.rfc_in_codigo}
-            dict_atrib = requests.get(url, params=payload, verify=False).json()
+            dict_atrib = requests.get(url, params=payload).json()
             if dict_atrib:
                 json_caracteristas = formatar_caracteristicas(self.referencia,dict_atrib)
                 #print(json_caracteristas)
@@ -954,7 +954,7 @@ class prep_producao:
                 funcao = 'itensOrdens/'
                 url_itn = geturlapp(funcao)
                 payload_itn = {'pro_st_id': self.pro_st_id}
-                cr_prod = requests.get(url_itn, params=payload_itn, verify=False).json()
+                cr_prod = requests.get(url_itn, params=payload_itn).json()
                 for res_prod in cr_prod:
                     v_conversor = json.loads(res_prod['PRO_ST_CONVERSOR'])
                     if v_conversor:
@@ -1073,7 +1073,7 @@ class prep_producao:
         funcao = 'lotesreceb/'
         get_url = geturlapi(funcao)
         payload = {'nota': pParams[0], 'filial':pParams[1], 'lote':pParams[2]}
-        c_rs = requests.get(get_url, params=payload, verify=False).json()
+        c_rs = requests.get(get_url, params=payload).json()
         for itn in c_rs:
             #print(itn)
             self.fil_in_codigo = itn['FIL_IN_CODIGO']
@@ -1150,7 +1150,7 @@ class prep_producao:
         funcao = 'lotesinvent/'
         get_url = geturlapi(funcao)
         payload = {'doc': pParams[0], 'filial':pParams[1], 'lote':pParams[2]}
-        c_rs = requests.get(get_url, params=payload, verify=False).json()
+        c_rs = requests.get(get_url, params=payload).json()
         for itn in c_rs:
             #print(itn)
             self.fil_in_codigo = itn['FIL_IN_CODIGO']
@@ -1239,7 +1239,7 @@ class IntAPI_sqlite:
         self.ordem_in = pParams[0]
         self.fil_in = pParams[1]
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        vresponse = requests.get(self.uri, params=payload, verify=False)
+        vresponse = requests.get(self.uri, params=payload)
         vRes_json = json.loads(vresponse.content)
         json_producao= {}
         json_producao = json.dumps(vRes_json)
@@ -1251,7 +1251,7 @@ class IntAPI_sqlite:
         self.ordem_in = pParams[0]
         self.fil_in = pParams[1]
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        c_appitens = requests.get(self.uri, params=payload, verify=False).json()
+        c_appitens = requests.get(self.uri, params=payload).json()
         if c_appitens:
             for r_appitens in c_appitens:
                 d_tens = r_appitens['PRO_ST_ITENS']
@@ -1262,7 +1262,7 @@ class IntAPI_sqlite:
         self.funcao = 'atividade/'
         self.uri = geturlapp(self.funcao)
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        vresponse = requests.get(self.uri, params=payload, verify=False)
+        vresponse = requests.get(self.uri, params=payload)
         vRes_json = json.loads(vresponse.content)
         json_ocorrencias= {}
         json_ocorrencias = json.dumps(vRes_json)
@@ -1343,7 +1343,7 @@ class IntAPI_sqlite:
             payload = {'ordem': self.ordem_in,'filial': self.fil_in, 'status': 'A', 'gera_resumo':'S','sequencia':v_rs['APT_IN_SEQUENCIA']}
             c_tr = requests.put(self.uri, params=payload)'''
         payload = {'ordem': self.ordem_in,'filial': self.fil_in, 'status': 'A', 'group_by':'S'}
-        vRes_json = requests.get(self.uri, params=payload, verify=False).json()
+        vRes_json = requests.get(self.uri, params=payload).json()
         #grava o teste na tabela
         '''self.funcao = 'resordens/'
         self.uri = geturlapp(self.funcao)
@@ -1356,14 +1356,14 @@ class IntAPI_sqlite:
         self.funcao = 'ordens/'
         self.uri = geturlapp(self.funcao)
         payload = {'ord_in_codigo': self.ordem_in,'fil_in_codigo': self.fil_in}
-        c_rs = requests.get(self.uri, params=payload, verify=False).json()
+        c_rs = requests.get(self.uri, params=payload).json()
         if c_rs:
              for r_rs in c_rs:
                  self.ord_st_id  = r_rs['ORD_ST_ID']
         self.funcao = 'resordens/'
         self.uri = geturlapp(self.funcao)
         payload = {'ord_st_id': self.ord_st_id}
-        c_rs = requests.get(self.uri, params=payload, verify=False).json()
+        c_rs = requests.get(self.uri, params=payload).json()
         return c_rs
 
 class Login_inicial_sqlite:
