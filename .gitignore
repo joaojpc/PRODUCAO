@@ -13,4 +13,7 @@ __pycache__/
 *.pyd
 *.db
 key.txt
+*.crt
+*.key
+cert.pem
 templates/apontamento/js_html/js_prod_OLD.html
