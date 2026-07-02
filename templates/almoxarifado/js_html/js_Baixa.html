@@ -133,23 +133,23 @@
           var v_ip;
           v_ip = '192.168.0.24';
           if (checkBox.checked == true){              
-              v_http = 'http://'+v_ip+'/est/ItemAlmoxa/?item='
+              v_http = 'https://'+v_ip+'/est/ItemAlmoxa/?item='
               v_item = $("#id_bxi_id_produto").val();
               v_get = v_http.concat(v_item);
               v_json = httpGet(v_get);              
               if (v_json == '[]') {
                   //Busca as localizações do item;
-                  v_http = 'http://'+v_ip+'/api/GetItenslocalizacao/?id='
+                  v_http = 'https://'+v_ip+'/api/GetItenslocalizacao/?id='
                   v_loc = $("#id_bxi_id_produto").val();
                   v_get = v_http.concat(v_loc);
                   v_json = httpGet(v_get);
                   mydata = JSON.parse(v_json);
-                  v_http = 'http://'+v_ip+'/est/ItemAlmoxa/'
+                  v_http = 'https://'+v_ip+'/est/ItemAlmoxa/'
                   for (var i = 0, len = mydata.length; i < len; ++i) {
                       v_postdata = mydata[i];
                       v_Return = httpPost(v_http, v_postdata);
                       //faz update na localizacao
-                      v_httpp = 'http://'+v_ip+'/api/GetItenslocalizacao/'
+                      v_httpp = 'https://'+v_ip+'/api/GetItenslocalizacao/'
                       v_local = '"'+mydata[i].LOC_ID_PROALMFIL+'"';
                       v_texto = '{"LOC_ID_PROALMFIL": '+v_local+'}';
                       v_locp = JSON.parse(v_texto);

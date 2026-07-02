@@ -16,7 +16,7 @@
           var v_padrao;
           var v_ip;
           v_ip = '192.168.0.24'
-          v_http = 'http://'+v_ip+'/est/produtos/?codigo='
+          v_http = 'https://'+v_ip+'/est/produtos/?codigo='
           v_item = $("#id_pro_in_codigo").val();
           v_get = v_http.concat(v_item);
           v_get = v_get.concat('&padrao=');
@@ -25,13 +25,13 @@
           v_json = httpGet(v_get);          
           if (v_json == '[]') {
               //Busca o cadastro do item;              
-              v_http = 'http://'+v_ip+'/api/GetCadastroItens/?codigo='
+              v_http = 'https://'+v_ip+'/api/GetCadastroItens/?codigo='
               v_get = v_http.concat(v_item);
               v_get = v_get.concat('&padrao=');
               v_get = v_get.concat(v_padrao);
               v_json = httpGet(v_get);
               mydata = JSON.parse(v_json);
-              v_http = 'http://'+v_ip+'/est/produtos/'
+              v_http = 'https://'+v_ip+'/est/produtos/'
               for (var i = 0, len = mydata.length; i < len; ++i) {
                   v_postdata = mydata[i];
                   v_Return = httpPost(v_http, v_postdata);
