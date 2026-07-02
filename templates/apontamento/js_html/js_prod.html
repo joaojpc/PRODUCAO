@@ -1,5 +1,7 @@
 {% block js %}
     <script>
+        // AJUSTE 2026-06-24: IP dinâmico por SO. Mantém regra original
+        var v_ip = '192.168.0.24';
         // AJUSTE 2026-09-04: IP Condicional + Fallback HTTPS
         // Motivo 1: Mantem getSO() para DEV. So troca IP se hostname for localhost/127.0.0.1
         // Motivo 2: Producao 192.168.0.24 com cert invalido bloqueia XHR sync.
@@ -7,28 +9,21 @@
         // RISCO: Fallback HTTP = sem TLS. Remover apos corrigir cert do servidor.
         // Nao altera regra de negocio.
 
-        var v_ip = '192.168.0.24';
-
         function getSO() {
             const ua = navigator.userAgent.toLowerCase();
             const pf = navigator.platform.toLowerCase();
-
             if (ua.includes('win') || pf.includes('win')) return 'win';
             if (ua.includes('mac') || pf.includes('mac')) return 'Mac';
             if (ua.includes('linux') &&!ua.includes('android')) return 'Linux';
             if (ua.includes('android')) return 'Android';
             if (ua.includes('iphone') || ua.includes('ipad')) return 'iOS';
-
             return 'Desconhecido';
         }
 
         const so = getSO();
-        // AJUSTE 2026-09-04: GATE de hostname. Evita 127.0.0.1 em producao
         if (so === 'win' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-            // AJUSTE 2026-06-24: IP local no Windows DEV
             v_ip = '127.0.0.1:8000';
         }
-        // Producao: hostname = 192.168.0.24 -> v_ip = 192.168.0.24
 
         var v_refugo;
         var v_http;
@@ -108,22 +103,22 @@
         criaButton();
 
         var v_ref_id;
-        var_concat;
-        var_cod_prod;
-        var_nome_prod;
+        var var_concat;
+        var var_cod_prod;
+        var var_nome_prod;
         var v_refpadrao;
         var arr = [];
         var count = 0;
-        var_name;
-        var_type;
-        var_nmId;
+        var var_name;
+        var var_type;
+        var var_nmId;
         var v_itn_id;
         var v_parent_id;
         var v_ref_id;
         var v_lista;
         var sel_key;
         var sel_value;
-        var_input;
+        var var_input;
         litens = {{lista | safe}};
         ordem = {{ord_in_codigo | safe}};
         $("#id_ord_in_codigo").val(ordem);
@@ -356,13 +351,13 @@
         // BUG 3: if (var_concat = 1) atribuição ao invés de comparação
         function myFunction() {
             var_concat = 0;
-            var_a = '';
-            var_b = ''; // AJUSTE 2026-06-24: Mantida apenas esta declaração
-            var_c = '';
-            var_d = ';';
-            var_e = '';
-            var_cod = 0;
-            var_conversor = 0;
+            var var_a = '';
+            var var_b = ''; // AJUSTE 2026-06-24: Mantida apenas esta declaração
+            var var_c = '';
+            var var_d = ';';
+            var var_e = '';
+            var var_cod = 0;
+            var var_conversor = 0;
             var qtde_prod = 0;
             var qtde_refugo = 0;
             var temp_b = ''; // AJUSTE 2026-06-24: usar temp_b pra não conflitar com var_b
@@ -479,12 +474,7 @@
                 v_http = 'https://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa
             }
             v_json = httpGet(v_http);
-            try { // AJUSTE 2026-09-04: Evita SyntaxError se httpGet falhar
-                v_Return = JSON.parse(v_json);
-            } catch(e) {
-                console.error('Falha getAtributosReferencia:', e, v_http);
-                v_Return = [];
-            }
+            v_Return = JSON.parse(v_json);
             return v_Return;
         }
 
@@ -497,12 +487,7 @@
 
             v_http = 'https://'+v_ip+'/app/itensOrdens/?pro_st_id='+v_pro_st_id
             v_json = httpGet(v_http);
-            try { // AJUSTE 2026-09-04: Evita SyntaxError se httpGet falhar
-                v_Return = JSON.parse(v_json);
-            } catch(e) {
-                console.error('Falha getItensConversores:', e, v_http);
-                return [];
-            }
+            v_Return = JSON.parse(v_json);
             for (var i = 0, len = v_Return.length; i < len; ++i) {
                 // AJUSTE 2026-06-24: Só faz parse se tiver valor. Evita Unexpected end of JSON input
                 if (v_Return[i].PRO_ST_CONVERSOR && v_Return[i].PRO_ST_CONVERSOR.trim()!== '') {
@@ -515,31 +500,10 @@
         }
 
         function httpGet(theUrl) {
-            // AJUSTE 2026-09-04: GATE HTTPS + Fallback HTTP PROD
-            const tentar = function(url) {
-                try {
-                    let x = new XMLHttpRequest();
-                    x.open("GET", url, false);
-                    x.send(null);
-                    if (x.status >= 200 && x.status < 300) return x.responseText;
-                    console.error('Status ruim:', x.status, url);
-                    return null;
-                } catch(e) {
-                    console.error('XHR Exception:', e.name, url);
-                    return null;
-                }
-            };
-
-            let res = tentar(theUrl); // Tenta HTTPS primeiro
-            if (res!== null) return res;
-
-            // FALLBACK HTTP PRODUCAO - REMOVER DEPOIS DO CERT
-            const httpUrl = theUrl.replace('https://', 'http://');
-            console.warn('FALLBACK HTTP ATIVADO:', httpUrl);
-            res = tentar(httpUrl);
-            if (res!== null) return res;
-
-            return '[]'; // Último caso: não quebra o JSON.parse
+            let xmlHttpReq = new XMLHttpRequest();
+            xmlHttpReq.open("GET", theUrl, false);
+            xmlHttpReq.send(null);
+            return xmlHttpReq.responseText;
         }
 
         function dadosProduto(value){
