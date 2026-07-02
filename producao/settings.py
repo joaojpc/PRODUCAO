@@ -38,7 +38,8 @@ SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
-ALLOWED_HOSTS = ['192.168.0.24','localhost','127.0.0.1:8000','127.0.0.1','0.0.0.0:80','192.168.0.24:80','127.0.0.1:80','187.45.11.48','localhost:8000']
+ALLOWED_HOSTS = ['192.168.0.24', 'localhost', '127.0.0.1', '187.45.11.48']
+#ALLOWED_HOSTS = ['192.168.0.24','localhost','127.0.0.1:8000','127.0.0.1','0.0.0.0:80','192.168.0.24:80','127.0.0.1:80','187.45.11.48','localhost:8000']
 
 
 # Application definition
