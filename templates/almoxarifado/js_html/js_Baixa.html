@@ -56,6 +56,7 @@
           $("#localizacao").remove();
 	  };
 	  function criatag() {
+            $("#localizacao").remove(); // CORRECAO: Evita ID duplicado
             var div = $("<div />", {
                 id: 'localizacao',
                 title: 'estilo',
@@ -87,23 +88,17 @@
             html += '</select> </p>';
             $("#localizacao").append(html)
       };
-      // CORRECAO: Tirei o $.each interno. Agora le direto do item.
+      // CORRECAO: Leitura direta do item. Sem $.each interno
       function populateBrand(args) {
-	      var cod_prod;
-	      var v_almox;
-	      var v_local;
-	      var v_desc;
-	      var v_alm_nome;
-	      var v_loc_nome;
-            $('#id_loc').empty();
+            var $select = $('#id_loc');
+            $select.empty();
             $.each(args, function(i, item){
-                cod_prod = item.LOC_ID_ALMOXA;
-                v_almox = item.ALM_IN_CODIGO;
-                v_local = item.LOC_IN_CODIGO;
-                v_alm_nome = item.ALM_ST_DESCRICAO;
-                v_loc_nome = item.LOC_ST_DESCRICAO;
-                v_desc = 'Alm.: '+v_almox+' Loc.: '+v_local+' - '+v_loc_nome;
-                $('#id_loc').append( '<option value="'+cod_prod+'">'+v_desc+'</option>' );
+                var cod_prod = item.LOC_ID_ALMOXA;
+                var v_almox = item.ALM_IN_CODIGO;
+                var v_local = item.LOC_IN_CODIGO;
+                var v_loc_nome = item.LOC_ST_DESCRICAO;
+                var v_desc = 'Alm.: '+v_almox+' Loc.: '+v_local+' - '+v_loc_nome;
+                $select.append( $('<option>').val(cod_prod).text(v_desc) );
             });
       };
       function getCheck() {
@@ -127,9 +122,9 @@
               v_http = 'https://'+v_ip+'/est/ItemAlmoxa/?item='
               v_item = $("#id_bxi_id_produto").val();
               v_get = v_http.concat(v_item);
-              // CORRECAO: Trocar sync por callback. So isso.
+              // CORRECAO: Async com callback
               httpGet(v_get, function(v_json){
-                  if (v_json == '[]') {
+                  if (v_json == '[]' || v_json == '') {
                       //Busca as localizações do item;
                       v_http = 'https://'+v_ip+'/api/GetItenslocalizacao/?id='
                       v_loc = $("#id_bxi_id_produto").val();
@@ -149,7 +144,7 @@
                           }
                       });
                   }
-                  else if (v_json!= '[]') {
+                  else {
                       criatag();
                       v_args = 'loc';
                       criaselect(v_args);
@@ -162,7 +157,7 @@
               remInput();
           }
       }
-      // CORRECAO: So mudei false->true e adicionei callback
+      // CORRECAO: false -> true
       function httpGet(theUrl, callback) {
           let xmlHttpReq = new XMLHttpRequest();
            xmlHttpReq.open("GET", theUrl, true);
