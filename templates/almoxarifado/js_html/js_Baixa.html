@@ -87,8 +87,8 @@
             html += '</select> </p>';
             $("#localizacao").append(html)
       };
+      // CORRECAO: Tirei o $.each interno. Agora le direto do item.
       function populateBrand(args) {
-	      console.log(args);
 	      var cod_prod;
 	      var v_almox;
 	      var v_local;
@@ -96,26 +96,13 @@
 	      var v_alm_nome;
 	      var v_loc_nome;
             $('#id_loc').empty();
-            $.each(args, function(){
-                $.each(this, function (name, value) {
-                    if (name == 'LOC_ID_ALMOXA') {
-                       cod_prod = value;
-                    };
-                    if (name == 'ALM_IN_CODIGO') {
-                       v_almox = value;
-                    };
-                    if (name == 'LOC_IN_CODIGO') {
-                       v_local = value;
-                    };
-                    if (name == 'ALM_ST_DESCRICAO') {
-                       v_alm_nome = value;
-                    };
-                    if (name == 'LOC_ST_DESCRICAO') {
-                       v_loc_nome = value;
-                    };
-                    //v_desc = 'Almoxarifado: '+v_almox+' Localização: '+v_local;
-                    v_desc = 'Alm.: '+v_almox+' Loc.: '+v_local+' - '+v_loc_nome;
-                });
+            $.each(args, function(i, item){
+                cod_prod = item.LOC_ID_ALMOXA;
+                v_almox = item.ALM_IN_CODIGO;
+                v_local = item.LOC_IN_CODIGO;
+                v_alm_nome = item.ALM_ST_DESCRICAO;
+                v_loc_nome = item.LOC_ST_DESCRICAO;
+                v_desc = 'Alm.: '+v_almox+' Loc.: '+v_local+' - '+v_loc_nome;
                 $('#id_loc').append( '<option value="'+cod_prod+'">'+v_desc+'</option>' );
             });
       };
@@ -162,7 +149,7 @@
                           }
                       });
                   }
-                  if (v_json!= '[]') {
+                  else if (v_json!= '[]') {
                       criatag();
                       v_args = 'loc';
                       criaselect(v_args);
