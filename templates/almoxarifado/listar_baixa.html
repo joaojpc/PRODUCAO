@@ -1,6 +1,6 @@
 {% extends 'almoxarifado/base_almoxa.html' %}
 {% load widget_tweaks %}
-{% load bootstrap_icons %}
+{% load static %}
 
 {% block content %}
 <div>
@@ -50,7 +50,7 @@
             <td>{{ lotes.BXI_ID_PRODUTO }}</td>
             <td>{{ lotes.BXI_CH_STATUS }}</td>
             <td>{{ lotes.BXI_RE_QUANTIDADE }}</td>
-            <td><a href="{% url 'deletebaixa' lotes.BXI_ID_REQUISICAO %}">{% bs_icon 'trash' color='red' %} Excluir</a></td>            
+            <td><a href="{% url 'deletebaixa' lotes.BXI_ID_REQUISICAO %}"><span class="glyphicon glyphicon-trash" style="color:red"></span> Excluir</a></td>            
         </tr>
         {% endfor %}
     </tbody>
