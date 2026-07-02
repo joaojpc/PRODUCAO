@@ -465,10 +465,10 @@
 
         function getAtributosReferencia(pRef,pAgrupa,pPai) {
             if (pPai > 0) {
-                v_http = 'http://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa+'&pai_rat='+pPai
+                v_http = 'https://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa+'&pai_rat='+pPai
             }
             else {
-                v_http = 'http://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa
+                v_http = 'https://'+v_ip+'/app/referencia/?rfc_in_codigo='+pRef+'&rat_bo_grupo='+pAgrupa
             }
             v_json = httpGet(v_http);
             v_Return = JSON.parse(v_json);
