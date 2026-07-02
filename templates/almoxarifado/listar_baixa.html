@@ -44,24 +44,23 @@
         </tr>
     </thead>
     <tbody>
-        {{ reqitens.as_p}}
         {% for lotes in reqitens %}
         <tr>
             <td>{{ lotes.BXI_IN_SEQUENCIA }}</td>
             <td>{{ lotes.BXI_ID_PRODUTO }}</td>
             <td>{{ lotes.BXI_CH_STATUS }}</td>
             <td>{{ lotes.BXI_RE_QUANTIDADE }}</td>
-            <td><a href="{% url 'deletebaixa' lotes.BXI_ID_REQUISICAO %}"><i class={% bs_icon 'trash' color='red' %} Delete</i></a></td>            
+            <td><a href="{% url 'deletebaixa' lotes.BXI_ID_REQUISICAO %}">{% bs_icon 'trash' color='red' %} Excluir</a></td>            
         </tr>
         {% endfor %}
     </tbody>
 </table>
     <p class="pull-center">
-            <a href="{% url 'IncluirBaixa' %}" class="btn btn-primary" style="width:150">Adicionar</a>
-                <button type="button" class="btn btn-light" disabled style="width:50" ></button>
-            <a href="{% url 'almoxarifado' %}" class="btn btn-primary" style="width:150">Voltar</a>
-                <button type="button" class="btn btn-light" disabled style="width:50" ></button>
-            <a class="btn btn-primary" style="width:150" role="button" aria-pressed="true" href="?action=IntRequisicao">Efetivar requisicao</a>
+            <a href="{% url 'IncluirBaixa' %}" class="btn btn-primary" style="width:150px">Adicionar</a>
+                <button type="button" class="btn btn-light" disabled style="width:50px" ></button>
+            <a href="{% url 'almoxarifado' %}" class="btn btn-primary" style="width:150px">Voltar</a>
+                <button type="button" class="btn btn-light" disabled style="width:50px" ></button>
+            <a class="btn btn-primary" style="width:150px" role="button" aria-pressed="true" href="?action=IntRequisicao">Efetivar requisicao</a>
     </p>
  </div>
  </form>
