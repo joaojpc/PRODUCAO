@@ -778,6 +778,7 @@ class prep_producao:
             return self.tpo_st_codigo
     def prepara_apontamento(self,plista):
         v_lista = []
+        print('passou aqui linha 787',plista)
         v_lista.append(plista[0])
         v_lista.append(plista[1])
         v_lista.append(plista[2])
