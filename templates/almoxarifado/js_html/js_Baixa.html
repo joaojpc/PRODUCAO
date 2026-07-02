@@ -172,12 +172,17 @@
               remInput();
           }
       }
-      function httpGet(theUrl) {
-          let xmlHttpReq = new XMLHttpRequest();
-           xmlHttpReq.open("GET", theUrl, false);
-           xmlHttpReq.send(null);
-           return xmlHttpReq.responseText;
-      }
+      function httpGet(theUrl, callback) {
+        let xmlHttpReq = new XMLHttpRequest();
+        xmlHttpReq.open("GET", theUrl, true); // true = async
+        xmlHttpReq.onload = function() {
+            if (xmlHttpReq.status >= 200 && xmlHttpReq.status < 300) {
+                callback(xmlHttpReq.responseText);
+            }
+        };
+        xmlHttpReq.send(null);
+    }
+      
       function httpPost(theUrl,data) {
           let xmlHttpReq = new XMLHttpRequest();
            xmlHttpReq.open("POST", theUrl, true);
