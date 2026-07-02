@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'apontamento',
     'almoxarifado',
     'inventario',
+    'django_extensions',  # AJUSTE 2026-09-04: Habilita runserver_plus
 ]
 
 MIDDLEWARE = [

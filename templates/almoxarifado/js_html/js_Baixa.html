@@ -3,6 +3,9 @@
       var v_float = 0;
       $(document).ready(function() {
           criaButton();
+          // AJUSTE 2026-09-04: Amarra o checkbox para chamar getCheck()
+          $('#myCheck').on('change', getCheck);
+
           //atribui_valor();
           function atribui_valor(){
               v_float = 1.000
