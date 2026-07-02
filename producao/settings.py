@@ -28,6 +28,16 @@ SECRET_KEY = 'django-insecure-#_%ias=44y7yt1i9p$3l+7(pt&0i+1*w2_sm9c%5cp5=-n-evu
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# 1. Confia no Nginx. Fala que a requisição original era HTTPS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# 2. Deixa o Nginx fazer o redirect 80->443. Django não mexe nisso
+SECURE_SSL_REDIRECT = False 
+
+# 3. Só manda cookie em HTTPS
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
 ALLOWED_HOSTS = ['192.168.0.24','localhost','127.0.0.1:8000','127.0.0.1','0.0.0.0:80','192.168.0.24:80','127.0.0.1:80','187.45.11.48','localhost:8000']
 
 
