@@ -199,7 +199,7 @@ class IntAPI:
         funcao = 'equipamento/'
         app_url = geturlprod(funcao)
         payload = {'cliente': self.cliente,'filial':self.fil_in}
-        v_printer = requests.get(app_url, params=payload, verify=False).json()
+        v_printer = requests.get(app_url, params=payload).json()
         for rs_printer in v_printer:
             self.maquina = rs_printer['MAQ_IN_CODIGO']
         if self.fil_in and self.ordem_in:
@@ -210,14 +210,14 @@ class IntAPI:
         self.funcao = 'oper_ordem'
         self.uri= geturlapi(self.funcao)        
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        vresponse = requests.get(self.uri, params=payload, verify=False).json()
+        vresponse = requests.get(self.uri, params=payload).json()
         return vresponse
     
     def ordem_demandas(self):
         self.funcao = 'get_demandas'
         self.uri = geturlapi(self.funcao)
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        vresponse = requests.get(self.uri, params=payload, verify=False)
+        vresponse = requests.get(self.uri, params=payload)
         vRes_json = json.loads(vresponse.content)
         #print(vresponse.url)
         #print(vRes_json)
@@ -230,7 +230,7 @@ class IntAPI:
         self.funcao = 'listarocorrencias'
         self.uri = geturlapi(self.funcao)
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        vresponse = requests.get(self.uri, params=payload, verify=False)
+        vresponse = requests.get(self.uri, params=payload)
         vRes_json = json.loads(vresponse.content)
         json_motivos = {}
         json_motivos = json.dumps(vRes_json)
@@ -240,7 +240,7 @@ class IntAPI:
         self.funcao = 'ocorrencias/'
         self.uri = geturlapp(self.funcao)        
         payload = {'ordem': self.ordem_in}
-        vresponse = requests.get(self.uri, params=payload, verify=False)
+        vresponse = requests.get(self.uri, params=payload)
         #vresponse = requests.get('http://localhost/producao/ocorrencias/?ordem=50602')        
         vRes_json = vresponse.content
         #for resultado in json.loads(vRes_json):
@@ -253,7 +253,7 @@ class IntAPI:
         self.funcao = 'apontamentos/'
         self.uri = geturlapp(self.funcao)
         payload = {'ordem': self.ordem_in}
-        vresponse = requests.get(self.uri, params=payload, verify=False)
+        vresponse = requests.get(self.uri, params=payload)
         #print(vresponse2.url)
         #vresponse2 = requests.get('http://localhost/producao/apontamentos/?ordem=50602')        
         vRes_json = vresponse.content        
@@ -266,14 +266,14 @@ class IntAPI:
             payload = {'ordem': self.ordem_in,'filial': self.fil_in}
         self.funcao = 'apontamentos'
         self.uri = geturlapp(self.funcao)
-        json_producao = requests.get(self.uri, params=payload, verify=False).json()
+        json_producao = requests.get(self.uri, params=payload).json()
         return json_producao
 
     def delete_producao(self):
         payload = {'pk': self.pk}
         self.funcao = 'apontamentos/'
         self.uri = geturlapp(self.funcao)
-        jason_delete = requests.delete(self.uri, params=payload, verify=False)
+        jason_delete = requests.delete(self.uri, params=payload)
         return jason_delete
 
     def listar_demanda(self,pparams):
@@ -292,14 +292,14 @@ class IntAPI:
         print('payload demanda 287',payload)
         self.funcao = 'demandas/'
         self.uri = geturlapp(self.funcao)
-        json_producao = requests.get(self.uri, params=payload, verify=False).json()
+        json_producao = requests.get(self.uri, params=payload).json()
         return json_producao
 
     def delete_demanda(self):
         payload = {'pk': self.pk}
         self.funcao = 'demandas/'
         self.uri = geturlapp(self.funcao)
-        jason_delete = requests.delete(self.uri, params=payload, verify=False)
+        jason_delete = requests.delete(self.uri, params=payload)
         return jason_delete
 
     def empenho_demanda(self):
@@ -310,7 +310,7 @@ class IntAPI:
             self.funcao = 'empenhodemandas'
             self.uri = geturlapi(self.funcao)
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        vresponse = requests.get(self.uri, params=payload, verify=False)        
+        vresponse = requests.get(self.uri, params=payload)        
         if settings.GRAVAR_LOCAL:
             #print (vresponse.url)
             vRes_json = vresponse.content
@@ -325,7 +325,7 @@ class IntAPI:
         self.funcao = 'itensordem'
         self.uri = geturlapi(self.funcao)
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        vresponse = requests.get(self.uri, params=payload, verify=False)
+        vresponse = requests.get(self.uri, params=payload)
         vRes_json = json.loads(vresponse.content)
         json_baixas= {}
         json_baixas = json.dumps(vRes_json)
@@ -335,7 +335,7 @@ class IntAPI:
         self.funcao = 'listareferencias'
         self.uri = geturlapi(self.funcao)
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        vresponse = requests.get(self.uri, params=payload, verify=False)
+        vresponse = requests.get(self.uri, params=payload)
         vRes_json = json.loads(vresponse.content)
         json_baixas= {}
         json_baixas = json.dumps(vRes_json)
@@ -345,7 +345,7 @@ class IntAPI:
         self.funcao = 'listaatributos'
         self.uri = geturlapi(self.funcao)
         payload = {'ordem': self.ordem_in,'filial': self.fil_in}
-        vresponse = requests.get(self.uri, params=payload, verify=False)
+        vresponse = requests.get(self.uri, params=payload)
         vRes_json = json.loads(vresponse.content)
         json_baixas= {}
         json_baixas = json.dumps(vRes_json)
@@ -357,7 +357,7 @@ class IntAPI:
         self.uri = geturlapi(self.funcao)
         payload = {'filial': self.fil_in}
         #busca no Mega os tipo de Ordens
-        vresponse = requests.get(self.uri, params=payload, verify=False)
+        vresponse = requests.get(self.uri, params=payload)
         vRes_json = json.loads(vresponse.content)
         if vRes_json:
             for rs in vRes_json:
@@ -365,7 +365,7 @@ class IntAPI:
                 self.uri = geturlapp(self.funcao)
                 self.tpo_st_id = rs.get('TPO_ST_ID')
                 payload = {'tpo_st_id': self.tpo_st_id}
-                vget = requests.get(self.uri, params=payload, verify=False).json()
+                vget = requests.get(self.uri, params=payload).json()
                 if vget:
                     pass
                 else:
@@ -378,7 +378,7 @@ class IntAPI:
         self.uri = geturlapi(self.funcao)
         payload = {'filial': self.fil_in}
         #busca no Mega os tipo de Ordens
-        vresponse = requests.get(self.uri, params=payload, verify=False)
+        vresponse = requests.get(self.uri, params=payload)
         vRes_json = json.loads(vresponse.content)
         if vRes_json:
             for rs in vRes_json:
@@ -386,7 +386,7 @@ class IntAPI:
                 self.uri = geturlapp(self.funcao)
                 self.cfg_st_id = rs.get('CFG_ST_ID')
                 payload = {'cfg_st_id': self.cfg_st_id}
-                vget = requests.get(self.uri, params=payload, verify=False).json()
+                vget = requests.get(self.uri, params=payload).json()
                 if vget:
                     pass
                 else:
@@ -399,7 +399,7 @@ class IntAPI:
         self.uri = geturlapi(self.funcao)
         payload = {'filial': self.fil_in}
         #busca no Mega os tipo de Ordens
-        vresponse = requests.get(self.uri, params=payload, verify=False)
+        vresponse = requests.get(self.uri, params=payload)
         vRes_json = json.loads(vresponse.content)
         if vRes_json:
             for rs in vRes_json:
@@ -407,7 +407,7 @@ class IntAPI:
                 self.uri = geturlapp(self.funcao)
                 self.car_st_id = rs.get('CAR_ST_ID')
                 payload = {'car_st_id': self.car_st_id}
-                vget = requests.get(self.uri, params=payload, verify=False).json()
+                vget = requests.get(self.uri, params=payload).json()
                 if vget:
                     pass
                 else:
@@ -436,7 +436,7 @@ class IntAPI:
                             "ATI_USU_INCLUSAO": c_lista[4],
                             "ATI_IN_ORDEM": c_lista[5],
                             "ATI_IN_TEMPO": c_lista[1]}'''
-        response = requests.post('http://192.168.0.250/producao/ocorrencias', dados, verify=False)
+        response = requests.post('http://192.168.0.250/producao/ocorrencias', dados)
         
 class IntOrdens:
     def __init__(self):
@@ -702,7 +702,7 @@ class prep_producao:
         payload = {'ordem': self.ord_in_codigo,'filial': self.fil_in_codigo}
         funcao = 'get_situacaoordem/'
         app_itens = geturlapi(funcao)
-        c_sit = requests.get(app_itens, params=payload).json()
+        c_sit = requests.get(app_itens, params=payload, verify=False).json()
         return c_sit
     
     def prepara_demandas(self,pparams):
@@ -1532,7 +1532,7 @@ class Login_inicial_sqlite:
         app_url = geturlapp(funcao)
         payload = {'ord_in_codigo': self.ordem_in,'fil_in_codigo': self.ord_filial}
         try:
-            cur_ord = requests.get(app_url, params=payload, verify=False).json()
+            cur_ord = requests.get(app_url, params=payload).json()
             if not (cur_ord):
                 v_listOrd = []
                 v_listOrd.append(None)
@@ -1541,7 +1541,7 @@ class Login_inicial_sqlite:
                 ini = IntOrdens()
                 while cur_ord is None:
                     ini.buscaOrdens(v_listOrd)
-                    cur_ord = requests.get(app_url, params=payload, verify=False).json()
+                    cur_ord = requests.get(app_url, params=payload).json()
                     v_count += 1
                     if v_count > 5:  # Evitar loop infinito
                         break
@@ -1560,7 +1560,7 @@ class Login_inicial_sqlite:
         app_url = geturlprod(funcao)
         payload = {'cliente': v_params[4],'filial':self.ord_filial}
         try:
-            cr_printer = requests.get(app_url, params=payload, verify=False).json()
+            cr_printer = requests.get(app_url, params=payload).json()
             for rs_printer in cr_printer:
                 maquina = rs_printer['MAQ_IN_CODIGO']
                 impressora = rs_printer['PRINTER_ST_IP']
@@ -1571,7 +1571,7 @@ class Login_inicial_sqlite:
             app_url = geturlprod(funcao)
             payload = {'cmaq_id': maquina}
             try:
-                cr_maquina = requests.get(app_url, params=payload, verify=False).json()
+                cr_maquina = requests.get(app_url, params=payload).json()
                 if cr_maquina:
                     for rs_maquina in cr_maquina:
                         maquina_id = rs_maquina['CMAQ_ST_ID']
@@ -1615,7 +1615,7 @@ class Controle:
         app_url = geturlprod(funcao)
         payload = {'ctl_in_codigo': self.controle}
         try:
-            cr_ctl = requests.get(app_url, params=payload, verify=False).json()
+            cr_ctl = requests.get(app_url, params=payload).json()
         except:
             pass
         return cr_ctl
@@ -1626,7 +1626,7 @@ class Controle:
         cr_ctl = {}
         payload = {'ctl_in_codigo': self.controle, 'impressora': self.impressora}
         try:
-            cr_ctl = requests.put(app_url, params=payload, verify=False).json()
+            cr_ctl = requests.put(app_url, params=payload).json()
         except:
             pass
         return cr_ctl
