@@ -567,11 +567,57 @@ def listarlotes(request):
 
 def reglote(request):
     v_session = carrega_sessao(request)
+
+    # AJUSTE 2026-09-04: GATE DE SEGURANCA
+    # Motivo: Evitar IndexError 803/804 quando acessar /incluir_lote/ sem session ou ordem sem item.
+    # Regra: Valida session + Loop 5x pra baixar ordem. Falhou = render pre_apontamento.html.
+    # Nao altera regra de negocio. Codigo original abaixo intacto.
+    # Autor: Manutencao
+    import time
+
+    required = ['ord_in_codigo', 'fil_in_codigo', 'ctl_in_codigo', 'cliente']
+    if not all(k in request.session for k in required):
+        request.session.flush()
+        return redirect('demos_sessions')
+
+    v_ordem = request.session['ord_in_codigo']
+    v_filial = request.session['fil_in_codigo']
+
+    funcao = 'ordens/'
+    url = geturlapp(funcao)
+    payload = {'fil_in_codigo': v_filial, 'ord_in_codigo': v_ordem}
+    c_ordem = []
+    for tentativas in range(5):
+        c_ordem = requests.get(url, params=payload, timeout=2).json()
+        if c_ordem:
+            break
+        v_listOrd = [None, v_filial, v_ordem, 'N']
+        ini = IntOrdens()
+        ini.buscaOrdens(v_listOrd)
+        time.sleep(1)
+
+    if not c_ordem:
+        request.session.flush()
+        return render(request, 'apontamento/pre_apontamento.html', {
+            'titulo': 'Validar apontamento',
+            'ordem': v_ordem, 'filial': v_filial,
+            'msg': f'Falha ao baixar ordem {v_ordem}/{v_filial} do Mega apos 5 tentativas.'
+        })
+    if not c_ordem[0].get('PRO_ST_ITENS'):
+        request.session.flush()
+        return render(request, 'apontamento/pre_apontamento.html', {
+            'titulo': 'Validar apontamento',
+            'ordem': v_ordem, 'filial': v_filial,
+            'msg': f'Ordem {v_ordem} baixada, mas sem itens cadastrados no Mega.'
+        })
+    # FIM AJUSTE 2026-09-04
+    # CODIGO ORIGINAL ABAIXO - SEM ALTERACAO
+
     pro_st_descricao = v_session.get('pro_st_descricao')
     #print('Linha 569 - views.py - pro_st_descricao: {}'.format(pro_st_descricao))
     v_lista = []
-    v_lista.append(request.session['ord_in_codigo'])
-    v_lista.append(request.session['fil_in_codigo'])
+    v_lista.append(request.session['ord_in_codigo']) # 803 - Agora sempre existe
+    v_lista.append(request.session['fil_in_codigo']) # 804 - Agora sempre existe
     v_lista.append(request.session['ctl_in_codigo'])
     v_lista.append(request.session['cliente'])
     try:
@@ -652,7 +698,6 @@ def reglote(request):
             return render(request, template, dados)
         else:
             return render(request, template, dados)
-
 def manutencao(request):
     v_session = carrega_sessao(request)
     funcao = None

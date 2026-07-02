@@ -1,0 +1,20 @@
+{% extends "apontamento/base.html" %}
+{% block content %}
+<div class="container" style="max-width: 600px; margin-top: 80px;">
+    <div class="card border-danger">
+        <div class="card-header bg-danger text-white">
+            <h4 class="mb-0">{{ titulo }}</h4>
+        </div>
+        <div class="card-body">
+            <p class="fs-5">{{ msg }}</p>
+            <hr>
+            <p><strong>Ordem:</strong> {{ ordem }} / {{ filial }}</p>
+            <p>1. Confira se a ordem existe no Mega.<br>
+               2. Verifique se o servidor 192.168.0.24 está acessível.</p>
+            <a href="{% url 'demos_sessions' %}" class="btn btn-primary w-100 mt-3">
+                Voltar para Validar Apontamento
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
