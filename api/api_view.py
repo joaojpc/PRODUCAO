@@ -313,10 +313,10 @@ class GetDadosProducao:
                               ord.ord_seq_in_codigo,
                               ord.ord_in_codigo
                          from idp.int_pro_ordens ord
-                        where ((ord.ord_ch_integrada = :ord_ch_integrada) or
+                        where /*((ord.ord_ch_integrada = :ord_ch_integrada) or
                                  (ord.ord_ch_modificada = :status)
                               )
-                          and ord.fil_in_codigo = :fil_in_codigo
+                          and */ ord.fil_in_codigo = :fil_in_codigo
                           and ord.ord_in_codigo = :ord_in_codigo                          
                         order by ord.ord_in_codigo
                           ''')

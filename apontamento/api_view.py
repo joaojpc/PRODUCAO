@@ -1539,6 +1539,7 @@ class Login_inicial_sqlite:
                 v_listOrd.append(None)
                 v_listOrd.append(self.ord_filial)
                 v_listOrd.append(self.ordem_in)
+                v_listOrd.append('S')
                 ini = IntOrdens()
                 while cur_ord is None:
                     ini.buscaOrdens(v_listOrd)
