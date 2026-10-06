@@ -387,13 +387,14 @@ class GetDadosProducao:
                           and ord.ord_seq_in_codigo = :ord_seq_in_codigo
                           and ord.ord_in_codigo = :ord_in_codigo
                         order by ord.ord_in_codigo''')
+        c_rs = []  # AJUSTE 2026-10-06: em erro do Oracle devolve vazio (antes virava 500)
         try:
             with getOracleConnection() as con:
                 with con.cursor() as cur:
                     cur.prepare(selectSQL)
                     cur.execute(None, {'org_in_codigo': self.org_in,'ord_seq_in_codigo': self.ord_seq,'ord_in_codigo':self.ordem_in})
                     c_rs = cur.fetchall()
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass
         lista = []
         for rs in c_rs:            
@@ -579,7 +580,7 @@ class GetDadosProducao:
                               CUS_IN_REDUZIDO = int(rs[4]),
                               CUS_ST_EXTENSO = rs[5],
                               CUS_ST_DESCRICAO = rs[6]))
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass                
         json_getCCusto= {}
         json_getCCusto = json.dumps(lista)
@@ -659,13 +660,14 @@ class GetDadosProducao:
                          from cus_tb_estprodutoreferencia rfc
                         where t.pro_pad_in_codigo = pck_mega.achapadraodatabela(:fil_in_codigo, 100, sysdate)
                           and t.pro_in_codigo     = :pro_in_codigo''')
+        c_rs = []  # AJUSTE 2026-10-06: em erro do Oracle devolve vazio (antes virava 500)
         try:
             with getOracleConnection() as con:
                 with con.cursor() as cur:
                     cur.prepare(selectSQL)
                     cur.execute(None, {'pro_in_codigo': self.pro_in,'fil_in_codigo':self.fil_in})
                     c_rs = cur.fetchall()
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass
         lista = []
         for rs in c_rs:
@@ -712,13 +714,14 @@ class GetDadosProducao:
                                    and pun.fmt_st_codigo     = fmt.fmt_st_codigo
                                    and pun.pro_in_codigo     = :pro_in_codigo or :pro_in_codigo = 0) fu
                                  where fu.formula is not null''')
+        c_rs = []  # AJUSTE 2026-10-06: em erro do Oracle devolve vazio (antes virava 500)
         try:
             with getOracleConnection() as con:
                 with con.cursor() as cur:
                     cur.prepare(selectSQL)
                     cur.execute(None, {'pro_in_codigo': self.pro_in,'fil_in_codigo':self.fil_in})
                     c_rs = cur.fetchall()
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass
         lista = []
         for rs in c_rs:
@@ -774,6 +777,7 @@ class GetDadosProducao:
                           and cfg.ctr_pad_in_codigo  = pck_mega.achapadraodatabela(:fil_in_codigo, 207, sysdate)
                           --and cfg.cus_bo_integraacb   = 'N'
                           ''')
+        c_rs = []  # AJUSTE 2026-10-06: em erro do Oracle devolve vazio (antes virava 500)
         try:
             with getOracleConnection() as con:
                 with con.cursor() as cur:
@@ -785,7 +789,7 @@ class GetDadosProducao:
                     #print(c_rs)
                     #transformar QueryDict em dicionario;
                     #print(c_rs.dict())
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass
         return c_rs
     def get_tipoOrdens(self,pdados):
@@ -801,6 +805,7 @@ class GetDadosProducao:
                          from pro_tipoordens tpo
                         where tpo.tpo_pad_in_codigo = pck_mega.achapadraodatabela(:fil_in_codigo, 224, sysdate)
                           ''')
+        c_rs = []  # AJUSTE 2026-10-06: em erro do Oracle devolve vazio (antes virava 500)
         try:
             with getOracleConnection() as con:
                 with con.cursor() as cur:
@@ -809,7 +814,7 @@ class GetDadosProducao:
                     columns = [col[0] for col in cur.description]
                     cur.rowfactory = lambda *args: dict(zip(columns, args))
                     c_rs = cur.fetchall()
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass
         return c_rs
         pass
@@ -841,6 +846,7 @@ class GetDadosProducao:
                           and ci.fmt_st_codigo     = fu.fmt_st_codigo
                           and ci.uni_st_unidade    = fu.un2_st_unidade
                           and ci.fmt_st_unidade    = fu.un1_st_unidade''')
+        cr_rs = []  # AJUSTE 2026-10-06: em erro do Oracle devolve vazio (antes virava 500)
         try:
             with getOracleConnection() as con:
                 with con.cursor() as cur:
@@ -849,7 +855,7 @@ class GetDadosProducao:
                     columns = [col[0] for col in cur.description]
                     cur.rowfactory = lambda *args: dict(zip(columns, args))
                     cr_rs = cur.fetchall()
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass
         return cr_rs
         pass
@@ -896,6 +902,7 @@ class GetDadosProducao:
                           and cr.rfc_in_codigo = :rfc_in_codigo
                           and cr.rfc_pad_in_codigo = pck_mega.achapadraodatabela(:fil_in_codigo, 141, sysdate)
                         order by cr.rfc_in_codigo,cr.car_in_prioridade''')
+        c_rs = []  # AJUSTE 2026-10-06: em erro do Oracle devolve vazio (antes virava 500)
         try:
             with getOracleConnection() as con:
                 with con.cursor() as cur:
@@ -904,7 +911,7 @@ class GetDadosProducao:
                     columns = [col[0] for col in cur.description]
                     cur.rowfactory = lambda *args: dict(zip(columns, args))
                     c_rs = cur.fetchall()
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass
         return c_rs
         pass
@@ -1050,7 +1057,7 @@ class IntegrarProducao:
                                       mensagem = v_rs[1],
                                       mensagem_sub = v_rs[2]))
 
-        except cxo._Error as e:
+        except cxo.Error as e:
             error_obj, = e.args
             lista.append(dict(sequencia = 0,
                               mensagem = 'Erro',
@@ -1163,6 +1170,7 @@ class GetDadosRecebimento:
         selectSQL =('''select avr.* 
                          from cus_vw_api_lotesavisoreceb avr
                         where avr.pdc_st_id||avr.pdi_st_id = :item_pdc_id''')
+        c_rs = []  # AJUSTE 2026-10-06: em erro do Oracle devolve vazio (antes virava 500)
         try:
             with getOracleConnection() as con:
                 with con.cursor() as cur:
@@ -1171,7 +1179,7 @@ class GetDadosRecebimento:
                     columns = [col[0] for col in cur.description]
                     cur.rowfactory = lambda *args: dict(zip(columns, args))
                     c_rs = cur.fetchall()
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass
         return c_rs
         pass
@@ -1251,6 +1259,7 @@ class GetDadosRecebimento:
                           --and to_number(substr(mvl.mvl_st_loteforne,17)) > 749
                           --and to_number(substr(mvl.mvl_st_loteforne,17)) < 760
                         order by to_number(substr(mvl.mvl_st_loteforne,17))''')
+        c_rs = []  # AJUSTE 2026-10-06: em erro do Oracle devolve vazio (antes virava 500)
         try:
             with getOracleConnection() as con:
                 with con.cursor() as cur:
@@ -1259,7 +1268,7 @@ class GetDadosRecebimento:
                     columns = [col[0] for col in cur.description]
                     cur.rowfactory = lambda *args: dict(zip(columns, args))
                     c_rs = cur.fetchall()
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass
         return c_rs
         pass
@@ -1294,6 +1303,7 @@ class GetDadosRecebimento:
                           --and to_number(substr(mvl.mvl_st_loteforne,17)) > 1000
                           --and to_number(substr(mvl.mvl_st_loteforne,17)) <= 1001                          
                         order by to_number(substr(mvl.mvl_st_loteforne,17))''')
+        c_rs = []  # AJUSTE 2026-10-06: em erro do Oracle devolve vazio (antes virava 500)
         try:
             with getOracleConnection() as con:
                 with con.cursor() as cur:
@@ -1302,7 +1312,7 @@ class GetDadosRecebimento:
                     columns = [col[0] for col in cur.description]
                     cur.rowfactory = lambda *args: dict(zip(columns, args))
                     c_rs = cur.fetchall()
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass
         return c_rs
         pass
@@ -1322,6 +1332,7 @@ class GetDadosRecebimento:
                           and opd.opd_in_codigo      = oce.opd_in_codigo     (+)
                           and opd.opd_pad_in_codigo  = pck_mega.achapadraodatabela(:fil_in_codigo,228,sysdate)
                           and (opd.opd_st_alternativo = :opd_st_alternativo or :opd_st_alternativo = 'all')''')
+        c_rs = []  # AJUSTE 2026-10-06: em erro do Oracle devolve vazio (antes virava 500)
         try:
             with getOracleConnection() as con:
                 with con.cursor() as cur:
@@ -1330,6 +1341,6 @@ class GetDadosRecebimento:
                     columns = [col[0] for col in cur.description]
                     cur.rowfactory = lambda *args: dict(zip(columns, args))
                     c_rs = cur.fetchall()
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass
         return c_rs

@@ -504,7 +504,7 @@ class integrador:
                                       mensagem = v_rs[1],
                                       mensagem_sub = v_rs[2]))
         #else:
-        except cxo._Error as e:
+        except cxo.Error as e:
             pass
             #error_obj, = e.args
             lista.append(dict(sequencia = 0,
