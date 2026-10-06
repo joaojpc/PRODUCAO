@@ -1,0 +1,63 @@
+{% extends 'apontamento/base.html' %}
+{# AJUSTE 2026-10-06: fechamento diário de OP - copiado do MP (oee/fechar_op.html), em Bootstrap 3 e sem pendente #}
+{% block content %}
+<div class="panel panel-default">
+    <div class="panel-heading"><h4>Fechamento OP {{ ordem }}</h4></div>
+    <div class="panel-body">
+        <form method="post" id="formFechamento" action="{% url 'fechar_op_diario' %}">
+            {% csrf_token %}
+            <input type="hidden" name="ORD_IN_CODIGO" value="{{ ordem }}">
+
+            <div class="form-group">
+                <label for="id_FEC_DT_DATA">Data do Apontamento:</label>
+                <input type="date" class="form-control" name="FEC_DT_DATA" id="id_FEC_DT_DATA"
+                       value="{{ data_apontamento|date:'Y-m-d' }}"
+                       min="{{ data_apontamento_min|date:'Y-m-d' }}"
+                       max="{{ data_apontamento_max|date:'Y-m-d' }}" required>
+                <small class="text-muted">Só é permitido manter a data atual ou voltar para o último dia útil.</small>
+            </div>
+
+            <div class="row">
+                <div class="col-xs-6 form-group">
+                    <label for="id_FEC_RE_QTD_PRODUZIDA">Qtd Produzida:</label>
+                    <input type="number" step="0.001" name="FEC_RE_QTD_PRODUZIDA" id="id_FEC_RE_QTD_PRODUZIDA"
+                           class="form-control" value="{{ produzida|default:0|stringformat:".3f" }}" readonly>
+                </div>
+                <div class="col-xs-6 form-group">
+                    <label for="id_FEC_RE_QTD_DEMANDAS">Qtd Demandas:</label>
+                    <input type="number" step="0.001" name="FEC_RE_QTD_DEMANDAS" id="id_FEC_RE_QTD_DEMANDAS"
+                           class="form-control" value="{{ demandas|default:0|stringformat:".3f" }}" readonly>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-xs-6 form-group">
+                    <label for="id_FEC_HR_INICIO">Hora Início:</label>
+                    <input type="time" name="FEC_HR_INICIO" id="id_FEC_HR_INICIO"
+                           class="form-control" value="{{ hr_inicio }}" required>
+                    <small class="text-muted">Hora de abertura do apontamento - pode alterar</small>
+                </div>
+                <div class="col-xs-6 form-group">
+                    <label for="id_FEC_HR_FIM">Hora Fim:</label>
+                    <div class="input-group">
+                        <input type="time" name="FEC_HR_FIM" id="id_FEC_HR_FIM" class="form-control" required>
+                        <span class="input-group-addon" id="hora-atual">00:00:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info" id="tempo-producao-resumo">
+                <strong>Horas disponíveis:</strong> <span id="tempo-producao-texto">00h 00m</span>
+            </div>
+
+            <button type="submit" class="btn btn-success btn-lg btn-block" id="btnRegistrar">
+                Registrar Fechamento
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block js %}
+    {% include "apontamento/js_html/js_fechamento.html" %}
+{% endblock %}

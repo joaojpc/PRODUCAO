@@ -43,6 +43,10 @@
         <div class="content container">
             <div class="row">
                 <div class="col-md-10">
+                {# AJUSTE 2026-10-06: exibe mensagens do Django (ex.: fechamento diário da OP) #}
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}">{{ message }}</div>
+                {% endfor %}
                 {% block content %}
                 {% endblock %}
                 </div>

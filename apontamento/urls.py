@@ -52,4 +52,6 @@ urlpatterns = [
     #path('tipoordens/', views.gettipoordens, name='tipoordens'),
     path('deleteapt/<int:pk>', views.ExcluirApontamento, name='deleteapt'),
     path('deletedemanda/<int:pk>', views.ExcluirDemanda, name='deletedemanda'),
+    # AJUSTE 2026-10-06: fechamento diário de OP
+    path('fechar-op/', views.fechar_op_diario, name='fechar_op_diario'),
 ]

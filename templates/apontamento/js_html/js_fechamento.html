@@ -1,0 +1,88 @@
+<script>
+// AJUSTE 2026-10-06: copiado do MP (oee/js_html/js_fechamento.html), sem pendente.
+// Desconto de café/almoço igual ao Fechamento.calcular_tempo_liquido (sobreposição com as janelas).
+function doisDigitos(n) { return (n < 10 ? '0' : '') + n; }
+
+function atualizarHora() {
+    // Fuso fixo de São Paulo (mesmo TIME_ZONE do settings), independente do relógio do aparelho
+    var horaSP = new Date().toLocaleTimeString('pt-BR', {timeZone: 'America/Sao_Paulo', hour12: false,
+                                                         hour: '2-digit', minute: '2-digit', second: '2-digit'});
+    var partes = horaSP.split(':');
+    var hora = partes[0], min = partes[1], seg = partes[2];
+    var inputHoraFim = document.getElementById('id_FEC_HR_FIM');
+    if (inputHoraFim && !inputHoraFim.getAttribute('data-manual')) {
+        inputHoraFim.value = hora + ':' + min;
+    }
+    var spanHora = document.getElementById('hora-atual');
+    if (spanHora) { spanHora.textContent = hora + ':' + min + ':' + seg; }
+    calcularTempoProducao();
+}
+
+function minutosDe(valor) {
+    var p = valor.split(':');
+    return parseInt(p[0], 10) * 60 + parseInt(p[1], 10);
+}
+
+function sobreposicao(ini, fim, iniIntervalo, fimIntervalo) {
+    var a = Math.max(ini, iniIntervalo), b = Math.min(fim, fimIntervalo);
+    return b > a ? b - a : 0;
+}
+
+function calcularTempoProducao() {
+    var inputInicio = document.getElementById('id_FEC_HR_INICIO');
+    var inputFim = document.getElementById('id_FEC_HR_FIM');
+    var spanTempo = document.getElementById('tempo-producao-texto');
+    if (!inputInicio || !inputFim || !spanTempo) return;
+    if (!inputInicio.value || !inputFim.value) { spanTempo.textContent = '00h 00m'; return; }
+
+    var ini = minutosDe(inputInicio.value), fim = minutosDe(inputFim.value);
+    var liquido = 0;
+    if (fim > ini) {
+        var total = fim - ini, cafe = 0, almoco = 0;
+        if (ini <= 13 * 60) {
+            cafe = sobreposicao(ini, fim, 8 * 60, 8 * 60 + 15);
+            almoco = sobreposicao(ini, fim, 11 * 60 + 30, 13 * 60);
+        }
+        liquido = Math.max(total - cafe - almoco, 0);
+    }
+    spanTempo.textContent = Math.floor(liquido / 60) + 'h ' + doisDigitos(liquido % 60) + 'm';
+}
+
+var form = document.getElementById('formFechamento');
+if (form) {
+    form.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); }
+    });
+    form.addEventListener('submit', function(e) {
+        var btn = document.getElementById('btnRegistrar');
+        if (btn && btn.disabled) { e.preventDefault(); return; }
+        var hrInicio = document.getElementById('id_FEC_HR_INICIO').value;
+        var hrFim = document.getElementById('id_FEC_HR_FIM').value;
+        if (!hrInicio) {
+            alert('Hora Início não pode ser vazia.');
+            document.getElementById('id_FEC_HR_INICIO').focus();
+            e.preventDefault();
+            return;
+        }
+        if (hrFim && hrFim <= hrInicio) {
+            alert('Hora final deve ser maior que hora inicial');
+            document.getElementById('id_FEC_HR_FIM').focus();
+            e.preventDefault();
+            return;
+        }
+        if (btn) { btn.disabled = true; btn.innerHTML = 'Registrando...'; }
+    });
+}
+
+document.getElementById('id_FEC_HR_INICIO').addEventListener('input', function() {
+    if (!this.value) { this.value = this.defaultValue; }
+    calcularTempoProducao();
+});
+document.getElementById('id_FEC_HR_FIM').addEventListener('input', function() {
+    this.setAttribute('data-manual', 'true');
+    calcularTempoProducao();
+});
+
+atualizarHora();
+setInterval(atualizarHora, 30000);
+</script>

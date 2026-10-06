@@ -40,6 +40,19 @@ class Apt_Controle(models.Model):
     ORD_ST_ID            = models.CharField(max_length=44,null=True, blank=True,verbose_name='id_ordem')
     CMAQ_ST_ID           = models.CharField(max_length=13,null=True, blank=True,verbose_name='id_maquina')
     PRINTER_ST_IP        = models.CharField(max_length=20,null=True, blank=True)
+    # AJUSTE 2026-10-06: campos do fechamento diário de OP (copiado do MP, sem pendente)
+    FEC_DT_APONTAMENTO   = models.DateField(null=True, blank=True, verbose_name='data fechamento')
+    FEC_DT_INCLUSAO      = models.DateTimeField(null=True, blank=True, verbose_name='data inclusão')
+    FEC_USU_INCLUSAO     = models.CharField(max_length=20, null=True, blank=True, verbose_name='usuario inclusão')
+    FEC_HR_INICIO        = models.TimeField(null=True, blank=True, verbose_name='hora inicio')
+    FEC_HR_FIM           = models.TimeField(null=True, blank=True, verbose_name='hora fim')
+    FEC_RE_QTD_PRODUZIDA = models.DecimalField(blank=True, decimal_places=3, default=0, max_digits=10, null=True, verbose_name='qtd produzida')
+    FEC_RE_QTD_DEMANDAS  = models.DecimalField(blank=True, decimal_places=3, default=0, max_digits=10, null=True, verbose_name='qtd demandas')
+    CTL_RE_TOTAL_PROD    = models.DecimalField(blank=True, decimal_places=3, default=0, max_digits=10, null=True, verbose_name='total produzido')
+    FEC_IN_TEMPO_TOTAL   = models.IntegerField(null=True, blank=True, verbose_name='tempo total (min)')
+    FEC_IN_TEMPO_LIQUIDO = models.IntegerField(null=True, blank=True, verbose_name='tempo liquido (min)')
+    FEC_IN_DESC_CAFE     = models.IntegerField(null=True, blank=True, verbose_name='desconto cafe (min)')
+    FEC_IN_DESC_ALMOCO   = models.IntegerField(null=True, blank=True, verbose_name='desconto almoco (min)')
     class Meta:
         db_table = u'Apt_Controle'
 

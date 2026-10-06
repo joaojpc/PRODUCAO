@@ -1291,6 +1291,75 @@ def trocar_impressora(request):
         raise Http404("Dados não encontrados!")
     return redirect('demos_sessions')
 
+
+# AJUSTE 2026-10-06: fechamento diário de OP - copiado do projeto MP (oee/views.py).
+# View só orquestra; regra de negócio fica em Fechamento (api_view.py).
+from django.contrib import messages
+from django.views.decorators.http import require_http_methods
+from cad_operadores import operador_required
+from apontamento.api_view import Fechamento
+
+
+@operador_required
+@require_http_methods(["GET", "POST"])
+def fechar_op_diario(request):
+    v_session = carrega_sessao(request)
+    ordem = v_session.get('ord_in_codigo')
+    filial = v_session.get('fil_in_codigo')
+    operador = v_session.get('usuario')
+    seq_apontamento = v_session.get('ctl_in_codigo')
+    if not ordem:
+        messages.error(request, 'OP não informada')
+        return redirect('menu')
+
+    dados_api = Fechamento().api_buscar_dados_op({
+        'ord_in_codigo': ordem,
+        'fil_in_codigo': filial,
+        'ctl_in_codigo': seq_apontamento,
+    })
+    if dados_api.get('msg') or dados_api.get('ctl_st_status') != 'A':
+        messages.error(request, dados_api.get('msg') or 'Esta OP já foi encerrada. Não é possível abrir novo fechamento.')
+        return redirect('menu')
+
+    if request.method == 'POST':
+        # Data do fechamento: só a do controle, o último dia útil anterior ou hoje
+        try:
+            data_postada = datetime.strptime(request.POST.get('FEC_DT_DATA') or '', '%Y-%m-%d').date()
+        except ValueError:
+            data_postada = None
+        if data_postada not in Fechamento.datas_permitidas(dados_api['data_apontamento']):
+            messages.error(request, 'Data do fechamento inválida: só é permitido manter a data atual '
+                                    'ou voltar para o último dia útil.')
+            return redirect('fechar_op_diario')
+
+        response = Fechamento.api_registrar_fechamento({
+            'ordem': ordem,
+            'filial': filial,
+            'ctl_in_codigo': dados_api.get('ctl_in_codigo'),
+            'data_apontamento': data_postada.isoformat(),
+            'hr_inicio': request.POST.get('FEC_HR_INICIO'),
+            'hr_fim': request.POST.get('FEC_HR_FIM'),
+            'usuario': operador,
+            'qtd_produzida': request.POST.get('FEC_RE_QTD_PRODUZIDA', 0),
+            'qtd_demandas': request.POST.get('FEC_RE_QTD_DEMANDAS', 0),
+        })
+        if response.get('success'):
+            messages.success(request, response.get('msg', 'Fechamento registrado com sucesso'))
+            return redirect('menu')
+        messages.error(request, f"Erro: {response.get('error')}")
+
+    context = {
+        'ordem': ordem,
+        'produzida': dados_api.get('produzida', 0),
+        'demandas': dados_api.get('demandas', 0),
+        'hr_inicio': dados_api.get('hr_inicio', ''),
+        'data_apontamento': dados_api.get('data_apontamento'),
+        'data_apontamento_min': dados_api.get('data_apontamento_min'),
+        'data_apontamento_max': dados_api.get('data_apontamento_max'),
+        'usuario': operador,
+    }
+    return render(request, 'apontamento/fechar_op.html', context)
+
 #Imprimir arquivo;
 '''f = open("validar.txt", "a")
 f.write(e)

@@ -1632,3 +1632,185 @@ class Controle:
         except:
             pass
         return cr_ctl
+
+
+# AJUSTE 2026-10-06: fechamento diário de OP - copiado do projeto MP (oee/api_view.py).
+# Diferenças: sem pendente/romaneio; data do fechamento aceita a do controle, o último dia
+# útil anterior ou hoje (regra do NMV); hora vem do fuso do settings (MP fixava Cuiabá).
+from datetime import time as dt_time, timezone as dt_timezone
+from django.db import transaction
+from apontamento.services import controle_db, dia_util_anterior
+
+
+class Fechamento:
+    def __init__(self):
+        self.db = controle_db()
+
+    @staticmethod
+    def _login_local(dt_login):
+        # CTL_DT_LOGIN é gravado com datetime.now() do servidor (UTC), sem fuso
+        if isinstance(dt_login, str):
+            try:
+                dt_login = datetime.fromisoformat(dt_login)
+            except ValueError:
+                dt_login = datetime.strptime(dt_login, '%Y-%m-%d %H:%M:%S')
+        if timezone.is_naive(dt_login):
+            dt_login = timezone.make_aware(dt_login, dt_timezone.utc)
+        return timezone.localtime(dt_login)
+
+    @staticmethod
+    def datas_permitidas(data_controle):
+        # Regra: data do controle, último dia útil anterior a ela ou hoje
+        return {d for d in (data_controle, dia_util_anterior(data_controle), timezone.localdate()) if d}
+
+    def api_buscar_dados_op(self, params):
+        ordem = params.get('ord_in_codigo')
+        filial = params.get('fil_in_codigo')
+        seq_apontamento = params.get('ctl_in_codigo')
+        response = {'msg': None}
+        response.update(params)
+
+        controle_data = self.db.get_controle_ativo_ordem(filial, ordem, seq_apontamento)
+        if not controle_data or controle_data.get('CTL_ST_STATUS') != 'A':
+            response.update({
+                'msg': 'Não existe apontamento em aberto para esta OP/Filial',
+                'hr_inicio': '',
+                'data_apontamento': '',
+                'ctl_in_codigo': (controle_data or {}).get('CTL_IN_CODIGO', seq_apontamento),
+                'ctl_st_status': (controle_data or {}).get('CTL_ST_STATUS', 'E'),
+            })
+            return response
+
+        dt_login = self._login_local(controle_data.get('CTL_DT_LOGIN'))
+        hr_inicio = controle_data.get('FEC_HR_INICIO') or dt_login.strftime('%H:%M')
+        data_controle = dt_login.date()
+        datas = self.datas_permitidas(data_controle)
+
+        resumo_dia = self.db.get_totais_dia({'filial': filial, 'ordem': ordem, 'data_apontamento': data_controle})
+        response.update({
+            'hr_inicio': hr_inicio,
+            'data_apontamento': data_controle,
+            'data_apontamento_min': min(datas),
+            'data_apontamento_max': max(datas),
+            'ctl_in_codigo': controle_data.get('CTL_IN_CODIGO'),
+            'ctl_st_status': controle_data.get('CTL_ST_STATUS'),
+            'produzida': resumo_dia.get('produzida', 0),
+            'demandas': resumo_dia.get('demandas', 0),
+        })
+        return response
+
+    @staticmethod
+    def _parse_hora(valor):
+        if isinstance(valor, dt_time):
+            return valor
+        if isinstance(valor, datetime):
+            return valor.time()
+        if isinstance(valor, str):
+            valor = valor.strip()
+            if not valor:
+                return None
+            for formato in ('%H:%M', '%H:%M:%S'):
+                try:
+                    return datetime.strptime(valor, formato).time()
+                except ValueError:
+                    continue
+        return None
+
+    @classmethod
+    def calcular_tempo_liquido(cls, hora_inicio, hora_fim):
+        """
+        Regras dos intervalos fixos:
+        - café: desconta a sobreposição com a janela 08:00-08:15;
+        - almoço: desconta a sobreposição com a janela 11:30-13:00 (90 min);
+        - início após 13:00: não desconta café nem almoço.
+        """
+        zerado = {'tempo_total_minutos': 0, 'tempo_liquido_minutos': 0,
+                  'desconto_cafe_minutos': 0, 'desconto_almoco_minutos': 0}
+        inicio = cls._parse_hora(hora_inicio)
+        fim = cls._parse_hora(hora_fim)
+        if inicio is None or fim is None or fim <= inicio:
+            return zerado
+
+        def _minutos(h_ini, h_fim):
+            return int((datetime.combine(date.today(), h_fim) - datetime.combine(date.today(), h_ini)).total_seconds() / 60)
+
+        total_minutos = _minutos(inicio, fim)
+        if inicio > dt_time(13, 0):
+            return dict(zerado, tempo_total_minutos=total_minutos, tempo_liquido_minutos=total_minutos)
+
+        def _sobreposicao(ini_intervalo, fim_intervalo):
+            ov_ini = max(inicio, ini_intervalo)
+            ov_fim = min(fim, fim_intervalo)
+            return _minutos(ov_ini, ov_fim) if ov_fim > ov_ini else 0
+
+        desconto_cafe = _sobreposicao(dt_time(8, 0), dt_time(8, 15))
+        desconto_almoco = _sobreposicao(dt_time(11, 30), dt_time(13, 0))
+        return {
+            'tempo_total_minutos': total_minutos,
+            'tempo_liquido_minutos': max(total_minutos - desconto_cafe - desconto_almoco, 0),
+            'desconto_cafe_minutos': desconto_cafe,
+            'desconto_almoco_minutos': desconto_almoco,
+        }
+
+    @staticmethod
+    def validar_horario(hr_inicio, hr_fim):
+        inicio = Fechamento._parse_hora(hr_inicio)
+        fim = Fechamento._parse_hora(hr_fim)
+        if inicio is None or fim is None:
+            return False, 'Informe a hora inicial e a hora final'
+        if fim <= inicio:
+            return False, 'Hora final deve ser maior que hora inicial'
+        return True, None
+
+    @staticmethod
+    def registrar(ord_codigo, data_apontamento, hora_inicio, hora_fim, usuario, qtd_produzida=0,
+                  qtd_demandas=0, filial=None, ctl_in_codigo=None):
+        db = controle_db()
+        valido, erro = Fechamento.validar_horario(hora_inicio, hora_fim)
+        if not valido:
+            return False, None, erro
+        if not db.ordem_existe(ord_codigo):
+            return False, None, 'OP não encontrada'
+        if not db.get_ordem_info(filial, ord_codigo):
+            return False, None, 'OP não encontrada'
+
+        tempo = Fechamento.calcular_tempo_liquido(hora_inicio, hora_fim)
+        dados = {
+            'ord_in_codigo': ord_codigo,
+            'filial': filial,
+            'ctl_in_codigo': ctl_in_codigo,
+            'total_produzido': qtd_produzida,
+            'total_demandas': qtd_demandas,
+            'ctl_re_total_prod': float(qtd_produzida or 0),
+            'hr_inicio': hora_inicio,
+            'hr_fim': hora_fim,
+            'data_apontamento': data_apontamento,
+            'usuario': usuario,
+        }
+        dados.update(tempo)
+        # Fechamento + alinhamento das datas dos lançamentos do controle na mesma transação
+        with transaction.atomic():
+            db.criar_fechamento(dados)
+            dados['demandas_alinhadas'] = db.alinhar_demandas_do_controle(ctl_in_codigo, data_apontamento)
+            dados['lotes_alinhados'] = db.alinhar_lotes_do_controle(ctl_in_codigo, data_apontamento)
+        return True, dados, None
+
+    @staticmethod
+    def api_registrar_fechamento(payload):
+        try:
+            sucesso, dados, erro = Fechamento.registrar(
+                ord_codigo=payload.get('ordem'),
+                data_apontamento=payload.get('data_apontamento'),
+                hora_inicio=payload.get('hr_inicio'),
+                hora_fim=payload.get('hr_fim'),
+                usuario=payload.get('usuario'),
+                qtd_produzida=payload.get('qtd_produzida', 0),
+                qtd_demandas=payload.get('qtd_demandas', 0),
+                filial=payload.get('filial'),
+                ctl_in_codigo=payload.get('ctl_in_codigo'),
+            )
+            if sucesso:
+                return {'success': True, 'msg': 'Fechamento registrado com sucesso', 'error': None, 'dados': dados}
+            return {'success': False, 'msg': None, 'error': erro, 'dados': None}
+        except Exception as e:
+            return {'success': False, 'msg': None, 'error': f'Erro interno: {str(e)}', 'dados': None}
