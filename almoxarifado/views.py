@@ -294,14 +294,18 @@ def IncluirBaixa(request):
 def man_almoxa(request):
     tmpl = "almoxarifado/man_almoxa.html"
     # AJUSTE 2026-10-06: sincronização est_CadItens/est_CadItemAlmoxa pela filial do operador
+    # operador/filial vêm da sessão (sem sessão -> login do operador)
+    if 'filial' not in request.session:
+        return redirect('controla')
+    v_filial = request.session['filial']
+    v_nome = request.session.get('usuario')
     if request.method == "POST":
         form = FormIntegracao(request.POST)
         if form.is_valid():
-            cd = form.cleaned_data
-            v_item = (cd.get('item') or '').strip()
-            resultado = Buscar_CadastroProdutos({'id': v_item, 'filial': cd['filial']})
+            v_item = form.cleaned_data['item'].strip()
+            resultado = Buscar_CadastroProdutos({'id': v_item, 'filial': v_filial})
             return render(request, tmpl, {'form': form, 'resultado': resultado,
-                                          'filial': cd['filial'], 'nome': cd['nome'], 'item': v_item})
+                                          'filial': v_filial, 'nome': v_nome, 'item': v_item})
         return render(request, tmpl, {'form': form})
     else:
         if 'action' in request.GET:

@@ -19,15 +19,10 @@
                     <div class="alert alert-danger">{{ form.non_field_errors|join:" " }}</div>
                 {% endif %}
                 <div class="form-group">
-                    <label for="{{ form.operador.id_for_label }}">{{ form.operador.label }}</label>
-                    <input type="text" class="form-control" name="operador" id="{{ form.operador.id_for_label }}"
-                           value="{{ form.operador.value|default:'' }}" maxlength="20" required autofocus>
-                    {% for erro in form.operador.errors %}<span class="text-danger">{{ erro }}</span>{% endfor %}
-                </div>
-                <div class="form-group">
                     <label for="{{ form.item.id_for_label }}">{{ form.item.label }}</label>
                     <input type="text" class="form-control" name="item" id="{{ form.item.id_for_label }}"
-                           value="{{ form.item.value|default:'' }}" maxlength="20">
+                           value="{{ form.item.value|default:'' }}" maxlength="20" required autofocus>
+                    {% for erro in form.item.errors %}<span class="text-danger">{{ erro }}</span>{% endfor %}
                 </div>
                 <button type="submit" class="btn btn-primary btn-lg btn-block">
                     Sincronizar Itens e Localizações
