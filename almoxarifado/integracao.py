@@ -96,14 +96,12 @@ class integrador:
         json_getCadItens= {}
         if 1==1:
         #try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'pro_pad_in_codigo': self.pad_in})            
-            c_rs = cur.fetchall()
-            #print(c_rs)
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'pro_pad_in_codigo': self.pad_in})            
+                    c_rs = cur.fetchall()
+                    #print(c_rs)
             if c_rs:                
                 for rs in c_rs:                    
                     lista.append(dict(BXI_ID_PRODUTO = rs[0],
@@ -247,15 +245,13 @@ class integrador:
             pass
         #return pparams
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            ref_cursor = con.cursor()
-            sparams = (ref_cursor,self.fil_in_codigo,self.bxa_in_sequencia,self.bxa_dt_apontamento
-                      ,self.bxa_st_usuario,self.cus_id_ccusto,self.bxa_ch_status,self.os_st_id)            
-            cur.callproc('idp.apt_intprod2.p_Insere_Requisicao',(sparams))            
-            c_rs = ref_cursor.fetchall()
-            cur.close
-            con.close            
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()
+                    sparams = (ref_cursor,self.fil_in_codigo,self.bxa_in_sequencia,self.bxa_dt_apontamento
+                              ,self.bxa_st_usuario,self.cus_id_ccusto,self.bxa_ch_status,self.os_st_id)            
+                    cur.callproc('idp.apt_intprod2.p_Insere_Requisicao',(sparams))            
+                    c_rs = ref_cursor.fetchall()
         except cxo._Error as error:
             pass
         return c_rs    
@@ -274,15 +270,13 @@ class integrador:
         except:
            self.bxi_id_almoxa = None
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            ref_cursor = con.cursor()
-            sparams = (ref_cursor,self.fil_in_codigo,self.req_in_sequencia,self.bxi_in_sequencia, self.bxa_in_sequencia,
-                                   self.bxi_id_produto,self.bxi_re_quantidade,self.bxi_ch_status,self.bxi_id_almoxa)            
-            cur.callproc('idp.apt_intprod2.p_Insere_ItemRequisicao',(sparams))            
-            c_rs = ref_cursor.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()
+                    sparams = (ref_cursor,self.fil_in_codigo,self.req_in_sequencia,self.bxi_in_sequencia, self.bxa_in_sequencia,
+                                           self.bxi_id_produto,self.bxi_re_quantidade,self.bxi_ch_status,self.bxi_id_almoxa)            
+                    cur.callproc('idp.apt_intprod2.p_Insere_ItemRequisicao',(sparams))            
+                    c_rs = ref_cursor.fetchall()
             if c_rs:
                 v_return = c_rs
             else:
@@ -295,14 +289,12 @@ class integrador:
         #Baixa requisição em aberto
         v_baixa = False
         try:
-            con = getOracleConnection()
-            cur = con.cursor()            
-            ref_cursor = con.cursor()            
-            sparams = (ref_cursor,self.fil_in)            
-            cur.callproc('idp.apt_intprod2.p_Gera_BaixaRequisicao',(sparams))
-            c_cursor = ref_cursor.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()            
+                    sparams = (ref_cursor,self.fil_in)            
+                    cur.callproc('idp.apt_intprod2.p_Gera_BaixaRequisicao',(sparams))
+                    c_cursor = ref_cursor.fetchall()
             v_baixa = True            
         except:
             pass
@@ -353,13 +345,11 @@ class integrador:
                           and cc.cus_pad_in_codigo = :cus_pad_in_codigo
                         order by cc.cus_in_reduzido''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'cus_pad_in_codigo': 1})
-            c_rs = cur.fetchall()            
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'cus_pad_in_codigo': 1})
+                    c_rs = cur.fetchall()            
             print('Linha 724',c_rs)
             for rs in c_rs:
                 lista.append(dict(CUS_ID_CCUSTO = rs[0],
@@ -399,20 +389,18 @@ class integrador:
                           ''')
 
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            if pparams[1] is None:
-                cur.execute(None, {'ord_ch_integrada': 'N','org_in_codigo': pparams[0]})
-            else:
-                cur.execute(None, {'ord_ch_integrada': 'N',
-                                   'fil_in_codigo': pparams[1],
-                                   'ord_in_codigo': pparams[2]
-                                   })
-            c_rs = cur.fetchall()
-            print(c_rs)
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    if pparams[1] is None:
+                        cur.execute(None, {'ord_ch_integrada': 'N','org_in_codigo': pparams[0]})
+                    else:
+                        cur.execute(None, {'ord_ch_integrada': 'N',
+                                           'fil_in_codigo': pparams[1],
+                                           'ord_in_codigo': pparams[2]
+                                           })
+                    c_rs = cur.fetchall()
+                    print(c_rs)
         except cxo._Error as error:
             pass
         lista = []
@@ -445,14 +433,12 @@ class integrador:
                         print('Erro ',c_rs['BXI_ID_PRODUTO'])
                 #Carimba a localização como sincronizada;
                 try:
-                    con = getOracleConnection()
-                    cur = con.cursor()
-                    ref_cursor = con.cursor()
-                    sparams =(r_prl['LOC_ID_PROALMFIL'],'S',ref_cursor)
-                    cur.callproc('apt_intprod2.apt_put_itemalmoxa',(sparams))
-                    c_rs2 = ref_cursor.fetchall()
-                    cur.close
-                    con.close
+                    with getOracleConnection() as con:
+                        with con.cursor() as cur:
+                            ref_cursor = con.cursor()
+                            sparams =(r_prl['LOC_ID_PROALMFIL'],'S',ref_cursor)
+                            cur.callproc('apt_intprod2.apt_put_itemalmoxa',(sparams))
+                            c_rs2 = ref_cursor.fetchall()
                     print('Carimbado',r_prl['LOC_ID_PROALMFIL'])
                 except:
                     print('Erro ',r_prl['LOC_ID_PROALMFIL'])                 
@@ -484,14 +470,12 @@ class integrador:
                         print('Cadastrado ',r_prl['LOC_ID_PROALMFIL'])
                     #Carimba a localização como sincronizada;
                     try:
-                        con = getOracleConnection()
-                        cur = con.cursor()
-                        ref_cursor = con.cursor()                    
-                        sparams =(r_prl['LOC_ID_PROALMFIL'],'S',ref_cursor)                        
-                        cur.callproc('apt_intprod2.apt_put_itemalmoxa',(sparams))
-                        c_rs2 = ref_cursor.fetchall()
-                        cur.close
-                        con.close
+                        with getOracleConnection() as con:
+                            with con.cursor() as cur:
+                                ref_cursor = con.cursor()                    
+                                sparams =(r_prl['LOC_ID_PROALMFIL'],'S',ref_cursor)                        
+                                cur.callproc('apt_intprod2.apt_put_itemalmoxa',(sparams))
+                                c_rs2 = ref_cursor.fetchall()
                         print('Carimbado',r_prl['LOC_ID_PROALMFIL'])
                     except:
                         print('Erro ',r_prl['LOC_ID_PROALMFIL'])                    

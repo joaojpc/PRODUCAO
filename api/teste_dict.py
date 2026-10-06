@@ -27,25 +27,23 @@ class TabPreco:
         self.pro_pad = 1
             
     def lista_precos(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        selectSQL =('''select det.pro_in_codigo,
-                              prod.pro_st_descricao,
-                              round(det.prt_re_custo,2)prt_re_custo,
-                              det.prt_re_preco,
-                              det.tpp_re_vlmoeda            
-                         from mgcli.cli_tb_tipoprecodetalhe det,
-                              mgadm.est_produtos prod
-                        where det.pro_tab_in_codigo = prod.pro_tab_in_codigo
-                          and det.pro_pad_in_codigo = prod.pro_pad_in_codigo
-                          and det.pro_in_codigo     = prod.pro_in_codigo
-                          and det.tpr_pad_in_codigo = :pro_pad                         
-                         order by pro_in_codigo''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'pro_pad': self.pro_pad})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                selectSQL =('''select det.pro_in_codigo,
+                                      prod.pro_st_descricao,
+                                      round(det.prt_re_custo,2)prt_re_custo,
+                                      det.prt_re_preco,
+                                      det.tpp_re_vlmoeda            
+                                 from mgcli.cli_tb_tipoprecodetalhe det,
+                                      mgadm.est_produtos prod
+                                where det.pro_tab_in_codigo = prod.pro_tab_in_codigo
+                                  and det.pro_pad_in_codigo = prod.pro_pad_in_codigo
+                                  and det.pro_in_codigo     = prod.pro_in_codigo
+                                  and det.tpr_pad_in_codigo = :pro_pad                         
+                                 order by pro_in_codigo''')
+                cur.prepare(selectSQL)
+                cur.execute(None, {'pro_pad': self.pro_pad})
+                c_rs = cur.fetchall()
         lista = []
         json_preco2={}
         for rs in c_rs:

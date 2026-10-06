@@ -38,14 +38,12 @@ class Baixas:
         self.bxi_ch_status = None
         self.acao_in_codigo = None
     def apt_gerarBaixa(self,pparams):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (ref_cursor,self.acao_in_codigo,self.fil_in_codigo,self.req_in_sequencia)
-        cur.callproc('apt_intprod.p_Gera_BaixaRequisicao',(sparams))
-        c_cursor = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (ref_cursor,self.acao_in_codigo,self.fil_in_codigo,self.req_in_sequencia)
+                cur.callproc('apt_intprod.p_Gera_BaixaRequisicao',(sparams))
+                c_cursor = ref_cursor.fetchall()
         for v_ret in c_cursor:
             result = v_ret[0]
         return result
@@ -58,15 +56,13 @@ class Baixas:
             self.bxi_id_produto = v_rei['bxi_id_produto']
             self.bxi_re_quantidade = v_rei['bxi_re_quantidade']
             self.bxa_ch_status = v_rei['bxa_ch_status']
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (ref_cursor,self.fil_in_codigo,self.req_in_sequencia,self.bxi_in_sequencia,
-                   self.bxa_in_sequencia,self.bxi_id_produto, self.bxi_re_quantidade, self.bxi_ch_status)
-        cur.callproc('apt_intprod.p_Insere_ItemRequisicao',(sparams))
-        c_cursor = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (ref_cursor,self.fil_in_codigo,self.req_in_sequencia,self.bxi_in_sequencia,
+                           self.bxa_in_sequencia,self.bxi_id_produto, self.bxi_re_quantidade, self.bxi_ch_status)
+                cur.callproc('apt_intprod.p_Insere_ItemRequisicao',(sparams))
+                c_cursor = ref_cursor.fetchall()
         for v_ret in c_cursor:
             result = v_ret[0]
         return result
@@ -89,15 +85,13 @@ class Baixas:
         c_req = requests.get(get_urlest, params=payload).json()
         if c_req:
             try:
-                con = getOracleConnection()
-                cur = con.cursor()
-                ref_cursor = con.cursor()
-                sparams = (ref_cursor,self.fil_in_codigo,self.bxa_in_sequencia,self.bxa_dt_apontamento
-                            ,self.bxa_st_usuario,self.cus_id_ccusto,self.bxa_ch_status)
-                cur.callproc('intprod.apt_intprod.p_Insere_Requisicao',(sparams))
-                c_cursor = ref_cursor.fetchall()
-                cur.close
-                con.close
+                with getOracleConnection() as con:
+                    with con.cursor() as cur:
+                        ref_cursor = con.cursor()
+                        sparams = (ref_cursor,self.fil_in_codigo,self.bxa_in_sequencia,self.bxa_dt_apontamento
+                                    ,self.bxa_st_usuario,self.cus_id_ccusto,self.bxa_ch_status)
+                        cur.callproc('intprod.apt_intprod.p_Insere_Requisicao',(sparams))
+                        c_cursor = ref_cursor.fetchall()
                 for v_ret in c_cursor:
                     self.req_in_sequencia = v_ret[0]
                 #Busca os itens das requisições;
@@ -108,15 +102,13 @@ class Baixas:
                     self.bxi_re_quantidade =float(v_req['BXI_RE_QUANTIDADE'])
                     self.bxi_ch_status = v_req['BXI_CH_STATUS']
                     try:
-                        con = getOracleConnection()
-                        cur = con.cursor()
-                        ref_cursor = con.cursor()
-                        sparams = (ref_cursor,self.fil_in_codigo,self.req_in_sequencia,self.bxi_in_sequencia, self.bxa_in_sequencia,
-                                   self.bxi_id_produto,self.bxi_re_quantidade,self.bxi_ch_status)
-                        cur.callproc('intprod.apt_intprod.p_Insere_ItemRequisicao',(sparams))
-                        cur_req = ref_cursor.fetchall()
-                        cur.close
-                        con.close
+                        with getOracleConnection() as con:
+                            with con.cursor() as cur:
+                                ref_cursor = con.cursor()
+                                sparams = (ref_cursor,self.fil_in_codigo,self.req_in_sequencia,self.bxi_in_sequencia, self.bxa_in_sequencia,
+                                           self.bxi_id_produto,self.bxi_re_quantidade,self.bxi_ch_status)
+                                cur.callproc('intprod.apt_intprod.p_Insere_ItemRequisicao',(sparams))
+                                cur_req = ref_cursor.fetchall()
                         for v_reqitn in cur_req:
                             #Carimba o item da requisição como baixado
                             payload = {'requisicao':v_reqitn[0],'item_req':v_reqitn[1],'sequencia':v_reqitn[2],'seq_item': v_reqitn[3],'status': 'B'}

@@ -24,14 +24,12 @@ class IntApi:
             self.pro_in = v_operacoes['pro_in_codigo']
             self.org_in = v_operacoes['org_in_codigo']
     def ord_demandas(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (self.fil_in,self.ordem_in,ref_cursor)
-        cur.callproc('intprod.apt_intprod.apt_retornademandadisp',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (self.fil_in,self.ordem_in,ref_cursor)
+                cur.callproc('intprod.apt_intprod.apt_retornademandadisp',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(pro_in_codigo = int(rs[0]),
@@ -45,25 +43,23 @@ class IntApi:
         json_demandas = json.dumps(lista)
         return json_demandas
     def ord_listDemandas(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        selectSQL =('''select dem.com_in_codigo,
-                              pro.pro_st_descricao,
-                              dem.apt_re_qtdeselecionada,
-                              dem.mvs_st_loteforne,
-                              mgadm.adm_pck_util.f_formatacaract(dem.mvs_st_referencia) as mvs_st_referencia_desc
-                         from mgcustom.apt_apontademanda_estoque dem,
-                              mgadm.est_produtos pro
-                        where pro.pro_tab_in_codigo = dem.com_tab_in_codigo
-                          and pro.pro_pad_in_codigo = dem.com_pad_in_codigo
-                          and pro.pro_in_codigo = dem.com_in_codigo
-                          and dem.ord_in_codigo     = :ord_in
-                          and dem.com_pad_in_codigo = mgglo.pck_mega.achapadraodatabela(:fil_in,100,sysdate)''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                selectSQL =('''select dem.com_in_codigo,
+                                      pro.pro_st_descricao,
+                                      dem.apt_re_qtdeselecionada,
+                                      dem.mvs_st_loteforne,
+                                      mgadm.adm_pck_util.f_formatacaract(dem.mvs_st_referencia) as mvs_st_referencia_desc
+                                 from mgcustom.apt_apontademanda_estoque dem,
+                                      mgadm.est_produtos pro
+                                where pro.pro_tab_in_codigo = dem.com_tab_in_codigo
+                                  and pro.pro_pad_in_codigo = dem.com_pad_in_codigo
+                                  and pro.pro_in_codigo = dem.com_in_codigo
+                                  and dem.ord_in_codigo     = :ord_in
+                                  and dem.com_pad_in_codigo = mgglo.pck_mega.achapadraodatabela(:fil_in,100,sysdate)''')
+                cur.prepare(selectSQL)
+                cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
+                c_rs = cur.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(com_in_codigo = int(rs[0]),
@@ -77,48 +73,46 @@ class IntApi:
 
     def operacoes_ordem(self):
         v_params = []        
-        con = getOracleConnection()
-        cur = con.cursor()
-        v_params.append(self.fil_in)
-        v_params.append(self.ordem_in)
-        selectSQL =('''select ord.org_tab_in_codigo,
-                              ord.org_pad_in_codigo,
-                              ord.org_in_codigo,
-                              ord.org_tau_st_codigo,
-                              ord.ord_tab_in_codigo,
-                              ord.ord_seq_in_codigo,
-                              ord.ord_in_codigo,
-                              ord.pro_tab_in_codigo,
-                              ord.pro_pad_in_codigo,
-                              ord.pro_in_codigo,
-                              pgo.plf_in_sqoperacao
-                         from mgman.pro_ordens ord,
-                              mgman.pro_prog_ordem pgo
-                        where ord.org_tab_in_codigo = pgo.org_tab_in_codigo
-                          and ord.org_pad_in_codigo = pgo.org_pad_in_codigo
-                          and ord.org_in_codigo = pgo.org_in_codigo
-                          and ord.org_tau_st_codigo = pgo.org_tau_st_codigo
-                          and ord.ord_tab_in_codigo = pgo.ord_tab_in_codigo
-                          and ord.ord_seq_in_codigo = pgo.ord_seq_in_codigo
-                          and ord.ord_in_codigo = pgo.ord_in_codigo
-                          and pgo.plf_in_sqoperacao = (select min(po.plf_in_sqoperacao)
-                                                         from mgman.pro_prog_ordem po
-                                                        where po.org_tab_in_codigo = pgo.org_tab_in_codigo
-                                                          and po.org_pad_in_codigo = pgo.org_pad_in_codigo
-                                                          and po.org_in_codigo     = pgo.org_in_codigo
-                                                          and po.org_tau_st_codigo = pgo.org_tau_st_codigo
-                                                          and po.ord_tab_in_codigo = pgo.ord_tab_in_codigo
-                                                          and po.ord_seq_in_codigo = pgo.ord_seq_in_codigo
-                                                          and po.ord_in_codigo     = pgo.ord_in_codigo
-                                                          and po.tmp_ch_aponta     = 'S'                                                          
-                                                      )
-                          and ord.fil_in_codigo = :fil_in
-                          and ord.ord_in_codigo = :ord_in''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                v_params.append(self.fil_in)
+                v_params.append(self.ordem_in)
+                selectSQL =('''select ord.org_tab_in_codigo,
+                                      ord.org_pad_in_codigo,
+                                      ord.org_in_codigo,
+                                      ord.org_tau_st_codigo,
+                                      ord.ord_tab_in_codigo,
+                                      ord.ord_seq_in_codigo,
+                                      ord.ord_in_codigo,
+                                      ord.pro_tab_in_codigo,
+                                      ord.pro_pad_in_codigo,
+                                      ord.pro_in_codigo,
+                                      pgo.plf_in_sqoperacao
+                                 from mgman.pro_ordens ord,
+                                      mgman.pro_prog_ordem pgo
+                                where ord.org_tab_in_codigo = pgo.org_tab_in_codigo
+                                  and ord.org_pad_in_codigo = pgo.org_pad_in_codigo
+                                  and ord.org_in_codigo = pgo.org_in_codigo
+                                  and ord.org_tau_st_codigo = pgo.org_tau_st_codigo
+                                  and ord.ord_tab_in_codigo = pgo.ord_tab_in_codigo
+                                  and ord.ord_seq_in_codigo = pgo.ord_seq_in_codigo
+                                  and ord.ord_in_codigo = pgo.ord_in_codigo
+                                  and pgo.plf_in_sqoperacao = (select min(po.plf_in_sqoperacao)
+                                                                 from mgman.pro_prog_ordem po
+                                                                where po.org_tab_in_codigo = pgo.org_tab_in_codigo
+                                                                  and po.org_pad_in_codigo = pgo.org_pad_in_codigo
+                                                                  and po.org_in_codigo     = pgo.org_in_codigo
+                                                                  and po.org_tau_st_codigo = pgo.org_tau_st_codigo
+                                                                  and po.ord_tab_in_codigo = pgo.ord_tab_in_codigo
+                                                                  and po.ord_seq_in_codigo = pgo.ord_seq_in_codigo
+                                                                  and po.ord_in_codigo     = pgo.ord_in_codigo
+                                                                  and po.tmp_ch_aponta     = 'S'                                                          
+                                                              )
+                                  and ord.fil_in_codigo = :fil_in
+                                  and ord.ord_in_codigo = :ord_in''')
+                cur.prepare(selectSQL)
+                cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
+                c_rs = cur.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(org_in_codigo = int(rs[2]),
@@ -130,21 +124,19 @@ class IntApi:
         return operacoes
 
     def lista_ocorrencia(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        selectSQL = ('''select a.ati_tab_in_codigo,
-                              a.ati_pad_in_codigo,
-                              a.ati_in_codigo,
-                              a.ati_st_nome
-                         from mgman.pro_atividade a
-                        where a.ati_ch_produtiva = 'I'
-                              and a.ati_pad_in_codigo = mgglo.pck_mega.achapadraodatabela(:fil_in, 204, sysdate)
-                              order by a.ati_in_codigo''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'fil_in': self.fil_in})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                selectSQL = ('''select a.ati_tab_in_codigo,
+                                      a.ati_pad_in_codigo,
+                                      a.ati_in_codigo,
+                                      a.ati_st_nome
+                                 from mgman.pro_atividade a
+                                where a.ati_ch_produtiva = 'I'
+                                      and a.ati_pad_in_codigo = mgglo.pck_mega.achapadraodatabela(:fil_in, 204, sysdate)
+                                      order by a.ati_in_codigo''')
+                cur.prepare(selectSQL)
+                cur.execute(None, {'fil_in': self.fil_in})
+                c_rs = cur.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(ati_tab_in_codigo = int(rs[0]),
@@ -155,28 +147,26 @@ class IntApi:
         json_motivos = json.dumps(lista)
         return json_motivos
     def list_lotes(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        selectSQL =(''' select apl.pro_in_codigo,
-                               pro.pro_st_descricao,
-                               apl.orl_re_qtdlote,
-                               apl.orl_re_unidade,
-                               apl.orl_st_lotefabricacao,
-                               nvl(mgadm.adm_pck_util.f_formatacaract(apl.orl_st_referencia),'*') as mvs_st_referencia_desc,
-                               apl.orl_st_referencia
-                        from mgcustom.apt_apontaordem_lote apl,
-                             mgadm.est_produtos pro
-                       where pro.pro_tab_in_codigo = apl.pro_tab_in_codigo
-                         and pro.pro_pad_in_codigo = apl.pro_pad_in_codigo
-                         and pro.pro_in_codigo = apl.pro_in_codigo
-                         and apl.ord_in_codigo = :ord_in
-                         and apl.fil_in_codigo  = :fil_in
-                         order by to_number(apl.orl_st_slotefabricacao)''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                selectSQL =(''' select apl.pro_in_codigo,
+                                       pro.pro_st_descricao,
+                                       apl.orl_re_qtdlote,
+                                       apl.orl_re_unidade,
+                                       apl.orl_st_lotefabricacao,
+                                       nvl(mgadm.adm_pck_util.f_formatacaract(apl.orl_st_referencia),'*') as mvs_st_referencia_desc,
+                                       apl.orl_st_referencia
+                                from mgcustom.apt_apontaordem_lote apl,
+                                     mgadm.est_produtos pro
+                               where pro.pro_tab_in_codigo = apl.pro_tab_in_codigo
+                                 and pro.pro_pad_in_codigo = apl.pro_pad_in_codigo
+                                 and pro.pro_in_codigo = apl.pro_in_codigo
+                                 and apl.ord_in_codigo = :ord_in
+                                 and apl.fil_in_codigo  = :fil_in
+                                 order by to_number(apl.orl_st_slotefabricacao)''')
+                cur.prepare(selectSQL)
+                cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
+                c_rs = cur.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(pro_in_codigo = int(rs[0]),
@@ -190,14 +180,12 @@ class IntApi:
         json_producao = json.dumps(lista)
         return json_producao
     def itn_referencias(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (self.fil_in,self.pro_in,ref_cursor)
-        cur.callproc('intprod.apt_intprod.apt_retornacaracteristica',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (self.fil_in,self.pro_in,ref_cursor)
+                cur.callproc('intprod.apt_intprod.apt_retornacaracteristica',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(rat_in_codigo = int(rs[0]),
@@ -212,14 +200,12 @@ class IntApi:
         return json_referencia
 
     def itn_atributos(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (self.fil_in,self.pro_in,ref_cursor)
-        cur.callproc('intprod.apt_intprod.apt_retornaatributo',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (self.fil_in,self.pro_in,ref_cursor)
+                cur.callproc('intprod.apt_intprod.apt_retornaatributo',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(pai_rat_in_codigo = int(rs[0]),
@@ -231,14 +217,12 @@ class IntApi:
         json_atributo = json.dumps(lista)
         return json_atributo
     def itens_ordem(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams =(self.fil_in,self.ordem_in,ref_cursor)
-        cur.callproc('intprod.apt_intprod.apt_retornaitens',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams =(self.fil_in,self.ordem_in,ref_cursor)
+                cur.callproc('intprod.apt_intprod.apt_retornaitens',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(pro_in_codigo = int(rs[2]),
@@ -258,25 +242,23 @@ class TabPreco:
             self.pro_pad = int(v_obj[0])
             
     def lista_precos(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        selectSQL =('''select det.pro_in_codigo,
-                              translate(prod.pro_st_descricao,'áâãêéôôóúç','aaaeeooouc') pro_st_descricao,
-                              round(det.prt_re_custo,2)prt_re_custo,
-                              det.prt_re_preco,
-                              det.tpp_re_vlmoeda            
-                         from mgcli.cli_tb_tipoprecodetalhe det,
-                              mgadm.est_produtos prod
-                        where det.pro_tab_in_codigo = prod.pro_tab_in_codigo
-                          and det.pro_pad_in_codigo = prod.pro_pad_in_codigo
-                          and det.pro_in_codigo     = prod.pro_in_codigo
-                          and det.tpr_pad_in_codigo = :pro_pad                         
-                         order by pro_in_codigo''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'pro_pad': self.pro_pad})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                selectSQL =('''select det.pro_in_codigo,
+                                      translate(prod.pro_st_descricao,'áâãêéôôóúç','aaaeeooouc') pro_st_descricao,
+                                      round(det.prt_re_custo,2)prt_re_custo,
+                                      det.prt_re_preco,
+                                      det.tpp_re_vlmoeda            
+                                 from mgcli.cli_tb_tipoprecodetalhe det,
+                                      mgadm.est_produtos prod
+                                where det.pro_tab_in_codigo = prod.pro_tab_in_codigo
+                                  and det.pro_pad_in_codigo = prod.pro_pad_in_codigo
+                                  and det.pro_in_codigo     = prod.pro_in_codigo
+                                  and det.tpr_pad_in_codigo = :pro_pad                         
+                                 order by pro_in_codigo''')
+                cur.prepare(selectSQL)
+                cur.execute(None, {'pro_pad': self.pro_pad})
+                c_rs = cur.fetchall()
         lista = []
         json_preco2= {}
         for rs in c_rs:
@@ -327,31 +309,29 @@ class TabCliente:
         for v_obj in v_params:
             self.agn_pad = int(v_obj[0])            
     def lista_cliente(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        selectSQL =('''select aid.agn_tab_in_codigo,
-                              aid.agn_pad_in_codigo,
-                              aid.agn_in_codigo,
-                              aid.agn_st_codigoalt, 
-                              replace(aid.agn_st_codigoalt,'ES','') codigo_appweb,
-                              translate(agn.agn_st_fantasia,'áâãêéíôôóúçÁÂÃÊÉÍÔÔÓÚÇÖÕõÑÜ','aaaeeíoooucAAAEEIOOOUCOOoNU') agn_st_fantasia,
-                              translate(agn.agn_st_nome,'áâãêéíôôóúçÁÂÃÊÉÍÔÔÓÚÇÖÕõÑÜ','aaaeeíoooucAAAEEIOOOUCOOoNU') agn_st_nome,
-                              agn.agn_dt_ultimaatucad       
-                         from mgglo.glo_agentes agn,
-                              mgglo.glo_agentes_id aid
-                        where agn.agn_tab_in_codigo = aid.agn_tab_in_codigo
-                          and agn.agn_pad_in_codigo = aid.agn_pad_in_codigo
-                          and agn.agn_in_codigo = aid.agn_in_codigo
-                          and agn.agn_pad_in_codigo = :agn_pad
-                          and rownum < 3
-                          and aid.agn_st_codigoalt like 'ES%'
-                          --and replace(aid.agn_st_codigoalt,'ES','') = :agn_cod
-                          ''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'agn_pad': self.agn_pad})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                selectSQL =('''select aid.agn_tab_in_codigo,
+                                      aid.agn_pad_in_codigo,
+                                      aid.agn_in_codigo,
+                                      aid.agn_st_codigoalt, 
+                                      replace(aid.agn_st_codigoalt,'ES','') codigo_appweb,
+                                      translate(agn.agn_st_fantasia,'áâãêéíôôóúçÁÂÃÊÉÍÔÔÓÚÇÖÕõÑÜ','aaaeeíoooucAAAEEIOOOUCOOoNU') agn_st_fantasia,
+                                      translate(agn.agn_st_nome,'áâãêéíôôóúçÁÂÃÊÉÍÔÔÓÚÇÖÕõÑÜ','aaaeeíoooucAAAEEIOOOUCOOoNU') agn_st_nome,
+                                      agn.agn_dt_ultimaatucad       
+                                 from mgglo.glo_agentes agn,
+                                      mgglo.glo_agentes_id aid
+                                where agn.agn_tab_in_codigo = aid.agn_tab_in_codigo
+                                  and agn.agn_pad_in_codigo = aid.agn_pad_in_codigo
+                                  and agn.agn_in_codigo = aid.agn_in_codigo
+                                  and agn.agn_pad_in_codigo = :agn_pad
+                                  and rownum < 3
+                                  and aid.agn_st_codigoalt like 'ES%'
+                                  --and replace(aid.agn_st_codigoalt,'ES','') = :agn_cod
+                                  ''')
+                cur.prepare(selectSQL)
+                cur.execute(None, {'agn_pad': self.agn_pad})
+                c_rs = cur.fetchall()
         Cliente = []
         json_cliente= {}
         for rs in c_rs:
@@ -365,16 +345,14 @@ class TabCliente:
         clientes = listaCliente        
         return listaCliente
     def grava_cliente(self, vparams):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        texto = vparams
-        sparams = (texto, ref_cursor)
-        #print(sparams)
-        cur.callproc('mgcustom.CLI_PCK_ECOMMERCE.p_testar_api',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                texto = vparams
+                sparams = (texto, ref_cursor)
+                #print(sparams)
+                cur.callproc('mgcustom.CLI_PCK_ECOMMERCE.p_testar_api',(sparams))
+                c_rs = ref_cursor.fetchall()
     def read_cliente(self):
         #file_directory = '/home/admin/myproject/controleweb/api/Clientes.json'
         #json_data=open(file_directory).read()            
@@ -421,18 +399,16 @@ class TabCliente:
             ]
         }'''        
         send_data = json.loads(enviar)
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        texto = 'teste metodo post'
-        yourdata= '[{"likes": 10, "comments": 0}, {"likes": 4, "comments": 23}]'
-        sparams = (texto, ref_cursor)
-        response = requests.post("http://192.168.0.32/api/yourView", data=yourdata)
-        #print(response.status_code)
-        cur.callproc('mgcustom.CLI_PCK_ECOMMERCE.p_testar_api',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                texto = 'teste metodo post'
+                yourdata= '[{"likes": 10, "comments": 0}, {"likes": 4, "comments": 23}]'
+                sparams = (texto, ref_cursor)
+                response = requests.post("http://192.168.0.32/api/yourView", data=yourdata)
+                #print(response.status_code)
+                cur.callproc('mgcustom.CLI_PCK_ECOMMERCE.p_testar_api',(sparams))
+                c_rs = ref_cursor.fetchall()
         #print(v3)
         #pastebin_url = response.text 
         #print("The pastebin URL is:%s"%pastebin_url) 
@@ -466,19 +442,17 @@ class GetDadosProducao:
                           ''')
 
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            if pparams[1] is None:
-                cur.execute(None, {'ord_ch_integrada': 'N','org_in_codigo': pparams[0]})
-            else:
-                cur.execute(None, {'ord_ch_integrada': 'N',
-                                   'fil_in_codigo': pparams[1],
-                                   'ord_in_codigo': pparams[2]
-                                   })
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    if pparams[1] is None:
+                        cur.execute(None, {'ord_ch_integrada': 'N','org_in_codigo': pparams[0]})
+                    else:
+                        cur.execute(None, {'ord_ch_integrada': 'N',
+                                           'fil_in_codigo': pparams[1],
+                                           'ord_in_codigo': pparams[2]
+                                           })
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         lista = []
@@ -512,13 +486,11 @@ class GetDadosProducao:
                           and ord.ord_in_codigo = :ord_in_codigo
                         order by ord.ord_in_codigo''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'org_in_codigo': self.org_in,'ord_seq_in_codigo': self.ord_seq,'ord_in_codigo':self.ordem_in})
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'org_in_codigo': self.org_in,'ord_seq_in_codigo': self.ord_seq,'ord_in_codigo':self.ordem_in})
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         lista = []
@@ -563,14 +535,12 @@ class GetDadosProducao:
     def itn_referencias(self,pparams):
         self.fil_in = pparams[0]
         self.pro_in = pparams[1]
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (self.fil_in,self.pro_in,ref_cursor)
-        cur.callproc('intprod.apt_intprod.apt_retornacaracteristica',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (self.fil_in,self.pro_in,ref_cursor)
+                cur.callproc('intprod.apt_intprod.apt_retornacaracteristica',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(rat_in_codigo = int(rs[0]),
@@ -587,14 +557,12 @@ class GetDadosProducao:
     def itn_atributos(self,pparams):
         self.fil_in = pparams[0]
         self.pro_in = pparams[1]
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (self.fil_in,self.pro_in,ref_cursor)
-        cur.callproc('intprod.apt_intprod.apt_retornaatributo',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (self.fil_in,self.pro_in,ref_cursor)
+                cur.callproc('intprod.apt_intprod.apt_retornaatributo',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(pai_rat_in_codigo = int(rs[0]),
@@ -608,14 +576,12 @@ class GetDadosProducao:
     def itens_ordem(self,pparams):
         self.fil_in = pparams[0]
         self.ordem_in = pparams[1]
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams =(self.fil_in,self.ordem_in,ref_cursor)
-        cur.callproc('intprod.apt_intprod.apt_retornaitens',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams =(self.fil_in,self.ordem_in,ref_cursor)
+                cur.callproc('intprod.apt_intprod.apt_retornaitens',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(pro_pad_in_codigo = int(rs[1]),
@@ -637,14 +603,12 @@ class GetDadosProducao:
         self.org_in = pparams[0]
         self.ord_seq = pparams[1]
         self.ordem_in = pparams[2]
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams =(self.org_in,self.ord_seq,self.ordem_in,ref_cursor)
-        cur.callproc('intprod.apt_intprod.apt_retornaDemanda',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams =(self.org_in,self.ord_seq,self.ordem_in,ref_cursor)
+                cur.callproc('intprod.apt_intprod.apt_retornaDemanda',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(com_in_codigo = int(rs[9]),
@@ -671,13 +635,11 @@ class GetDadosProducao:
                           and cc.cus_pad_in_codigo = :cus_pad_in_codigo
                         order by cc.cus_in_reduzido''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'cus_pad_in_codigo': 1})
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'cus_pad_in_codigo': 1})
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         lista = []
@@ -705,13 +667,11 @@ class GetDadosProducao:
                         where pro.pro_pad_in_codigo = :pro_pad_in_codigo
                         order by pro.pro_in_codigo''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'pro_pad_in_codigo': 1})
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'pro_pad_in_codigo': 1})
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         lista = []
@@ -761,14 +721,12 @@ class IntegrarProducao:
         v_listDem = []
         v_listDem.append(pparams)
         for v_obj in v_listDem:
-            con = getOracleConnection()
-            cur = con.cursor()
-            ref_cursor = con.cursor()
-            sparams = (ref_cursor,int(v_obj[0]),int(v_obj[1]),int(v_obj[2]),int(v_obj[3]),v_obj[4],int(v_obj[5]),str(v_obj[6]),float(v_obj[7]))
-            cur.callproc('intprod.apt_intprod.p_inseredemanda_lotes',(sparams))
-            c_rs = ref_cursor.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()
+                    sparams = (ref_cursor,int(v_obj[0]),int(v_obj[1]),int(v_obj[2]),int(v_obj[3]),v_obj[4],int(v_obj[5]),str(v_obj[6]),float(v_obj[7]))
+                    cur.callproc('intprod.apt_intprod.p_inseredemanda_lotes',(sparams))
+                    c_rs = ref_cursor.fetchall()
             lista = []
             if c_rs:
                 for v_rs in c_rs:

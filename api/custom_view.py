@@ -40,19 +40,17 @@ class Baixas:
             self.usuario_in = v_usu[3]
     def bxa_usuario(self):
         #con = cxo.connect('intprod/supprod@192.168.0.8:1521/megag')
-        con = getOracleConnection()
-        cur = con.cursor()
-        cur.prepare('''select opd.org_in_codigo,
-                                   opd.fil_in_codigo,
-                                   opd.col_st_chapeira,
-                                   opd.col_st_nome
-                              from idp.apt_cadastro_colaboradores opd
-                             where opd.col_st_chapeira = :usu_in 
-                             order by opd.col_in_sequencia''')
-        cur.execute(None, {'usu_in': self.usuario_in})
-        c_users = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                cur.prepare('''select opd.org_in_codigo,
+                                           opd.fil_in_codigo,
+                                           opd.col_st_chapeira,
+                                           opd.col_st_nome
+                                      from idp.apt_cadastro_colaboradores opd
+                                     where opd.col_st_chapeira = :usu_in 
+                                     order by opd.col_in_sequencia''')
+                cur.execute(None, {'usu_in': self.usuario_in})
+                c_users = cur.fetchall()
         lista = []
         for v_rs in c_users:
             lista.append(dict(org_in_codigo = int(v_rs[0]),
@@ -80,24 +78,22 @@ class Baixas:
 
     def listar_baixas(self):
         #con = cxo.connect('intprod/supprod@192.168.0.8:1521/megag')
-        con = getOracleConnection()
-        cur = con.cursor()
-        cur.prepare('''select bxa.pro_in_codigo,
-                              pro.pro_st_descricao,
-                              bxa.pro_re_qtdlote,
-                              bxa.pro_st_lote,
-                              idp.adm_pck_util.f_formatacaract(bxa.pro_st_referencia) as mvs_st_referencia_desc                               
-                         from idp.apt_pro_baixaestoque bxa,
-                              idp.est_produtos pro
-                        where pro.pro_tab_in_codigo = bxa.pro_tab_in_codigo
-                          and pro.pro_pad_in_codigo = bxa.pro_pad_in_codigo
-                          and pro.pro_in_codigo = bxa.pro_in_codigo
-                          and bxa.mov_st_status = :status                         
-                          and bxa.pro_pad_in_codigo = mgglo.pck_mega.achapadraodatabela(:fil_in,100,sysdate)''')
-        cur.execute(None, {'fil_in': self.fil_in,'status': self.status})
-        c_baixas = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                cur.prepare('''select bxa.pro_in_codigo,
+                                      pro.pro_st_descricao,
+                                      bxa.pro_re_qtdlote,
+                                      bxa.pro_st_lote,
+                                      idp.adm_pck_util.f_formatacaract(bxa.pro_st_referencia) as mvs_st_referencia_desc                               
+                                 from idp.apt_pro_baixaestoque bxa,
+                                      idp.est_produtos pro
+                                where pro.pro_tab_in_codigo = bxa.pro_tab_in_codigo
+                                  and pro.pro_pad_in_codigo = bxa.pro_pad_in_codigo
+                                  and pro.pro_in_codigo = bxa.pro_in_codigo
+                                  and bxa.mov_st_status = :status                         
+                                  and bxa.pro_pad_in_codigo = mgglo.pck_mega.achapadraodatabela(:fil_in,100,sysdate)''')
+                cur.execute(None, {'fil_in': self.fil_in,'status': self.status})
+                c_baixas = cur.fetchall()
         lista = []
         for rs in c_baixas:
             lista.append(dict(pro_in_codigo = int(rs[0]),
@@ -111,14 +107,12 @@ class Baixas:
 
     def apt_gerarBaixa(self):
         #con = cxo.connect('intprod/supprod@192.168.0.8:1521/megag')
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (ref_cursor,self.acao_in,self.acao_in)
-        cur.callproc('apt_intprod.p_Gera_BaixaEstoque',(sparams))
-        c_cursor = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (ref_cursor,self.acao_in,self.acao_in)
+                cur.callproc('apt_intprod.p_Gera_BaixaEstoque',(sparams))
+                c_cursor = ref_cursor.fetchall()
         for v_ret in c_cursor:
             result = v_ret[0]
         return result
@@ -147,14 +141,12 @@ class Baixas:
 
     def itens_baixa(self):
         #con = cxo.connect('intprod/supprod@192.168.0.8:1521/megag')
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (self.fil_in,self.org_in,ref_cursor)
-        cur.callproc('apt_intprod.apt_RetornaItensDisp',(sparams))
-        c_cursor = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (self.fil_in,self.org_in,ref_cursor)
+                cur.callproc('apt_intprod.apt_RetornaItensDisp',(sparams))
+                c_cursor = ref_cursor.fetchall()
         lista = []
         for v_ret in c_cursor:
             lista.append(dict(pro_in_codigo = int(v_ret[0]),
@@ -171,38 +163,34 @@ class Login_inicial:
         self.ender_ip = getEnderIP()
         self.ordem_in = p_ordem
         self.usuario_in = p_usuario
-        con = getOracleConnection()
-        cur = con.cursor()
-        selectSQL = ('''select *
-                         from idp.apt_equipamentos eqp
-                        where eqp.eqp_st_ipaddress = :ender_ip''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'ender_ip': self.ender_ip})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                selectSQL = ('''select *
+                                 from idp.apt_equipamentos eqp
+                                where eqp.eqp_st_ipaddress = :ender_ip''')
+                cur.prepare(selectSQL)
+                cur.execute(None, {'ender_ip': self.ender_ip})
+                c_rs = cur.fetchall()
         self.equipamento_cad = 'N'
         for rs in c_rs:
             self.usu_filial = int(rs[3])
             self.equipamento_cad = 'S'
 
     def ordem(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        selectSQL = ('''select op.org_in_codigo,
-                              op.fil_in_codigo,                                     
-                              op.ord_in_codigo,
-                              op.ord_st_situacao        
-                         from idp.pro_ordens op
-                        where op.fil_in_codigo = :fil_in
-                          and op.ord_in_codigo = :ord_in
-                          and op.ord_st_situacao = 'AB'                           
-                           order by ord_in_codigo''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'fil_in': self.usu_filial,'ord_in':self.ordem_in})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                selectSQL = ('''select op.org_in_codigo,
+                                      op.fil_in_codigo,                                     
+                                      op.ord_in_codigo,
+                                      op.ord_st_situacao        
+                                 from idp.pro_ordens op
+                                where op.fil_in_codigo = :fil_in
+                                  and op.ord_in_codigo = :ord_in
+                                  and op.ord_st_situacao = 'AB'                           
+                                   order by ord_in_codigo''')
+                cur.prepare(selectSQL)
+                cur.execute(None, {'fil_in': self.usu_filial,'ord_in':self.ordem_in})
+                c_rs = cur.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(org_in_codigo = int(rs[0]),

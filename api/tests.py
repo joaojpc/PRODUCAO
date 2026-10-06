@@ -40,14 +40,12 @@ class IntApi:
             self.pro_in = v_operacoes['pro_in_codigo']
             self.org_in = v_operacoes['org_in_codigo']
     def ord_demandas(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (self.fil_in,self.ordem_in,ref_cursor)
-        cur.callproc('intprod.apt_intprod.apt_retornademandadisp',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (self.fil_in,self.ordem_in,ref_cursor)
+                cur.callproc('intprod.apt_intprod.apt_retornademandadisp',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(pro_in_codigo = int(rs[0]),
