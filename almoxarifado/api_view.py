@@ -229,9 +229,12 @@ def Buscar_CadastroProdutos(pParam):
     get_urlapi = geturlapi(funcao)
     #payload = {'padrao': pParam}
     payload = {'id': pParam['id'],'filial': pParam['filial']}
+    # AJUSTE 2026-10-06: contadores devolvidos para a tela man_almoxa (EtiquetaItem ignora o retorno)
+    v_retorno = {'itens_lidos': 0, 'itens_novos': 0, 'locais_novos': 0, 'erros': 0}
     c_rs = requests.get(get_urlapi, params=payload).json()
     if c_rs:
         for c_a in c_rs:
+            v_retorno['itens_lidos'] += 1
             funcao = 'produtos/'
             get_urlest = geturlest(funcao)
             payload = {'item': c_a['BXI_ID_PRODUTO']}
@@ -241,6 +244,10 @@ def Buscar_CadastroProdutos(pParam):
                 #Grava integração do Item;
                 dados = c_a
                 response = requests.post(get_urlest, data=dados)
+                if response.status_code == 201:
+                    v_retorno['itens_novos'] += 1
+                else:
+                    v_retorno['erros'] += 1
             #busca local de estoque configurado no item
             funcao = 'GetItenslocalizacao/'                
             get_urlapi = geturlapi(funcao)                
@@ -257,11 +264,18 @@ def Buscar_CadastroProdutos(pParam):
                     if not c_pl:
                         try:
                             #print(c_a['BXI_ID_PRODUTO'])
-                            c_respReq = requests.post(get_urlest, data=dados).json()
+                            c_respReq = requests.post(get_urlest, data=dados)
+                            if c_respReq.status_code == 201:
+                                v_retorno['locais_novos'] += 1
+                            else:
+                                v_retorno['erros'] += 1
                         except:
-                            print('Erro ',c_rs['BXI_ID_PRODUTO'])
+                            # AJUSTE 2026-10-06: era c_rs (lista) -> TypeError interrompia a sincronização
+                            v_retorno['erros'] += 1
+                            print('Erro ',c_a['BXI_ID_PRODUTO'])
                     else:
                         pass
+    return v_retorno
 def Integrarequisicao(pParam):
     # Busca requisições em aberto
     v_requisicao = pParam[0]

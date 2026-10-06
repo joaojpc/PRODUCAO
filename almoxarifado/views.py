@@ -293,8 +293,16 @@ def IncluirBaixa(request):
 
 def man_almoxa(request):
     tmpl = "almoxarifado/man_almoxa.html"
+    # AJUSTE 2026-10-06: sincronização est_CadItens/est_CadItemAlmoxa pela filial do operador
     if request.method == "POST":
-        pass
+        form = FormIntegracao(request.POST)
+        if form.is_valid():
+            cd = form.cleaned_data
+            v_item = (cd.get('item') or '').strip()
+            resultado = Buscar_CadastroProdutos({'id': v_item, 'filial': cd['filial']})
+            return render(request, tmpl, {'form': form, 'resultado': resultado,
+                                          'filial': cd['filial'], 'nome': cd['nome'], 'item': v_item})
+        return render(request, tmpl, {'form': form})
     else:
         if 'action' in request.GET:
             action = request.GET.get('action')
@@ -313,8 +321,8 @@ def man_almoxa(request):
             else:
                 return redirect('almoxarifado')
         else:
-            return render(request, tmpl)
-        return render(request, tmpl)
+            return render(request, tmpl, {'form': FormIntegracao()})
+        return render(request, tmpl, {'form': FormIntegracao()})
 
 def SincCentroCustos(request):
     template = 'almoxarifado/manutencao.html'

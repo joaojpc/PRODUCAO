@@ -55,4 +55,20 @@ class FormEtiqueta(forms.Form):
 class FormSaldo(forms.Form):
     pro_in_codigo = forms.CharField(max_length=20,label='Item')
 class FormLoginOperador(forms.Form):
-    usuario = forms.CharField(max_length=20,required=False,label='Operador')    
+    usuario = forms.CharField(max_length=20,required=False,label='Operador')
+class FormIntegracao(forms.Form):
+    # AJUSTE 2026-10-06: tela man_almoxa - operador obrigatório (a filial vem do cadastro dele)
+    operador = forms.CharField(max_length=20,label='Operador')
+    item = forms.CharField(max_length=20,required=False,label='Item (vazio = todos)')
+    def clean(self):
+        cleaned_data = super(FormIntegracao,self).clean()
+        v_opd = cleaned_data.get("operador")
+        c_rs = []
+        if v_opd:
+            # Mesma consulta da ControlaAlmoxa (não usa lista_usuarios para não cadastrar operador com filial fixa)
+            c_rs = requests.get(geturlprod('operador/'), params={'operador': v_opd}).json()
+        if not c_rs:
+            raise forms.ValidationError("Operador não encontrado!")
+        cleaned_data['filial'] = c_rs[0]['FIL_IN_CODIGO']
+        cleaned_data['nome'] = c_rs[0]['OPD_ST_NOME']
+        return cleaned_data

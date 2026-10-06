@@ -1,9 +1,49 @@
 {% extends 'almoxarifado/base_almoxa.html' %}
 {% block content %}
     <h3>Manutenção de integração de dados</h3>
+    {% comment %}
+    AJUSTE 2026-10-06: botões antigos escondidos (chamadas quebradas; requisição é integrada pelo serviço)
     <a class="btn btn-primary btn-lg active" style="width:200" role="button" aria-pressed="true" href="?action=IntCCusto">Baixar C. Custos</a>
     <button type="button" class="btn btn-light" disabled></button>
     <a class="btn btn-primary btn-lg active" style="width:200" role="button" aria-pressed="true" href="?action=GetProdutos">Baixar Produtos</a>
     <button type="button" class="btn btn-light" disabled></button>
     <a class="btn btn-primary btn-lg active" style="width:200" role="button" aria-pressed="true" href="?action=IntRequisicao">Integrar Requisição</a>
+    {% endcomment %}
+    <div class="panel panel-default">
+        <div class="panel-heading">Sincronização de Itens e Localizações</div>
+        <div class="panel-body">
+            <form method="post" action="{% url 'man_almoxa' %}"
+                  onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.innerText='Sincronizando, aguarde...';">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">{{ form.non_field_errors|join:" " }}</div>
+                {% endif %}
+                <div class="form-group">
+                    <label for="{{ form.operador.id_for_label }}">{{ form.operador.label }}</label>
+                    <input type="text" class="form-control" name="operador" id="{{ form.operador.id_for_label }}"
+                           value="{{ form.operador.value|default:'' }}" maxlength="20" required autofocus>
+                    {% for erro in form.operador.errors %}<span class="text-danger">{{ erro }}</span>{% endfor %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.item.id_for_label }}">{{ form.item.label }}</label>
+                    <input type="text" class="form-control" name="item" id="{{ form.item.id_for_label }}"
+                           value="{{ form.item.value|default:'' }}" maxlength="20">
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg btn-block">
+                    Sincronizar Itens e Localizações
+                </button>
+            </form>
+        </div>
+    </div>
+    {% if resultado %}
+    <div class="panel panel-success">
+        <div class="panel-heading">Resultado - {{ nome }} (filial {{ filial }}){% if item %} - item {{ item }}{% endif %}</div>
+        <table class="table table-condensed">
+            <tr><td>Itens lidos</td><td>{{ resultado.itens_lidos }}</td></tr>
+            <tr><td>Itens novos (est_CadItens)</td><td>{{ resultado.itens_novos }}</td></tr>
+            <tr><td>Localizações novas (est_CadItemAlmoxa)</td><td>{{ resultado.locais_novos }}</td></tr>
+            <tr><td>Erros</td><td>{{ resultado.erros }}</td></tr>
+        </table>
+    </div>
+    {% endif %}
 {% endblock  %}
