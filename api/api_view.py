@@ -20,14 +20,12 @@ class IntApi:
             self.pro_in = v_operacoes['PRO_IN_CODIGO']
             self.org_in = v_operacoes['ORG_IN_CODIGO']
     def ord_demandas(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (self.fil_in,self.ordem_in,ref_cursor)
-        cur.callproc('idp.apt_intprod.apt_retornademandadisp',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (self.fil_in,self.ordem_in,ref_cursor)
+                cur.callproc('idp.apt_intprod.apt_retornademandadisp',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(pro_in_codigo = int(rs[0]),
@@ -41,25 +39,23 @@ class IntApi:
         json_demandas = json.dumps(lista)
         return json_demandas
     def ord_listDemandas(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        selectSQL =('''select dem.com_in_codigo,
-                              pro.pro_st_descricao,
-                              dem.apt_re_qtdeselecionada,
-                              dem.mvs_st_loteforne,
-                              idp.adm_pck_util.f_formatacaract(dem.mvs_st_referencia) as mvs_st_referencia_desc
-                         from idp.apt_apontademanda_estoque dem,
-                              idp.est_produtos pro
-                        where pro.pro_tab_in_codigo = dem.com_tab_in_codigo
-                          and pro.pro_pad_in_codigo = dem.com_pad_in_codigo
-                          and pro.pro_in_codigo = dem.com_in_codigo
-                          and dem.ord_in_codigo     = :ord_in
-                          and dem.com_pad_in_codigo = idp.pck_mega.achapadraodatabela(:fil_in,100,sysdate)''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                selectSQL =('''select dem.com_in_codigo,
+                                      pro.pro_st_descricao,
+                                      dem.apt_re_qtdeselecionada,
+                                      dem.mvs_st_loteforne,
+                                      idp.adm_pck_util.f_formatacaract(dem.mvs_st_referencia) as mvs_st_referencia_desc
+                                 from idp.apt_apontademanda_estoque dem,
+                                      idp.est_produtos pro
+                                where pro.pro_tab_in_codigo = dem.com_tab_in_codigo
+                                  and pro.pro_pad_in_codigo = dem.com_pad_in_codigo
+                                  and pro.pro_in_codigo = dem.com_in_codigo
+                                  and dem.ord_in_codigo     = :ord_in
+                                  and dem.com_pad_in_codigo = idp.pck_mega.achapadraodatabela(:fil_in,100,sysdate)''')
+                cur.prepare(selectSQL)
+                cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
+                c_rs = cur.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(com_in_codigo = int(rs[0]),
@@ -124,21 +120,19 @@ class IntApi:
             print(f"Erro: {e}")
         return json_operacoes       
     def lista_ocorrencia(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        selectSQL = ('''select a.ati_tab_in_codigo,
-                              a.ati_pad_in_codigo,
-                              a.ati_in_codigo,
-                              a.ati_st_nome
-                         from idp.pro_atividade a
-                        where a.ati_ch_produtiva = 'I'
-                              and a.ati_pad_in_codigo = idp.pck_mega.achapadraodatabela(:fil_in, 204, sysdate)
-                              order by a.ati_in_codigo''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'fil_in': self.fil_in})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                selectSQL = ('''select a.ati_tab_in_codigo,
+                                      a.ati_pad_in_codigo,
+                                      a.ati_in_codigo,
+                                      a.ati_st_nome
+                                 from idp.pro_atividade a
+                                where a.ati_ch_produtiva = 'I'
+                                      and a.ati_pad_in_codigo = idp.pck_mega.achapadraodatabela(:fil_in, 204, sysdate)
+                                      order by a.ati_in_codigo''')
+                cur.prepare(selectSQL)
+                cur.execute(None, {'fil_in': self.fil_in})
+                c_rs = cur.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(ati_tab_in_codigo = int(rs[0]),
@@ -149,28 +143,26 @@ class IntApi:
         json_motivos = json.dumps(lista)
         return json_motivos
     def list_lotes(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        selectSQL =(''' select apl.pro_in_codigo,
-                               pro.pro_st_descricao,
-                               apl.orl_re_qtdlote,
-                               apl.orl_re_unidade,
-                               apl.orl_st_lotefabricacao,
-                               nvl(idp.adm_pck_util.f_formatacaract(apl.orl_st_referencia),'*') as mvs_st_referencia_desc,
-                               apl.orl_st_referencia
-                        from idp.apt_apontaordem_lote apl,
-                             idp.est_produtos pro
-                       where pro.pro_tab_in_codigo = apl.pro_tab_in_codigo
-                         and pro.pro_pad_in_codigo = apl.pro_pad_in_codigo
-                         and pro.pro_in_codigo = apl.pro_in_codigo
-                         and apl.ord_in_codigo = :ord_in
-                         and apl.fil_in_codigo  = :fil_in
-                         order by to_number(apl.orl_st_slotefabricacao)''')
-        cur.prepare(selectSQL)
-        cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                selectSQL =(''' select apl.pro_in_codigo,
+                                       pro.pro_st_descricao,
+                                       apl.orl_re_qtdlote,
+                                       apl.orl_re_unidade,
+                                       apl.orl_st_lotefabricacao,
+                                       nvl(idp.adm_pck_util.f_formatacaract(apl.orl_st_referencia),'*') as mvs_st_referencia_desc,
+                                       apl.orl_st_referencia
+                                from idp.apt_apontaordem_lote apl,
+                                     idp.est_produtos pro
+                               where pro.pro_tab_in_codigo = apl.pro_tab_in_codigo
+                                 and pro.pro_pad_in_codigo = apl.pro_pad_in_codigo
+                                 and pro.pro_in_codigo = apl.pro_in_codigo
+                                 and apl.ord_in_codigo = :ord_in
+                                 and apl.fil_in_codigo  = :fil_in
+                                 order by to_number(apl.orl_st_slotefabricacao)''')
+                cur.prepare(selectSQL)
+                cur.execute(None, {'fil_in': self.fil_in,'ord_in':self.ordem_in})
+                c_rs = cur.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(pro_in_codigo = int(rs[0]),
@@ -184,14 +176,12 @@ class IntApi:
         json_producao = json.dumps(lista)
         return json_producao
     def itn_referencias(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (self.fil_in,self.pro_in,ref_cursor)
-        cur.callproc('idp.apt_intprod.apt_retornacaracteristica',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (self.fil_in,self.pro_in,ref_cursor)
+                cur.callproc('idp.apt_intprod.apt_retornacaracteristica',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(rat_in_codigo = int(rs[0]),
@@ -206,14 +196,12 @@ class IntApi:
         return json_referencia
 
     def itn_atributos(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (self.fil_in,self.pro_in,ref_cursor)
-        cur.callproc('idp.apt_intprod.apt_retornaatributo',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (self.fil_in,self.pro_in,ref_cursor)
+                cur.callproc('idp.apt_intprod.apt_retornaatributo',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(pai_rat_in_codigo = int(rs[0]),
@@ -225,14 +213,12 @@ class IntApi:
         json_atributo = json.dumps(lista)
         return json_atributo
     def itens_ordem(self):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams =(self.fil_in,self.ordem_in,ref_cursor)
-        cur.callproc('idp.apt_intprod.apt_retornaitens',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams =(self.fil_in,self.ordem_in,ref_cursor)
+                cur.callproc('idp.apt_intprod.apt_retornaitens',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(pro_in_codigo = int(rs[2]),
@@ -321,20 +307,18 @@ class GetDadosProducao:
                         order by ord.ord_in_codigo
                           ''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            if pparams[1] is None:
-                cur.execute(None, {'ord_ch_integrada': 'N','org_in_codigo':pparams[0],'status':pparams[3]})
-            else:
-                cur.execute(None, {'ord_ch_integrada': 'N',
-                                   'fil_in_codigo': pparams[1],
-                                   'ord_in_codigo': pparams[2],
-                                   'status':pparams[3]
-                                   })
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    if pparams[1] is None:
+                        cur.execute(None, {'ord_ch_integrada': 'N','org_in_codigo':pparams[0],'status':pparams[3]})
+                    else:
+                        cur.execute(None, {'ord_ch_integrada': 'N',
+                                           'fil_in_codigo': pparams[1],
+                                           'ord_in_codigo': pparams[2],
+                                           'status':pparams[3]
+                                           })
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         lista = []
@@ -402,13 +386,11 @@ class GetDadosProducao:
                           and ord.ord_in_codigo = :ord_in_codigo
                         order by ord.ord_in_codigo''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'org_in_codigo': self.org_in,'ord_seq_in_codigo': self.ord_seq,'ord_in_codigo':self.ordem_in})
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'org_in_codigo': self.org_in,'ord_seq_in_codigo': self.ord_seq,'ord_in_codigo':self.ordem_in})
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         lista = []
@@ -462,13 +444,11 @@ class GetDadosProducao:
                           and ord.ord_seq_in_codigo = :ord_seq_in_codigo 
                           and ord.ord_in_codigo = :ord_in_codigo''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(ExecSQL)
-            cur.execute(None, v_up)
-            cur.close
-            con.commit()
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(ExecSQL)
+                    cur.execute(None, v_up)
+                con.commit()
             v_return = True
         except cxo.Error as error:
             v_return = False
@@ -476,14 +456,12 @@ class GetDadosProducao:
     def itn_referencias(self,pparams):
         self.fil_in = pparams[0]
         self.pro_in = pparams[1]
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (self.fil_in,self.pro_in,ref_cursor)
-        cur.callproc('idp.apt_intprod.apt_retornacaracteristica',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (self.fil_in,self.pro_in,ref_cursor)
+                cur.callproc('idp.apt_intprod.apt_retornacaracteristica',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(rat_in_codigo = int(rs[0]),
@@ -499,14 +477,12 @@ class GetDadosProducao:
     def itn_atributos(self,pparams):
         self.fil_in = pparams[0]
         self.pro_in = pparams[1]
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (self.fil_in,self.pro_in,ref_cursor)
-        cur.callproc('idp.apt_intprod.apt_retornaatributo',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (self.fil_in,self.pro_in,ref_cursor)
+                cur.callproc('idp.apt_intprod.apt_retornaatributo',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(pai_rat_in_codigo = int(rs[0]),
@@ -520,17 +496,15 @@ class GetDadosProducao:
     def itens_ordem(self,pparams):
         self.fil_in = pparams[0]
         self.ordem_in = pparams[1]
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams =(self.fil_in,self.ordem_in,ref_cursor)
-        cur.callproc('idp.apt_intprod2.apt_retornaitens',(sparams))
-        #columns = [col[0] for col in ref_cursor.description]
-        #ref_cursor.rowfactory = lambda *args: dict(zip(columns, args))
-        c_rs = ref_cursor.fetchall()
-        #print(c_rs)
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams =(self.fil_in,self.ordem_in,ref_cursor)
+                cur.callproc('idp.apt_intprod2.apt_retornaitens',(sparams))
+                #columns = [col[0] for col in ref_cursor.description]
+                #ref_cursor.rowfactory = lambda *args: dict(zip(columns, args))
+                c_rs = ref_cursor.fetchall()
+                #print(c_rs)
         lista = []
         for rs in c_rs:
             lista.append(dict(pro_pad_in_codigo = int(rs[1]),
@@ -555,14 +529,12 @@ class GetDadosProducao:
         self.org_in = pparams[0]
         self.ord_seq = pparams[1]
         self.ordem_in = pparams[2]
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams =(self.org_in,self.ord_seq,self.ordem_in,ref_cursor)
-        cur.callproc('idp.apt_intprod.apt_retornaDemanda',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams =(self.org_in,self.ord_seq,self.ordem_in,ref_cursor)
+                cur.callproc('idp.apt_intprod.apt_retornaDemanda',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         for rs in c_rs:
             lista.append(dict(com_in_codigo = int(rs[9]),
@@ -591,13 +563,11 @@ class GetDadosProducao:
                           and cc.cus_pad_in_codigo = idp.pck_mega.achapadraodatabela(:fil_in,2,sysdate)
                         order by cc.cus_in_reduzido''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'fil_in': self.fil_in})
-            c_rs = cur.fetchall()            
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'fil_in': self.fil_in})
+                    c_rs = cur.fetchall()            
             #print('Linha 742',c_rs)
             for rs in c_rs:
                 lista.append(dict(CUS_ID_CCUSTO = rs[0],
@@ -646,13 +616,11 @@ class GetDadosProducao:
                           --and nvl(pce.pro_st_orialteracao,'M') = 'M'
                         order by pro.pro_in_codigo''')           
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'fil_in':self.fil_in,'id_produto': self.pro_id})                        
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'fil_in':self.fil_in,'id_produto': self.pro_id})                        
+                    c_rs = cur.fetchall()
             if c_rs:
                 for rs in c_rs:
                     lista.append(dict(BXI_ID_PRODUTO = rs[0],
@@ -663,14 +631,12 @@ class GetDadosProducao:
                               UNI_ST_UNIDADE = rs[5]))
                     #Carimba o item como itegrado
                     try:
-                        con = getOracleConnection()
-                        cur = con.cursor()                                        
-                        ref_cursor = con.cursor()
-                        sparams =(rs[0],rs[6],'S',rs[6],rs[7],ref_cursor)
-                        cur.callproc('idp.apt_intprod2.apt_PutItens',(sparams))
-                        c_rs2 = ref_cursor.fetchall()
-                        cur.close
-                        con.close
+                        with getOracleConnection() as con:
+                            with con.cursor() as cur:
+                                ref_cursor = con.cursor()
+                                sparams =(rs[0],rs[6],'S',rs[6],rs[7],ref_cursor)
+                                cur.callproc('idp.apt_intprod2.apt_PutItens',(sparams))
+                                c_rs2 = ref_cursor.fetchall()
                     except:
                        pass                    
         #except cxo._Error as error:
@@ -692,13 +658,11 @@ class GetDadosProducao:
                         where t.pro_pad_in_codigo = pck_mega.achapadraodatabela(:fil_in_codigo, 100, sysdate)
                           and t.pro_in_codigo     = :pro_in_codigo''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'pro_in_codigo': self.pro_in,'fil_in_codigo':self.fil_in})
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'pro_in_codigo': self.pro_in,'fil_in_codigo':self.fil_in})
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         lista = []
@@ -747,13 +711,11 @@ class GetDadosProducao:
                                    and pun.pro_in_codigo     = :pro_in_codigo or :pro_in_codigo = 0) fu
                                  where fu.formula is not null''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'pro_in_codigo': self.pro_in,'fil_in_codigo':self.fil_in})
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'pro_in_codigo': self.pro_in,'fil_in_codigo':self.fil_in})
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         lista = []
@@ -811,18 +773,16 @@ class GetDadosProducao:
                           --and cfg.cus_bo_integraacb   = 'N'
                           ''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'fil_in_codigo':self.fil_in})
-            columns = [col[0] for col in cur.description]
-            cur.rowfactory = lambda *args: dict(zip(columns, args))
-            c_rs = cur.fetchall()
-            #print(c_rs)
-            #transformar QueryDict em dicionario;
-            #print(c_rs.dict())
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'fil_in_codigo':self.fil_in})
+                    columns = [col[0] for col in cur.description]
+                    cur.rowfactory = lambda *args: dict(zip(columns, args))
+                    c_rs = cur.fetchall()
+                    #print(c_rs)
+                    #transformar QueryDict em dicionario;
+                    #print(c_rs.dict())
         except cxo._Error as error:
             pass
         return c_rs
@@ -840,15 +800,13 @@ class GetDadosProducao:
                         where tpo.tpo_pad_in_codigo = pck_mega.achapadraodatabela(:fil_in_codigo, 224, sysdate)
                           ''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'fil_in_codigo':self.fil_in})
-            columns = [col[0] for col in cur.description]
-            cur.rowfactory = lambda *args: dict(zip(columns, args))
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'fil_in_codigo':self.fil_in})
+                    columns = [col[0] for col in cur.description]
+                    cur.rowfactory = lambda *args: dict(zip(columns, args))
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         return c_rs
@@ -882,13 +840,13 @@ class GetDadosProducao:
                           and ci.uni_st_unidade    = fu.un2_st_unidade
                           and ci.fmt_st_unidade    = fu.un1_st_unidade''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'fil_in_codigo':self.fil_in, 'pro_in_codigo': self.pro_in})
-            columns = [col[0] for col in cur.description]
-            cur.rowfactory = lambda *args: dict(zip(columns, args))
-            cr_rs = cur.fetchall()
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'fil_in_codigo':self.fil_in, 'pro_in_codigo': self.pro_in})
+                    columns = [col[0] for col in cur.description]
+                    cur.rowfactory = lambda *args: dict(zip(columns, args))
+                    cr_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         return cr_rs
@@ -937,15 +895,13 @@ class GetDadosProducao:
                           and cr.rfc_pad_in_codigo = pck_mega.achapadraodatabela(:fil_in_codigo, 141, sysdate)
                         order by cr.rfc_in_codigo,cr.car_in_prioridade''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'fil_in_codigo':self.fil_in,'rfc_in_codigo': self.rfc_in_codigo})
-            columns = [col[0] for col in cur.description]
-            cur.rowfactory = lambda *args: dict(zip(columns, args))
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'fil_in_codigo':self.fil_in,'rfc_in_codigo': self.rfc_in_codigo})
+                    columns = [col[0] for col in cur.description]
+                    cur.rowfactory = lambda *args: dict(zip(columns, args))
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         return c_rs
@@ -967,38 +923,36 @@ class IntegrarProducao:
         lista = []
         if (1==1):
         #try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            ref_cursor = con.cursor()
-            sparams = (int(v_listlote.get('fil_in_codigo')),
-                       int(v_listlote.get('ord_in_codigo')),
-                       int(v_listlote.get('ctl_in_codigo')),
-                       int(v_listlote.get('plf_in_sqoperacao')),
-                       v_listlote.get('apt_dt_inclusao'),
-                       int(v_listlote.get('mvp_in_sequencia')),
-                       float(v_listlote.get('apt_re_quantidade')),
-                       float(v_listlote.get('apt_re_qtdeconvertida')),
-                       float(v_listlote.get('apt_re_qtderefugo')),
-                       int(v_listlote.get('pro_in_codigo')),
-                       v_listlote.get('pro_st_obs'),
-                       v_listlote.get('pro_st_docorigem'),
-                       v_listlote.get('pro_st_referencia'),
-                       int(v_listlote.get('usu_in_codigo')),
-                       v_listlote.get('pro_st_destino'),
-                       v_listlote.get('pro_st_lote'),
-                       v_listlote.get('pro_st_conversor'),
-                       v_listlote.get('apt_dt_lote'),
-                       v_listlote.get('cmaq_st_id'),
-                       v_listlote.get('ord_st_id'),
-                       v_listlote.get('pro_st_id'),
-                       v_listlote.get('orl_re_qtdajustada'),
-                       v_listlote.get('ord_st_extenso'),
-                       v_listlote.get('pro_st_fornecedor'),
-                       ref_cursor)
-            cur.callproc('apt_intprod2.cli_p_lotes_ordem',(sparams))
-            c_rs = ref_cursor.fetchall()
-            cur.close
-            con.close            
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()
+                    sparams = (int(v_listlote.get('fil_in_codigo')),
+                               int(v_listlote.get('ord_in_codigo')),
+                               int(v_listlote.get('ctl_in_codigo')),
+                               int(v_listlote.get('plf_in_sqoperacao')),
+                               v_listlote.get('apt_dt_inclusao'),
+                               int(v_listlote.get('mvp_in_sequencia')),
+                               float(v_listlote.get('apt_re_quantidade')),
+                               float(v_listlote.get('apt_re_qtdeconvertida')),
+                               float(v_listlote.get('apt_re_qtderefugo')),
+                               int(v_listlote.get('pro_in_codigo')),
+                               v_listlote.get('pro_st_obs'),
+                               v_listlote.get('pro_st_docorigem'),
+                               v_listlote.get('pro_st_referencia'),
+                               int(v_listlote.get('usu_in_codigo')),
+                               v_listlote.get('pro_st_destino'),
+                               v_listlote.get('pro_st_lote'),
+                               v_listlote.get('pro_st_conversor'),
+                               v_listlote.get('apt_dt_lote'),
+                               v_listlote.get('cmaq_st_id'),
+                               v_listlote.get('ord_st_id'),
+                               v_listlote.get('pro_st_id'),
+                               v_listlote.get('orl_re_qtdajustada'),
+                               v_listlote.get('ord_st_extenso'),
+                               v_listlote.get('pro_st_fornecedor'),
+                               ref_cursor)
+                    cur.callproc('apt_intprod2.cli_p_lotes_ordem',(sparams))
+                    c_rs = ref_cursor.fetchall()
             if c_rs:
                 for v_rs in c_rs:
                     lista.append(dict(sequencia = v_rs[0],
@@ -1018,27 +972,25 @@ class IntegrarProducao:
         v_retorno = {}
         v_listDem = pparams
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            ref_cursor = con.cursor()
-            v_params = []
-            sparams = (ref_cursor,
-                       int(v_listDem.get('fil_in_codigo')),
-                       int(v_listDem.get('ord_in_codigo')),
-                       int(v_listDem.get('ctl_in_codigo')),
-                       int(v_listDem.get('plf_in_sqoperacao')),
-                       v_listDem.get('apt_dt_inclusao'),
-                       int(v_listDem.get('mvd_in_sequencia')),
-                       str(v_listDem.get('pro_st_lote')),
-                       float(v_listDem.get('pro_re_qtdlote')),
-                       str(v_listDem.get('cmaq_st_id')),
-                       str(v_listDem.get('ord_st_id')),
-                       str(v_listDem.get('ord_st_extenso'))
-                       )
-            cur.callproc('apt_intprod2.p_inseredemanda_lotes',(sparams))
-            c_rs = ref_cursor.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()
+                    v_params = []
+                    sparams = (ref_cursor,
+                               int(v_listDem.get('fil_in_codigo')),
+                               int(v_listDem.get('ord_in_codigo')),
+                               int(v_listDem.get('ctl_in_codigo')),
+                               int(v_listDem.get('plf_in_sqoperacao')),
+                               v_listDem.get('apt_dt_inclusao'),
+                               int(v_listDem.get('mvd_in_sequencia')),
+                               str(v_listDem.get('pro_st_lote')),
+                               float(v_listDem.get('pro_re_qtdlote')),
+                               str(v_listDem.get('cmaq_st_id')),
+                               str(v_listDem.get('ord_st_id')),
+                               str(v_listDem.get('ord_st_extenso'))
+                               )
+                    cur.callproc('apt_intprod2.p_inseredemanda_lotes',(sparams))
+                    c_rs = ref_cursor.fetchall()
             if c_rs:
                 for v_rs in c_rs:
                     lista.append(dict(mensagem = v_rs[0],
@@ -1062,35 +1014,33 @@ class IntegrarProducao:
         #transformar QueryDict em dicionario;
         #print(v_listlote.dict())
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            ref_cursor = con.cursor()
-            sparams = (int(v_listlote.get('fil_in_codigo')),
-                       int(v_listlote.get('ord_in_codigo')),
-                       int(v_listlote.get('ctl_in_codigo')),
-                       int(v_listlote.get('plf_in_sqoperacao')),
-                       v_listlote.get('apt_dt_inclusao'),
-                       int(v_listlote.get('mvp_in_sequencia')),
-                       float(v_listlote.get('apt_re_quantidade')),
-                       float(v_listlote.get('apt_re_qtdeconvertida')),
-                       float(v_listlote.get('apt_re_qtderefugo')),
-                       int(v_listlote.get('pro_in_codigo')),
-                       v_listlote.get('pro_st_obs'),
-                       v_listlote.get('pro_st_docorigem'),
-                       v_listlote.get('pro_st_referencia'),
-                       int(v_listlote.get('usu_in_codigo')),
-                       v_listlote.get('pro_st_destino'),
-                       v_listlote.get('pro_st_lote'),
-                       v_listlote.get('pro_st_conversor'),
-                       v_listlote.get('apt_dt_lote'),
-                       v_listlote.get('cmaq_st_id'),
-                       v_listlote.get('ord_st_id'),
-                       v_listlote.get('pro_st_id'),
-                       ref_cursor)
-            cur.callproc('apt_intprod2.cli_p_lotes_ordem',(sparams))
-            c_rs = ref_cursor.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()
+                    sparams = (int(v_listlote.get('fil_in_codigo')),
+                               int(v_listlote.get('ord_in_codigo')),
+                               int(v_listlote.get('ctl_in_codigo')),
+                               int(v_listlote.get('plf_in_sqoperacao')),
+                               v_listlote.get('apt_dt_inclusao'),
+                               int(v_listlote.get('mvp_in_sequencia')),
+                               float(v_listlote.get('apt_re_quantidade')),
+                               float(v_listlote.get('apt_re_qtdeconvertida')),
+                               float(v_listlote.get('apt_re_qtderefugo')),
+                               int(v_listlote.get('pro_in_codigo')),
+                               v_listlote.get('pro_st_obs'),
+                               v_listlote.get('pro_st_docorigem'),
+                               v_listlote.get('pro_st_referencia'),
+                               int(v_listlote.get('usu_in_codigo')),
+                               v_listlote.get('pro_st_destino'),
+                               v_listlote.get('pro_st_lote'),
+                               v_listlote.get('pro_st_conversor'),
+                               v_listlote.get('apt_dt_lote'),
+                               v_listlote.get('cmaq_st_id'),
+                               v_listlote.get('ord_st_id'),
+                               v_listlote.get('pro_st_id'),
+                               ref_cursor)
+                    cur.callproc('apt_intprod2.cli_p_lotes_ordem',(sparams))
+                    c_rs = ref_cursor.fetchall()
             
             if c_rs:
                 for v_rs in c_rs:
@@ -1113,25 +1063,23 @@ class IntegrarProducao:
         #print(v_listDem)
         #if (1==1):
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            ref_cursor = con.cursor()
-            sparams = (ref_cursor,
-                       int(v_listDem.get('fil_in_codigo')),
-                       int(v_listDem.get('ord_in_codigo')),
-                       int(v_listDem.get('ctl_in_codigo')),
-                       int(v_listDem.get('plf_in_sqoperacao')),
-                       v_listDem.get('apt_dt_inclusao'),
-                       int(v_listDem.get('mvd_in_sequencia')),
-                       str(v_listDem.get('pro_st_lote')),
-                       float(v_listDem.get('pro_re_qtdlote')),
-                       str(v_listDem.get('cmaq_st_id')),
-                       str(v_listDem.get('ord_st_id'))
-                       )
-            cur.callproc('apt_intprod2.p_inseredemanda_lotes',(sparams))
-            c_rs = ref_cursor.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()
+                    sparams = (ref_cursor,
+                               int(v_listDem.get('fil_in_codigo')),
+                               int(v_listDem.get('ord_in_codigo')),
+                               int(v_listDem.get('ctl_in_codigo')),
+                               int(v_listDem.get('plf_in_sqoperacao')),
+                               v_listDem.get('apt_dt_inclusao'),
+                               int(v_listDem.get('mvd_in_sequencia')),
+                               str(v_listDem.get('pro_st_lote')),
+                               float(v_listDem.get('pro_re_qtdlote')),
+                               str(v_listDem.get('cmaq_st_id')),
+                               str(v_listDem.get('ord_st_id'))
+                               )
+                    cur.callproc('apt_intprod2.p_inseredemanda_lotes',(sparams))
+                    c_rs = ref_cursor.fetchall()
             if c_rs:
                 for v_rs in c_rs:
                     lista.append(dict(mensagem = v_rs[0],
@@ -1159,14 +1107,12 @@ class GetDadosMaquina:
         self.cmaq_in = None
     def apt_GetDadosMaquina(self):
         self.fil_in = 3
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (ref_cursor,self.fil_in)
-        cur.callproc('idp.apt_intprod.apt_GetDadosMaquina',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (ref_cursor,self.fil_in)
+                cur.callproc('idp.apt_intprod.apt_GetDadosMaquina',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         if c_rs:
             for v_rs in c_rs:
@@ -1187,14 +1133,12 @@ class GetDadosMaquina:
         return v_retorno
 
     def apt_PutDadosMaquina(self, pparams):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (ref_cursor, pparams[0],pparams[1])
-        cur.callproc('idp.apt_intprod.apt_PutDadosMaquina',(sparams))
-        c_rs = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (ref_cursor, pparams[0],pparams[1])
+                cur.callproc('idp.apt_intprod.apt_PutDadosMaquina',(sparams))
+                c_rs = ref_cursor.fetchall()
         lista = []
         if c_rs:
             for v_rs in c_rs:
@@ -1218,15 +1162,13 @@ class GetDadosRecebimento:
                          from cus_vw_api_lotesavisoreceb avr
                         where avr.pdc_st_id||avr.pdi_st_id = :item_pdc_id''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'item_pdc_id':self.item_pdc_id})
-            columns = [col[0] for col in cur.description]
-            cur.rowfactory = lambda *args: dict(zip(columns, args))
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'item_pdc_id':self.item_pdc_id})
+                    columns = [col[0] for col in cur.description]
+                    cur.rowfactory = lambda *args: dict(zip(columns, args))
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         return c_rs
@@ -1308,15 +1250,13 @@ class GetDadosRecebimento:
                           --and to_number(substr(mvl.mvl_st_loteforne,17)) < 760
                         order by to_number(substr(mvl.mvl_st_loteforne,17))''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'avr_st_nota':self.avr_st_nota,'fil_in_codigo':self.fil_in_codigo, 'mvl_st_loteini':self.mvl_st_loteini,'mvl_st_lotefim':self.mvl_st_lotefim})
-            columns = [col[0] for col in cur.description]
-            cur.rowfactory = lambda *args: dict(zip(columns, args))
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'avr_st_nota':self.avr_st_nota,'fil_in_codigo':self.fil_in_codigo, 'mvl_st_loteini':self.mvl_st_loteini,'mvl_st_lotefim':self.mvl_st_lotefim})
+                    columns = [col[0] for col in cur.description]
+                    cur.rowfactory = lambda *args: dict(zip(columns, args))
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         return c_rs
@@ -1353,15 +1293,13 @@ class GetDadosRecebimento:
                           --and to_number(substr(mvl.mvl_st_loteforne,17)) <= 1001                          
                         order by to_number(substr(mvl.mvl_st_loteforne,17))''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'lot_in_sequencia':self.avr_st_nota,'fil_in_codigo':self.fil_in_codigo, 'mvl_st_loteforne':self.mvl_st_loteforne})
-            columns = [col[0] for col in cur.description]
-            cur.rowfactory = lambda *args: dict(zip(columns, args))
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'lot_in_sequencia':self.avr_st_nota,'fil_in_codigo':self.fil_in_codigo, 'mvl_st_loteforne':self.mvl_st_loteforne})
+                    columns = [col[0] for col in cur.description]
+                    cur.rowfactory = lambda *args: dict(zip(columns, args))
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         return c_rs
@@ -1383,15 +1321,13 @@ class GetDadosRecebimento:
                           and opd.opd_pad_in_codigo  = pck_mega.achapadraodatabela(:fil_in_codigo,228,sysdate)
                           and (opd.opd_st_alternativo = :opd_st_alternativo or :opd_st_alternativo = 'all')''')
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            cur.prepare(selectSQL)
-            cur.execute(None, {'fil_in_codigo':self.fil_in_codigo, 'opd_st_alternativo':self.opd_st_codigo})
-            columns = [col[0] for col in cur.description]
-            cur.rowfactory = lambda *args: dict(zip(columns, args))
-            c_rs = cur.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    cur.prepare(selectSQL)
+                    cur.execute(None, {'fil_in_codigo':self.fil_in_codigo, 'opd_st_alternativo':self.opd_st_codigo})
+                    columns = [col[0] for col in cur.description]
+                    cur.rowfactory = lambda *args: dict(zip(columns, args))
+                    c_rs = cur.fetchall()
         except cxo._Error as error:
             pass
         return c_rs
