@@ -44,14 +44,13 @@ class Baixas:
         self.bxi_id_almoxa = None
         self.os_st_id = None
     def apt_gerarBaixa(self,pparams):
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (ref_cursor,self.acao_in_codigo,self.fil_in_codigo,self.req_in_sequencia)
-        cur.callproc('apt_intprod2.p_Gera_BaixaRequisicao',(sparams))
-        c_cursor = ref_cursor.fetchall()
-        cur.close
-        con.close
+        # AJUSTE 2026-10-06: conexões Oracle com with (antes "cur.close"/"con.close" sem () não fechavam)
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (ref_cursor,self.acao_in_codigo,self.fil_in_codigo,self.req_in_sequencia)
+                cur.callproc('apt_intprod2.p_Gera_BaixaRequisicao',(sparams))
+                c_cursor = ref_cursor.fetchall()
         for v_ret in c_cursor:
             result = v_ret[0]
         return result
@@ -64,15 +63,13 @@ class Baixas:
             self.bxi_id_produto = v_rei['bxi_id_produto']
             self.bxi_re_quantidade = v_rei['bxi_re_quantidade']
             self.bxa_ch_status = v_rei['bxa_ch_status']
-        con = getOracleConnection()
-        cur = con.cursor()
-        ref_cursor = con.cursor()
-        sparams = (ref_cursor,self.fil_in_codigo,self.req_in_sequencia,self.bxi_in_sequencia,
-                   self.bxa_in_sequencia,self.bxi_id_produto, self.bxi_re_quantidade, self.bxi_ch_status)
-        cur.callproc('apt_intprod2.p_Insere_ItemRequisicao',(sparams))
-        c_cursor = ref_cursor.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                ref_cursor = con.cursor()
+                sparams = (ref_cursor,self.fil_in_codigo,self.req_in_sequencia,self.bxi_in_sequencia,
+                           self.bxa_in_sequencia,self.bxi_id_produto, self.bxi_re_quantidade, self.bxi_ch_status)
+                cur.callproc('apt_intprod2.p_Insere_ItemRequisicao',(sparams))
+                c_cursor = ref_cursor.fetchall()
         for v_ret in c_cursor:
             result = v_ret[0]
         return result
@@ -99,15 +96,13 @@ class Baixas:
         c_req = requests.get(get_urlest, params=payload).json()
         if c_req:
             try:
-                con = getOracleConnection()
-                cur = con.cursor()
-                ref_cursor = con.cursor()
-                sparams = (ref_cursor,self.fil_in_codigo,self.bxa_in_sequencia,self.bxa_dt_apontamento
-                            ,self.bxa_st_usuario,self.cus_id_ccusto,self.bxa_ch_status,self.os_st_id)
-                cur.callproc('idp.apt_intprod2.p_Insere_Requisicao',(sparams))
-                c_cursor = ref_cursor.fetchall()
-                cur.close
-                con.close
+                with getOracleConnection() as con:
+                    with con.cursor() as cur:
+                        ref_cursor = con.cursor()
+                        sparams = (ref_cursor,self.fil_in_codigo,self.bxa_in_sequencia,self.bxa_dt_apontamento
+                                    ,self.bxa_st_usuario,self.cus_id_ccusto,self.bxa_ch_status,self.os_st_id)
+                        cur.callproc('idp.apt_intprod2.p_Insere_Requisicao',(sparams))
+                        c_cursor = ref_cursor.fetchall()
                 for v_ret in c_cursor:
                     self.req_in_sequencia = v_ret[0]
                 #Busca os itens das requisições;
@@ -119,15 +114,13 @@ class Baixas:
                     self.bxi_ch_status = v_req['BXI_CH_STATUS']
                     self.bxi_id_almoxa = v_req['BXI_ID_ALMOXA']
                     try:
-                        con = getOracleConnection()
-                        cur = con.cursor()
-                        ref_cursor = con.cursor()
-                        sparams = (ref_cursor,self.fil_in_codigo,self.req_in_sequencia,self.bxi_in_sequencia, self.bxa_in_sequencia,
-                                   self.bxi_id_produto,self.bxi_re_quantidade,self.bxi_ch_status,self.bxi_id_almoxa)
-                        cur.callproc('idp.apt_intprod2.p_Insere_ItemRequisicao',(sparams))
-                        cur_req = ref_cursor.fetchall()
-                        cur.close
-                        con.close
+                        with getOracleConnection() as con:
+                            with con.cursor() as cur:
+                                ref_cursor = con.cursor()
+                                sparams = (ref_cursor,self.fil_in_codigo,self.req_in_sequencia,self.bxi_in_sequencia, self.bxa_in_sequencia,
+                                           self.bxi_id_produto,self.bxi_re_quantidade,self.bxi_ch_status,self.bxi_id_almoxa)
+                                cur.callproc('idp.apt_intprod2.p_Insere_ItemRequisicao',(sparams))
+                                cur_req = ref_cursor.fetchall()
                         for v_reqitn in cur_req:
                             self.rei_in_sequencia = v_reqitn[1]                            
                         #Carimba o item da requisição como baixado
@@ -142,14 +135,12 @@ class Baixas:
                 json_baixas = json.dumps(lista)                
                 #Baixa requisição em aberto
                 try:
-                    con = getOracleConnection()
-                    cur = con.cursor()
-                    ref_cursor = con.cursor()
-                    sparams = (ref_cursor,self.fil_in_codigo)
-                    cur.callproc('idp.apt_intprod2.p_Gera_BaixaRequisicao',(sparams))
-                    c_cursor = ref_cursor.fetchall()
-                    cur.close
-                    con.close
+                    with getOracleConnection() as con:
+                        with con.cursor() as cur:
+                            ref_cursor = con.cursor()
+                            sparams = (ref_cursor,self.fil_in_codigo)
+                            cur.callproc('idp.apt_intprod2.p_Gera_BaixaRequisicao',(sparams))
+                            c_cursor = ref_cursor.fetchall()
                 except:
                     pass
             except:
@@ -171,8 +162,6 @@ class Consulta:
         json_saldo = {}
         self.id_produto = id['id']
         self.fil_in_codigo = id['filial']
-        con = getOracleConnection()
-        cur = con.cursor()
         selectSQL =(''' select mvs.pro_tab_in_codigo,
                                mvs.pro_pad_in_codigo,
                                mvs.pro_in_codigo,
@@ -197,11 +186,11 @@ class Consulta:
                                mvs.pro_pad_in_codigo,
                                mvs.pro_in_codigo,
                                pro.pro_st_descricao''')
-        cur.prepare(selectSQL)        
-        cur.execute(None, {'id_produto': self.id_produto, 'fil_in':self.fil_in_codigo})
-        c_rs = cur.fetchall()
-        cur.close
-        con.close
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                cur.prepare(selectSQL)
+                cur.execute(None, {'id_produto': self.id_produto, 'fil_in':self.fil_in_codigo})
+                c_rs = cur.fetchall()
         for rs in c_rs:
             lista.append(dict(pro_tab_in_codigo = int(rs[0]),
                               pro_pad_in_codigo = rs[1],
@@ -263,43 +252,36 @@ class Consulta:
                               lpad(loc.pro_pad_in_codigo,3,0)||
                               lpad(loc.pro_in_codigo,7,0) = :pro_id or :pro_id = '0') 
                         order by loc.pro_in_codigo''')        
-        con = getOracleConnection()
-        cur = con.cursor()
-        cur.prepare(selectSQL)
-        try:
-            cur.execute(None, {'fil_in_codigo': self.fil_in_codigo,'status':self.status,'pro_id':self.id_produto})
-            c_rs = cur.fetchall()            
-            cur.close
-            con.close
-            if c_rs:
-                for rs in c_rs:
-                    lista.append(dict(LOC_ID_PROALMFIL = rs[0],
-                                      LOC_ID_ALMOXA = rs[1],
-                                      LOC_ID_ORG = rs[2],
-                                      LOC_ID_PRODUTO = rs[3],
-                                      LOC_IN_FILIAL = int(rs[4]),
-                                      ALM_IN_CODIGO = int(rs[5]),
-                                      LOC_IN_CODIGO = int(rs[6]),
-                                      ALM_ST_DESCRICAO = rs[7],
-                                      LOC_ST_DESCRICAO = rs[8]))                    
-                
-        except:
-            cur.close
-            con.close
-            lista.append(dict(LOC_ID_PROALMFIL = self.id_produto))
+        with getOracleConnection() as con:
+            with con.cursor() as cur:
+                cur.prepare(selectSQL)
+                try:
+                    cur.execute(None, {'fil_in_codigo': self.fil_in_codigo,'status':self.status,'pro_id':self.id_produto})
+                    c_rs = cur.fetchall()
+                    if c_rs:
+                        for rs in c_rs:
+                            lista.append(dict(LOC_ID_PROALMFIL = rs[0],
+                                              LOC_ID_ALMOXA = rs[1],
+                                              LOC_ID_ORG = rs[2],
+                                              LOC_ID_PRODUTO = rs[3],
+                                              LOC_IN_FILIAL = int(rs[4]),
+                                              ALM_IN_CODIGO = int(rs[5]),
+                                              LOC_IN_CODIGO = int(rs[6]),
+                                              ALM_ST_DESCRICAO = rs[7],
+                                              LOC_ST_DESCRICAO = rs[8]))
+                except:
+                    lista.append(dict(LOC_ID_PROALMFIL = self.id_produto))
         json_retorno = json.dumps(lista)
         return json_retorno
     def put_CadastroProdlocal(self, pParams):
         #Carimba a licalização como sincronizada;
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            ref_cursor = con.cursor()
-            sparams = (pParams[0],'S',ref_cursor)
-            cur.callproc('idp.apt_intprod2.apt_put_itemalmoxa',(sparams))
-            c_rs = ref_cursor.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()
+                    sparams = (pParams[0],'S',ref_cursor)
+                    cur.callproc('idp.apt_intprod2.apt_put_itemalmoxa',(sparams))
+                    c_rs = ref_cursor.fetchall()
         except:
             pass
         lista = []
@@ -335,15 +317,13 @@ class Inventario:
         self.inv_id_usuario = pparams['INV_ST_USUARIO']
         self.inv_ch_status = pparams['INV_CH_STATUS']
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            ref_cursor = con.cursor()
-            sparams = (ref_cursor,self.fil_in_codigo,self.inv_in_sequencia,self.inv_id_usuario,
-                       self.inv_dt_movimento,self.inv_ch_status)
-            cur.callproc('idp.apt_intprod2.p_Insere_Inventario',(sparams))
-            c_cursor = ref_cursor.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()
+                    sparams = (ref_cursor,self.fil_in_codigo,self.inv_in_sequencia,self.inv_id_usuario,
+                               self.inv_dt_movimento,self.inv_ch_status)
+                    cur.callproc('idp.apt_intprod2.p_Insere_Inventario',(sparams))
+                    c_cursor = ref_cursor.fetchall()
             for v_ret in c_cursor:
                 self.mov_in_sequencia = v_ret[1]
         except:
@@ -362,36 +342,35 @@ class Inventario:
                     self.inv_re_quantidade = float(r_itn['ITI_RE_QUANTIDADE'])
                     self.iti_ch_status = r_itn['ITI_CH_STATUS']
                     self.iti_st_tipomov = r_itn['ITI_ST_TIPOMOV']
-                    con = getOracleConnection()
-                    cur = con.cursor()
-                    ref_cursor = con.cursor()
-                    sparams = (ref_cursor,self.fil_in_codigo,self.inv_in_sequencia,self.iti_in_sequencia
-                                    ,self.inv_id_produto,self.inv_re_quantidade,self.iti_ch_status,self.mov_in_sequencia,self.iti_st_tipomov)
-                    try:
-                        cur.callproc('idp.apt_intprod2.p_Insere_ItemInventario',(sparams))
-                        c_cursor = ref_cursor.fetchall()
-                        cur.close
-                        con.close
-                        for v_itn in c_cursor:
-                            self.moi_in_sequencia = v_itn[3]
-                            #Atualiza o item do inventário
-                            payload = {'status':'B','sequencia':self.iti_in_sequencia,'item':self.inv_id_produto,
-                                   'mov':self.mov_in_sequencia,'moi':self.moi_in_sequencia,
-                                   'quantidade':self.inv_re_quantidade}                        
-                            c_itn = requests.put(get_urlest, data=payload).json()
-                    except:
-                        cur.close
-                        con.close
+                    with getOracleConnection() as con:
+                        with con.cursor() as cur:
+                            ref_cursor = con.cursor()
+                            sparams = (ref_cursor,self.fil_in_codigo,self.inv_in_sequencia,self.iti_in_sequencia
+                                            ,self.inv_id_produto,self.inv_re_quantidade,self.iti_ch_status,self.mov_in_sequencia,self.iti_st_tipomov)
+                            try:
+                                cur.callproc('idp.apt_intprod2.p_Insere_ItemInventario',(sparams))
+                                c_cursor = ref_cursor.fetchall()
+                            except:
+                                c_cursor = None
+                    if c_cursor is not None:
+                        try:
+                            for v_itn in c_cursor:
+                                self.moi_in_sequencia = v_itn[3]
+                                #Atualiza o item do inventário
+                                payload = {'status':'B','sequencia':self.iti_in_sequencia,'item':self.inv_id_produto,
+                                       'mov':self.mov_in_sequencia,'moi':self.moi_in_sequencia,
+                                       'quantidade':self.inv_re_quantidade}
+                                c_itn = requests.put(get_urlest, data=payload).json()
+                        except:
+                            pass
         #Gera movimento de Inventário no Mega
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            ref_cursor = con.cursor()
-            sparams = (ref_cursor,self.fil_in_codigo)
-            cur.callproc('idp.apt_intprod2.p_Gera_MovimentoInventario',(sparams))
-            c_cursor = ref_cursor.fetchall()
-            cur.close
-            con.close
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()
+                    sparams = (ref_cursor,self.fil_in_codigo)
+                    cur.callproc('idp.apt_intprod2.p_Gera_MovimentoInventario',(sparams))
+                    c_cursor = ref_cursor.fetchall()
             for v_ret in c_cursor:
                 self.mov_st_mensagem = v_ret[0]
         except:
