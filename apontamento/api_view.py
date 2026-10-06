@@ -1694,6 +1694,7 @@ class Fechamento:
             'data_apontamento_max': max(datas),
             'ctl_in_codigo': controle_data.get('CTL_IN_CODIGO'),
             'ctl_st_status': controle_data.get('CTL_ST_STATUS'),
+            'ord_st_extenso': controle_data.get('ORD_ST_EXTENSO'),
             'produzida': resumo_dia.get('produzida', 0),
             'demandas': resumo_dia.get('demandas', 0),
         })
@@ -1764,7 +1765,7 @@ class Fechamento:
 
     @staticmethod
     def registrar(ord_codigo, data_apontamento, hora_inicio, hora_fim, usuario, qtd_produzida=0,
-                  qtd_demandas=0, filial=None, ctl_in_codigo=None):
+                  qtd_demandas=0, filial=None, ctl_in_codigo=None, seq_in_operacao=None, ord_st_extenso=None):
         db = controle_db()
         valido, erro = Fechamento.validar_horario(hora_inicio, hora_fim)
         if not valido:
@@ -1788,6 +1789,31 @@ class Fechamento:
             'usuario': usuario,
         }
         dados.update(tempo)
+
+        # AJUSTE 2026-10-06: com a chave ligada, grava no Oracle (tudo ou nada) e efetiva ANTES
+        # de fechar; qualquer erro do Oracle volta para o operador e o controle continua aberto.
+        # Datas alinhadas antes de gravar (a data do lote vai para o Oracle). Fora de atomic:
+        # a gravação do MP faz commit na conexão local. - JPC - João Castro
+        from apontamento.integracao_apontamento import FECHAMENTO_GRAVA_ORACLE, gravar_e_efetivar_controle
+        if FECHAMENTO_GRAVA_ORACLE:
+            dados['demandas_alinhadas'] = db.alinhar_demandas_do_controle(ctl_in_codigo, data_apontamento)
+            dados['lotes_alinhados'] = db.alinhar_lotes_do_controle(ctl_in_codigo, data_apontamento)
+            # data/hora gravada pelo efetivar (apt_dt_encerramento -> APO_DT_APONTAMENTO)
+            dt_efetivar = datetime.combine(datetime.strptime(str(data_apontamento)[:10], '%Y-%m-%d').date(),
+                                           Fechamento._parse_hora(hora_fim))
+            resultado = gravar_e_efetivar_controle({'ctl_in_codigo': ctl_in_codigo, 'usuario': usuario,
+                                                    'seq_in_operacao': seq_in_operacao,
+                                                    'ordem': ord_st_extenso}, dt_efetivar)
+            dados['oracle'] = resultado
+            if resultado.get('erro_oracle'):
+                return False, None, f"Oracle: {resultado['erro_oracle']}"
+            if resultado.get('erro'):
+                return False, None, 'Oracle: ' + '; '.join(resultado.get('erros') or ['falha ao gravar'])
+            if not resultado.get('efetivado_oracle'):
+                return False, None, f"Oracle: apontamento não efetivado ({resultado.get('msg_efetivar')})"
+            db.criar_fechamento(dados)
+            return True, dados, None
+
         # Fechamento + alinhamento das datas dos lançamentos do controle na mesma transação
         with transaction.atomic():
             db.criar_fechamento(dados)
@@ -1808,6 +1834,8 @@ class Fechamento:
                 qtd_demandas=payload.get('qtd_demandas', 0),
                 filial=payload.get('filial'),
                 ctl_in_codigo=payload.get('ctl_in_codigo'),
+                seq_in_operacao=payload.get('seq_in_operacao'),
+                ord_st_extenso=payload.get('ord_st_extenso'),
             )
             if sucesso:
                 return {'success': True, 'msg': 'Fechamento registrado com sucesso', 'error': None, 'dados': dados}

@@ -29,6 +29,10 @@ class Apt_ApontaOrdem(models.Model):
     RES_ST_ID          = models.CharField(max_length=10,null=True, blank=True, verbose_name='seq_resumo')
     ORL_RE_QTDAJUSTADA = models.DecimalField(null=True, max_digits=10, decimal_places=3, default=0)
     PRO_ST_FORNECEDOR  = models.CharField(max_length=50,null=True, blank=True)
+    # AJUSTE 2026-10-06: colunas lidas pela gravação direta no Oracle (apontamento/apontamento.py, copiado do MP) - JPC - João Castro
+    MOV_IN_SEQUENCIA   = models.IntegerField(null=True, blank=True, verbose_name='seq_demanda')
+    FMT_ST_CODIGO      = models.CharField(max_length=4,null=True, blank=True,verbose_name='conversor')
+    APT_ST_OBSERV      = models.CharField(max_length=250,null=True, blank=True,verbose_name='observacoes')
     class Meta:
         db_table = u'Apt_ApontaOrdem'
 

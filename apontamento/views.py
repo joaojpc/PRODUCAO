@@ -1342,6 +1342,9 @@ def fechar_op_diario(request):
             'usuario': operador,
             'qtd_produzida': request.POST.get('FEC_RE_QTD_PRODUZIDA', 0),
             'qtd_demandas': request.POST.get('FEC_RE_QTD_DEMANDAS', 0),
+            # usados só com a gravação direta no Oracle (FECHAMENTO_GRAVA_ORACLE)
+            'seq_in_operacao': v_session.get('seq_in_operacao'),
+            'ord_st_extenso': dados_api.get('ord_st_extenso') or v_session.get('ordem'),
         })
         if response.get('success'):
             messages.success(request, response.get('msg', 'Fechamento registrado com sucesso'))
