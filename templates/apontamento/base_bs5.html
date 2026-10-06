@@ -1,0 +1,37 @@
+{% load static %}
+{# AJUSTE 2026-10-06: base exclusivo das telas novas do apontamento (Bootstrap 5 local). Telas antigas seguem no base.html (BS3). - JPC - João Castro #}
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="utf-8">
+        <title>{% block title %}Produção{% endblock %}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="{% static 'bootstrap5/bootstrap.min.css' %}">
+        <script src="{% static 'bootstrap5/bootstrap.bundle.min.js' %}"></script>
+    </head>
+    <body class="bg-body-tertiary">
+        <nav class="navbar bg-dark border-bottom" data-bs-theme="dark">
+            <div class="container">
+                <a class="navbar-brand" href="{% url 'menu' %}">Controle e apontamento de Produção</a>
+                <a class="btn btn-outline-light btn-sm" href="{% url 'menu' %}">Menu</a>
+            </div>
+        </nav>
+        <header class="container mt-3">
+            <div class="alert alert-secondary py-2 mb-2 small" role="alert">
+                <strong>OP:</strong> {{ request.session.ord_in_codigo }}
+                &nbsp; <strong>Filial:</strong> {{ request.session.fil_in_codigo }}
+                &nbsp; <strong>Usuário:</strong> {{ request.session.usu_st_nome }}
+                &nbsp; <strong>Endereço:</strong> {{ request.session.cliente }}
+                {% if request.session.pro_st_descricao %}<br><strong>Item:</strong> {{ request.session.pro_st_descricao }}{% endif %}
+            </div>
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} py-2" role="alert">{{ message }}</div>
+            {% endfor %}
+        </header>
+        <main class="container pb-4">
+            {% block content %}
+            {% endblock %}
+        </main>
+        {% block js %}{% endblock %}
+    </body>
+</html>
