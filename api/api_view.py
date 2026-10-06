@@ -306,20 +306,22 @@ class GetDadosProducao:
                           and ord.ord_in_codigo = :ord_in_codigo                          
                         order by ord.ord_in_codigo
                           ''')
+        # AJUSTE 2026-10-06: só envia os parâmetros que o SQL usa (os comentados davam ORA-01036)
+        # e cxo.Error no lugar de cxo._Error (não existe no oracledb e virava TypeError/500);
+        # em erro devolve lista vazia, como era a intenção do "pass". - JPC - João Castro
+        c_rs = []
         try:
             with getOracleConnection() as con:
                 with con.cursor() as cur:
                     cur.prepare(selectSQL)
                     if pparams[1] is None:
-                        cur.execute(None, {'ord_ch_integrada': 'N','org_in_codigo':pparams[0],'status':pparams[3]})
+                        cur.execute(None, {'ord_ch_integrada': 'N','org_in_codigo':pparams[0]})
                     else:
-                        cur.execute(None, {'ord_ch_integrada': 'N',
-                                           'fil_in_codigo': pparams[1],
-                                           'ord_in_codigo': pparams[2],
-                                           'status':pparams[3]
+                        cur.execute(None, {'fil_in_codigo': pparams[1],
+                                           'ord_in_codigo': pparams[2]
                                            })
                     c_rs = cur.fetchall()
-        except cxo._Error as error:
+        except cxo.Error as error:
             pass
         lista = []
         for rs in c_rs:
