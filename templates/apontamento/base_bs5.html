@@ -8,9 +8,29 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="stylesheet" href="{% static 'bootstrap5/bootstrap.min.css' %}">
         <script src="{% static 'bootstrap5/bootstrap.bundle.min.js' %}"></script>
+        {# AJUSTE 2026-10-06: mesmo azul dos botões do /prod/menu (btn-primary do BS3 do projeto) - JPC - João Castro #}
+        <style>
+            .bg-producao {
+                background-color: #337ab7;
+                background-image: linear-gradient(to bottom, #337ab7 0, #265a88 100%);
+                color: #fff;
+            }
+            .btn-producao {
+                color: #fff;
+                background-color: #337ab7;
+                background-image: linear-gradient(to bottom, #337ab7 0, #265a88 100%);
+                border-color: #245580;
+            }
+            .btn-producao:hover, .btn-producao:focus, .btn-producao:active {
+                color: #fff;
+                background-color: #265a88;
+                background-image: none;
+                border-color: #204d74;
+            }
+        </style>
     </head>
     <body class="bg-body-tertiary">
-        <nav class="navbar bg-dark border-bottom" data-bs-theme="dark">
+        <nav class="navbar bg-producao border-bottom" data-bs-theme="dark">
             <div class="container">
                 <a class="navbar-brand" href="{% url 'menu' %}">Controle e apontamento de Produção</a>
                 <a class="btn btn-outline-light btn-sm" href="{% url 'menu' %}">Menu</a>
