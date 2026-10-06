@@ -251,7 +251,8 @@ class GetItenslocalizacao(APIView):
         ini_get = Consulta()
         v_params = []
         #filial
-        v_params.append(3)
+        # AJUSTE 2026-10-06: filial por parâmetro (operador); sem parâmetro mantém 3 como antes
+        v_params.append(request.GET.get('filial') or 3)
         # status
         v_params.append('T')
         #id_produto

@@ -300,6 +300,11 @@ def man_almoxa(request):
     v_filial = request.session['filial']
     v_nome = request.session.get('usuario')
     if request.method == "POST":
+        # AJUSTE 2026-10-06: painel de centro de custos (carga full pela filial da sessão, sem item)
+        if request.POST.get('acao') == 'ccusto':
+            resultado_cc = Buscar_CentroCusto({'filial': v_filial})
+            return render(request, tmpl, {'form': FormIntegracao(), 'resultado_cc': resultado_cc,
+                                          'filial': v_filial, 'nome': v_nome})
         form = FormIntegracao(request.POST)
         if form.is_valid():
             v_item = form.cleaned_data['item'].strip()
@@ -312,7 +317,7 @@ def man_almoxa(request):
             action = request.GET.get('action')
             if action == 'IntCCusto':
                 #Buscar Centro de Custos;
-                Buscar_CentroCusto(1)
+                Buscar_CentroCusto({'filial': v_filial})
                 return redirect('almoxarifado')
             elif action == 'GetProdutos':
                 #Buscar Cadastro de Produtos;

@@ -9,6 +9,9 @@ from django.utils import timezone
 from producao import settings
 import requests
 from url_projeto import geturlapp, geturlapi, geturlprod, geturlest
+from .services import CAMPOS_CADITENS, select_caditens, inserir_caditens, atualizar_caditens
+from .services import CAMPOS_ITEMALMOXA, select_itemalmoxa, inserir_itemalmoxa, atualizar_itemalmoxa
+from .services import CAMPOS_CENTROCUSTOS, select_centrocustos, inserir_centrocustos, atualizar_centrocustos
 
 def formatar_ccusto(pParam):
         v_param = pParam
@@ -208,73 +211,120 @@ def Item_requisicao(pParams):
     return c_prod
 
 def Buscar_CentroCusto(pParam):
-    funcao = 'GetCentroCustos/'
-    get_urlapi = geturlapi(funcao)
-    payload = {'reduzido': None}
-    c_rs = requests.get(get_urlapi, params=payload).json()
-    if c_rs:
-        for c_a in c_rs:
-            funcao = 'centrocustos/'
-            get_urlest = geturlest(funcao)
-            get_urlest = geturlest(funcao)
-            payload = {'id_centrocusto': c_a['CUS_ID_CCUSTO']}
-            #Verificar se o Item ainda não foi cadastrado
-            c_custo= requests.get(get_urlest, params=payload).json()
-            if not c_custo:
-                dados = c_a
-                response = requests.post(get_urlest, data=dados)
+    # AJUSTE 2026-10-06: carga full do Oracle comparada com a tabela local (JSON x JSON);
+    # grava o que for diferente: novo é inserido, alterado é atualizado, só local é mantido.
+    # A leitura do Oracle exige a filial (antes não era enviada e a API falhava).
+    c_oracle = requests.get(geturlapi('GetCentroCustos/'), params={'filial': pParam['filial']}).json() or []
+    c_local = {d['CUS_ID_CCUSTO']: d for d in select_centrocustos()}
+    obrigatorios = ['CUS_ID_CCUSTO','CUS_IDE_ST_CODIGO','CUS_ST_EXTENSO','CUS_ST_DESCRICAO']
+    v_retorno = {'lidos': len(c_oracle), 'novos': 0, 'alterados': 0, 'erros': 0}
+    novos, alterados, vistos = [], [], set()
+    for d in c_oracle:
+        if any(d.get(c) is None for c in obrigatorios):
+            v_retorno['erros'] += 1
+            continue
+        chave = d['CUS_ID_CCUSTO']
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        if chave not in c_local:
+            novos.append(d)
+        elif any(d.get(c) != c_local[chave].get(c) for c in CAMPOS_CENTROCUSTOS):
+            alterados.append(d)
+    try:
+        v_retorno['novos'] = inserir_centrocustos(novos)
+        v_retorno['alterados'] = atualizar_centrocustos(alterados)
+    except Exception as erro:
+        v_retorno['erros'] += 1
+        print('Erro ao gravar centro de custos', erro)
+    return v_retorno
+
+def _separar_novos_alterados(lista, campos, obrigatorios, fn_select):
+    # Regra: compara o JSON do Oracle com o local (campos[0] é a chave).
+    # Sem campo obrigatório -> erro; não existe local -> novo; existe e diferente -> alterado; igual -> nada.
+    validos = [d for d in (lista or []) if all(d.get(c) is not None for c in obrigatorios)]
+    erros = len(lista or []) - len(validos)
+    c_local = fn_select([d[campos[0]] for d in validos])
+    novos, alterados, vistos = [], [], set()
+    for d in validos:
+        chave = d[campos[0]]
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        if chave not in c_local:
+            novos.append(d)
+        elif any(d.get(c) != c_local[chave].get(c) for c in campos):
+            alterados.append(d)
+    return novos, alterados, erros
 
 def Buscar_CadastroProdutos(pParam):
-    funcao = 'GetCadastroItens/'
-    get_urlapi = geturlapi(funcao)
-    #payload = {'padrao': pParam}
+    # AJUSTE 2026-10-06: monta o JSON da API (Oracle), aplica a regra aqui e entrega ao services
+    # para gravar (SQL puro), no lugar do GET/POST na API /est/. Contadores vão para a tela man_almoxa.
+    # O Oracle só devolve o item que pode ser atualizado (marcado lá); não devolveu -> nada é alterado.
+    # As localizações acompanham o item devolvido: nova é gravada, diferente é atualizada.
     payload = {'id': pParam['id'],'filial': pParam['filial']}
-    # AJUSTE 2026-10-06: contadores devolvidos para a tela man_almoxa (EtiquetaItem ignora o retorno)
-    v_retorno = {'itens_lidos': 0, 'itens_novos': 0, 'locais_novos': 0, 'erros': 0}
-    c_rs = requests.get(get_urlapi, params=payload).json()
-    if c_rs:
-        for c_a in c_rs:
-            v_retorno['itens_lidos'] += 1
-            funcao = 'produtos/'
-            get_urlest = geturlest(funcao)
-            payload = {'item': c_a['BXI_ID_PRODUTO']}
-            #Verificar se o Item ainda não foi cadastrado
-            c_prod = requests.get(get_urlest, params=payload).json()
-            if not c_prod:
-                #Grava integração do Item;
-                dados = c_a
-                response = requests.post(get_urlest, data=dados)
-                if response.status_code == 201:
-                    v_retorno['itens_novos'] += 1
-                else:
-                    v_retorno['erros'] += 1
-            #busca local de estoque configurado no item
-            funcao = 'GetItenslocalizacao/'                
-            get_urlapi = geturlapi(funcao)                
-            payload = {'id': c_a['BXI_ID_PRODUTO'], 'filial':pParam['filial']}
-            c_prl = requests.get(get_urlapi, params=payload).json()            
-            if c_prl:
-                for r_prl in c_prl:
-                    dados = r_prl
-                    funcao = 'ItemAlmoxa/'
-                    get_urlest = geturlest(funcao)
-                    payload = {'item_almoxa': r_prl['LOC_ID_PROALMFIL']}
-                    c_pl = requests.get(get_urlest, params=payload).json()
-                    #print(c_pl)
-                    if not c_pl:
-                        try:
-                            #print(c_a['BXI_ID_PRODUTO'])
-                            c_respReq = requests.post(get_urlest, data=dados)
-                            if c_respReq.status_code == 201:
-                                v_retorno['locais_novos'] += 1
-                            else:
-                                v_retorno['erros'] += 1
-                        except:
-                            # AJUSTE 2026-10-06: era c_rs (lista) -> TypeError interrompia a sincronização
-                            v_retorno['erros'] += 1
-                            print('Erro ',c_a['BXI_ID_PRODUTO'])
-                    else:
-                        pass
+    c_itens = requests.get(geturlapi('GetCadastroItens/'), params=payload).json() or []
+    c_locais = []
+    for c_a in c_itens:
+        if not c_a.get('BXI_ID_PRODUTO'):
+            continue
+        #busca local de estoque configurado no item
+        payload = {'id': c_a['BXI_ID_PRODUTO'], 'filial': pParam['filial']}
+        c_locais += requests.get(geturlapi('GetItenslocalizacao/'), params=payload).json() or []
+    v_retorno = {'itens_lidos': len(c_itens), 'itens_novos': 0, 'itens_atualizados': 0,
+                 'locais_novos': 0, 'locais_atualizados': 0, 'erros': 0}
+    itens_novos, itens_alterados, erros = _separar_novos_alterados(c_itens, CAMPOS_CADITENS,
+        ['BXI_ID_PRODUTO','PRO_TAB_IN_CODIGO','PRO_PAD_IN_CODIGO','PRO_IN_CODIGO'], select_caditens)
+    v_retorno['erros'] += erros
+    locais_novos, locais_alterados, erros = _separar_novos_alterados(c_locais, CAMPOS_ITEMALMOXA,
+        ['LOC_ID_PROALMFIL','LOC_ID_ALMOXA','LOC_ID_ORG','LOC_ID_PRODUTO','LOC_IN_FILIAL','ALM_IN_CODIGO','LOC_IN_CODIGO'],
+        select_itemalmoxa)
+    v_retorno['erros'] += erros
+    try:
+        v_retorno['itens_novos'] = inserir_caditens(itens_novos)
+        v_retorno['itens_atualizados'] = atualizar_caditens(itens_alterados)
+        v_retorno['locais_novos'] = inserir_itemalmoxa(locais_novos)
+        v_retorno['locais_atualizados'] = atualizar_itemalmoxa(locais_alterados)
+    except Exception as erro:
+        v_retorno['erros'] += 1
+        print('Erro ao gravar cadastro de produtos', erro)
+    return v_retorno
+
+def Sincronizar_CadastroProdutos(pParam):
+    # AJUSTE 2026-10-06: sincroniza substituindo (update_or_create) est_CadItens e est_CadItemAlmoxa
+    # pelos dados do Oracle. Registros locais que não vêm do Oracle são mantidos.
+    from django.db import transaction
+    from almoxarifado.models import est_CadItens, est_CadItemAlmoxa
+    campos_item = ['PRO_TAB_IN_CODIGO','PRO_PAD_IN_CODIGO','PRO_IN_CODIGO','PRO_ST_DESCRICAO','UNI_ST_UNIDADE']
+    campos_loc = ['LOC_ID_ALMOXA','LOC_ID_ORG','LOC_ID_PRODUTO','LOC_IN_FILIAL','ALM_IN_CODIGO',
+                  'LOC_IN_CODIGO','ALM_ST_DESCRICAO','LOC_ST_DESCRICAO']
+    v_retorno = {'itens_lidos': 0, 'itens_novos': 0, 'itens_atualizados': 0,
+                 'locais_novos': 0, 'locais_atualizados': 0, 'erros': 0}
+    payload = {'id': pParam['id'],'filial': pParam['filial']}
+    c_rs = requests.get(geturlapi('GetCadastroItens/'), params=payload).json()
+    for c_a in (c_rs or []):
+        v_retorno['itens_lidos'] += 1
+        try:
+            #busca local de estoque configurado no item (filial do operador)
+            payload = {'id': c_a['BXI_ID_PRODUTO'], 'filial': pParam['filial']}
+            c_prl = requests.get(geturlapi('GetItenslocalizacao/'), params=payload).json()
+            with transaction.atomic():
+                obj, criado = est_CadItens.objects.update_or_create(
+                    BXI_ID_PRODUTO=c_a['BXI_ID_PRODUTO'],
+                    defaults={k: c_a.get(k) for k in campos_item})
+                v_retorno['itens_novos' if criado else 'itens_atualizados'] += 1
+                for r_prl in (c_prl or []):
+                    # Em erro no Oracle a API devolve só LOC_ID_PROALMFIL -> ignora o registro incompleto
+                    if not r_prl.get('LOC_ID_PRODUTO'):
+                        v_retorno['erros'] += 1
+                        continue
+                    obj, criado = est_CadItemAlmoxa.objects.update_or_create(
+                        LOC_ID_PROALMFIL=r_prl['LOC_ID_PROALMFIL'],
+                        defaults={k: r_prl.get(k) for k in campos_loc})
+                    v_retorno['locais_novos' if criado else 'locais_atualizados'] += 1
+        except Exception as erro:
+            v_retorno['erros'] += 1
+            print('Erro ', c_a.get('BXI_ID_PRODUTO'), erro)
     return v_retorno
 def Integrarequisicao(pParam):
     # Busca requisições em aberto

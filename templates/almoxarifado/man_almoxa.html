@@ -36,8 +36,35 @@
         <table class="table table-condensed">
             <tr><td>Itens lidos</td><td>{{ resultado.itens_lidos }}</td></tr>
             <tr><td>Itens novos (est_CadItens)</td><td>{{ resultado.itens_novos }}</td></tr>
+            <tr><td>Itens atualizados</td><td>{{ resultado.itens_atualizados }}</td></tr>
             <tr><td>Localizações novas (est_CadItemAlmoxa)</td><td>{{ resultado.locais_novos }}</td></tr>
+            <tr><td>Localizações atualizadas</td><td>{{ resultado.locais_atualizados }}</td></tr>
             <tr><td>Erros</td><td>{{ resultado.erros }}</td></tr>
+        </table>
+    </div>
+    {% endif %}
+    {# AJUSTE 2026-10-06: centro de custos - carga full pela filial da sessão #}
+    <div class="panel panel-default">
+        <div class="panel-heading">Sincronização de Centro de Custos</div>
+        <div class="panel-body">
+            <form method="post" action="{% url 'man_almoxa' %}"
+                  onsubmit="var b=this.querySelector('button[type=submit]'); b.disabled=true; b.innerText='Sincronizando, aguarde...';">
+                {% csrf_token %}
+                <input type="hidden" name="acao" value="ccusto">
+                <button type="submit" class="btn btn-primary btn-lg btn-block">
+                    Sincronizar Centro de Custos
+                </button>
+            </form>
+        </div>
+    </div>
+    {% if resultado_cc %}
+    <div class="panel panel-success">
+        <div class="panel-heading">Resultado - {{ nome }} (filial {{ filial }}) - centro de custos</div>
+        <table class="table table-condensed">
+            <tr><td>Lidos do Oracle</td><td>{{ resultado_cc.lidos }}</td></tr>
+            <tr><td>Novos (bxa_CentroCustos)</td><td>{{ resultado_cc.novos }}</td></tr>
+            <tr><td>Alterados</td><td>{{ resultado_cc.alterados }}</td></tr>
+            <tr><td>Erros</td><td>{{ resultado_cc.erros }}</td></tr>
         </table>
     </div>
     {% endif %}
