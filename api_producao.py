@@ -467,38 +467,37 @@ class integrador:
         lista = []
         #if (1==1):
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            ref_cursor = con.cursor()
-            sparams = (int(v_listlote.get('fil_in_codigo')),
-                       int(v_listlote.get('ord_in_codigo')),
-                       int(v_listlote.get('ctl_in_codigo')),
-                       int(v_listlote.get('plf_in_sqoperacao')),
-                       v_listlote.get('apt_dt_inclusao'),
-                       int(v_listlote.get('mvp_in_sequencia')),
-                       float(v_listlote.get('apt_re_quantidade')),
-                       float(v_listlote.get('apt_re_qtdeconvertida')),
-                       float(v_listlote.get('apt_re_qtderefugo')),
-                       int(v_listlote.get('pro_in_codigo')),
-                       v_listlote.get('pro_st_obs'),
-                       v_listlote.get('pro_st_docorigem'),
-                       v_listlote.get('pro_st_referencia'),
-                       int(v_listlote.get('usu_in_codigo')),
-                       v_listlote.get('pro_st_destino'),
-                       v_listlote.get('pro_st_lote'),
-                       v_listlote.get('pro_st_conversor'),
-                       v_listlote.get('apt_dt_lote'),
-                       v_listlote.get('cmaq_st_id'),
-                       v_listlote.get('ord_st_id'),
-                       v_listlote.get('pro_st_id'),
-                       v_listlote.get('orl_re_qtdajustada'),
-                       v_listlote.get('ord_st_extenso'),
-                       v_listlote.get('pro_st_fornecedor'),
-                       ref_cursor)
-            cur.callproc('apt_intprod2.cli_p_lotes_ordem',(sparams))
-            c_rs = ref_cursor.fetchall()
-            cur.close
-            con.close            
+            # AJUSTE 2026-10-06: with fecha conexão/cursor (antes "cur.close"/"con.close" sem () não fechavam)
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()
+                    sparams = (int(v_listlote.get('fil_in_codigo')),
+                               int(v_listlote.get('ord_in_codigo')),
+                               int(v_listlote.get('ctl_in_codigo')),
+                               int(v_listlote.get('plf_in_sqoperacao')),
+                               v_listlote.get('apt_dt_inclusao'),
+                               int(v_listlote.get('mvp_in_sequencia')),
+                               float(v_listlote.get('apt_re_quantidade')),
+                               float(v_listlote.get('apt_re_qtdeconvertida')),
+                               float(v_listlote.get('apt_re_qtderefugo')),
+                               int(v_listlote.get('pro_in_codigo')),
+                               v_listlote.get('pro_st_obs'),
+                               v_listlote.get('pro_st_docorigem'),
+                               v_listlote.get('pro_st_referencia'),
+                               int(v_listlote.get('usu_in_codigo')),
+                               v_listlote.get('pro_st_destino'),
+                               v_listlote.get('pro_st_lote'),
+                               v_listlote.get('pro_st_conversor'),
+                               v_listlote.get('apt_dt_lote'),
+                               v_listlote.get('cmaq_st_id'),
+                               v_listlote.get('ord_st_id'),
+                               v_listlote.get('pro_st_id'),
+                               v_listlote.get('orl_re_qtdajustada'),
+                               v_listlote.get('ord_st_extenso'),
+                               v_listlote.get('pro_st_fornecedor'),
+                               ref_cursor)
+                    cur.callproc('apt_intprod2.cli_p_lotes_ordem',(sparams))
+                    c_rs = ref_cursor.fetchall()
             if c_rs:
                 for v_rs in c_rs:
                     lista.append(dict(sequencia = v_rs[0],
@@ -522,27 +521,26 @@ class integrador:
         if (self.ord_in == 1280):
             print(v_listDem)
         try:
-            con = getOracleConnection()
-            cur = con.cursor()
-            ref_cursor = con.cursor()
-            v_params = []
-            sparams = (ref_cursor,
-                       int(v_listDem.get('fil_in_codigo')),
-                       int(v_listDem.get('ord_in_codigo')),
-                       int(v_listDem.get('ctl_in_codigo')),
-                       int(v_listDem.get('plf_in_sqoperacao')),
-                       v_listDem.get('apt_dt_inclusao'),
-                       int(v_listDem.get('mvd_in_sequencia')),
-                       str(v_listDem.get('pro_st_lote')),
-                       float(v_listDem.get('pro_re_qtdlote')),
-                       str(v_listDem.get('cmaq_st_id')),
-                       str(v_listDem.get('ord_st_id')),
-                       str(v_listDem.get('ord_st_extenso'))                       
-                       )
-            cur.callproc('apt_intprod2.p_inseredemanda_lotes',(sparams))
-            c_rs = ref_cursor.fetchall()
-            cur.close
-            con.close
+            # AJUSTE 2026-10-06: with fecha conexão/cursor (antes "cur.close"/"con.close" sem () não fechavam)
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    ref_cursor = con.cursor()
+                    v_params = []
+                    sparams = (ref_cursor,
+                               int(v_listDem.get('fil_in_codigo')),
+                               int(v_listDem.get('ord_in_codigo')),
+                               int(v_listDem.get('ctl_in_codigo')),
+                               int(v_listDem.get('plf_in_sqoperacao')),
+                               v_listDem.get('apt_dt_inclusao'),
+                               int(v_listDem.get('mvd_in_sequencia')),
+                               str(v_listDem.get('pro_st_lote')),
+                               float(v_listDem.get('pro_re_qtdlote')),
+                               str(v_listDem.get('cmaq_st_id')),
+                               str(v_listDem.get('ord_st_id')),
+                               str(v_listDem.get('ord_st_extenso'))
+                               )
+                    cur.callproc('apt_intprod2.p_inseredemanda_lotes',(sparams))
+                    c_rs = ref_cursor.fetchall()
             if c_rs:
                 for v_rs in c_rs:
                     lista.append(dict(mensagem = v_rs[0],
@@ -563,11 +561,10 @@ class integrador:
         v_retorno = 'AB'
         try:
         #if 1==1:
-            con = getOracleConnection()
-            cur = con.cursor()
-            c_rs = cur.callfunc('apt_intprod2.f_valida_sitordem',str,[self.fil_in, self.ord_in])                        
-            cur.close
-            con.close            
+            # AJUSTE 2026-10-06: with fecha conexão/cursor (antes "cur.close"/"con.close" sem () não fechavam)
+            with getOracleConnection() as con:
+                with con.cursor() as cur:
+                    c_rs = cur.callfunc('apt_intprod2.f_valida_sitordem',str,[self.fil_in, self.ord_in])
             if c_rs:
                 #print(c_rs)
                 v_retorno = c_rs
