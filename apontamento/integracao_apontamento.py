@@ -10,14 +10,13 @@ Usado SO pelo fechamento diario; integrarProducao, Encerrar e cron nao mudam.
 """
 from __future__ import unicode_literals
 
-import os
 from datetime import datetime as _dt
 
 from app.models import Apt_ApontaOrdem, Apt_Pro_Demandas
 
-# Chave geral: desligada, o fechamento grava so' o local (como antes). Liga pela variavel de
-# ambiente FECHAMENTO_GRAVA_ORACLE=1 do processo (gunicorn), lida na subida; padrao desligado.
-FECHAMENTO_GRAVA_ORACLE = os.environ.get('FECHAMENTO_GRAVA_ORACLE', '0').strip().lower() in ('1', 'true', 'sim', 's')
+# Chave geral (mesmo modelo do EFETIVAR_GRAVA_ORACLE do MP): False = o fechamento grava so' o
+# local (como antes). Ligar/desligar por commit + deploy, depois de validar com uma OP real.
+FECHAMENTO_GRAVA_ORACLE = False
 
 
 def _dados_lote(row, v_session):
