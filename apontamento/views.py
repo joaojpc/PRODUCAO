@@ -786,10 +786,9 @@ def efetivarApontamentoOracle(request):
     from apontamento import integracao_apontamento
     if request.method != 'POST':
         return redirect('manutencao')
-    if not integracao_apontamento.BOTAO_EFETIVAR_TODAS_OPS:
-        messages.error(request, 'Efetivar Apontamento desligado (BOTAO_EFETIVAR_TODAS_OPS). Nada foi gravado.')
-        return redirect('manutencao')
-    resultado = integracao_apontamento.gravar_controle(carrega_sessao(request))
+    # AJUSTE 2026-10-20: rotina unica -- atividade 1 (duas etapas), etapa 1 (grava)
+    resultado = integracao_apontamento.efetivar_apontamento(
+        carrega_sessao(request), integracao_apontamento.ATIVIDADE_DUAS_ETAPAS, 1)
     if resultado['erro_oracle']:
         messages.error(request, resultado['erro_oracle'])
     elif not resultado['pendentes']:
@@ -808,7 +807,7 @@ def efetivarMegaOracle(request):
     from django.contrib import messages
     from apontamento import integracao_apontamento
     v_session = carrega_sessao(request)
-    if not integracao_apontamento.BOTAO_EFETIVAR_TODAS_OPS:
+    if not integracao_apontamento.atividade_ligada(integracao_apontamento.ATIVIDADE_DUAS_ETAPAS):
         messages.error(request, 'Efetivar Apontamento desligado (BOTAO_EFETIVAR_TODAS_OPS). Nada foi efetivado.')
         return redirect('manutencao')
     if request.method == 'GET':
@@ -826,7 +825,9 @@ def efetivarMegaOracle(request):
     except ValueError:
         messages.error(request, 'Data do apontamento inválida.')
         return redirect('efetivar_mega_oracle')
-    resultado = integracao_apontamento.efetivar_controle(v_session, data_apontamento)
+    # AJUSTE 2026-10-20: rotina unica -- atividade 1 (duas etapas), etapa 2 (efetiva com a data da tela)
+    resultado = integracao_apontamento.efetivar_apontamento(
+        v_session, integracao_apontamento.ATIVIDADE_DUAS_ETAPAS, 2, data_apontamento)
     if resultado['erro_oracle']:
         messages.error(request, resultado['erro_oracle'])
     elif resultado['efetivado_oracle']:

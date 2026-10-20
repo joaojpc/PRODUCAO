@@ -7,6 +7,13 @@ nada), marca 'I' no local e chama p_efetivaapontamento. Diferenca do MP: NAO enc
 controle -- quem fecha e' o Fechamento (api_view.py), so' depois de tudo dar certo.
 Usado SO pelo fechamento diario; integrarProducao, Encerrar e cron nao mudam.
 - JPC - João Castro
+
+AJUSTE 2026-10-20: rotina UNICA efetivar_apontamento(v_session, atividade, etapa, data) --
+decisao do usuario: cada forma de efetivar e uma ATIVIDADE numerada (tabela ATIVIDADES abaixo):
+  1 = efetivar apontamento em duas etapas (botao da Manutencao): etapa 1 grava, etapa 2 efetiva;
+  2 = efetivar apontamento em etapa unica (Fechamento diario): grava e efetiva com a data da tela.
+Mesmas pecas por dentro (_gravar_pendentes, _efetivar); nova forma = nova atividade. Convive com
+o cron: lote/demanda ja gravados pela procedure sao reconhecidos (f_valida_*) e so marcados 'I'.
 """
 from __future__ import unicode_literals
 
@@ -16,7 +23,9 @@ from app.models import Apt_ApontaOrdem, Apt_Pro_Demandas
 
 # Chave geral (mesmo modelo do EFETIVAR_GRAVA_ORACLE do MP): False = o fechamento grava so' o
 # local (como antes). Ligar/desligar por commit + deploy, depois de validar com uma OP real.
-FECHAMENTO_GRAVA_ORACLE = False
+# AJUSTE 2026-10-20: decisao do usuario -- ligada (atividade 2: o fechamento diario grava e efetiva
+# no Mega antes de fechar; erro do Oracle volta para o operador e o controle continua aberto).
+FECHAMENTO_GRAVA_ORACLE = True
 
 
 def _dados_lote(row, v_session):
@@ -89,16 +98,9 @@ def _gravar_tudo_ou_nada(con, v_session, lotes, demandas):
 
 def gravar_e_efetivar_controle(v_session, data_apontamento=None):
     """Casca: qualquer excecao do Oracle vira resultado['erro_oracle'] (o controle continua
-    aberto pra tentar de novo). Devolve o dict de resultado."""
-    resultado = {'ctl_in_codigo': v_session.get('ctl_in_codigo'), 'ok': 0, 'erro': 0, 'erros': [],
-                 'msg_efetivar': None, 'efetivado_oracle': False, 'erro_oracle': None}
-    try:
-        return _gravar_e_efetivar_controle(v_session, data_apontamento, resultado)
-    except Exception as e:
-        import traceback
-        print('ERRO FECHAMENTO ORACLE (excecao):', traceback.format_exc())
-        resultado['erro_oracle'] = str(e)
-        return resultado
+    aberto pra tentar de novo). Devolve o dict de resultado.
+    AJUSTE 2026-10-20: atalho da rotina unica -- atividade 2 (etapa unica)."""
+    return efetivar_apontamento(v_session, ATIVIDADE_ETAPA_UNICA, 1, data_apontamento)
 
 
 def _pendentes(ctl_in_codigo):
@@ -191,53 +193,113 @@ def _gravar_e_efetivar_controle(v_session, data_apontamento, resultado):
 
 
 # ---------------------------------------------------------------------------
-# AJUSTE 2026-10-20: botao "Efetivar Apontamento" da manutencao (fluxo do NMV, reaproveitando a
-# gravacao direta acima -- decisao do usuario). 1o clique: grava lotes/demandas pendentes ('A')
-# no Oracle (tudo ou nada) e marca 'I'. 2o clique (nada pendente): confirma a data e efetiva
-# (p_efetivaapontamento). NAO encerra o controle. Botao liberado para todas as OPs.
-BOTAO_EFETIVAR_TODAS_OPS = True
+# AJUSTE 2026-10-20: rotina UNICA do "Efetivar Apontamento" -- decisao do usuario: uma rotina so,
+# cada forma de efetivar e uma ATIVIDADE numerada. Nova forma = nova linha em ATIVIDADES.
+ATIVIDADE_DUAS_ETAPAS = 1
+ATIVIDADE_ETAPA_UNICA = 2
+
+# Chaves por atividade (liga/desliga por commit + deploy)
+BOTAO_EFETIVAR_TODAS_OPS = True  # atividade 1: botao da manutencao liberado para todas as OPs
+
+ATIVIDADES = {
+    ATIVIDADE_DUAS_ETAPAS: {
+        'nome': 'Efetivar apontamento em duas etapas', 'quem': 'botão Efetivar Apontamento (Manutenção)',
+        # etapa 1: grava os pendentes ('A') no Oracle (tudo ou nada) e marca 'I' -- nao efetiva;
+        # etapa 2: sem pendencia no app e com apontamento aberto no Mega, efetiva com a data da tela
+        #          de confirmacao (editavel). Nao encerra o controle.
+        'etapas': (1, 2), 'chave': 'BOTAO_EFETIVAR_TODAS_OPS'},
+    ATIVIDADE_ETAPA_UNICA: {
+        'nome': 'Efetivar apontamento em etapa única', 'quem': 'Fechamento diário',
+        # etapa unica: grava os pendentes e efetiva na mesma chamada, com a data da tela do fechamento
+        # (FEC_DT_DATA + hora fim). Quem fecha o controle e o Fechamento, so se tudo deu certo.
+        'etapas': (1,), 'chave': 'FECHAMENTO_GRAVA_ORACLE'},
+}
+
 MSG_PENDENTE = ('Ainda há lote(s)/demanda(s) pendente(s) no app. Clique em Efetivar Apontamento para '
                 'gravar no Oracle antes de efetivar.')
 MSG_NADA_ABERTO = 'Nenhum apontamento aberto no Mega para este controle. Nada a efetivar.'
+MSG_SEM_CONTROLE = 'Controle não encontrado na sessão. Favor logar na ordem.'
 
 
-def _novo_resultado(ctl_in_codigo):
+def atividade_ligada(atividade):
+    info = ATIVIDADES.get(atividade)
+    return bool(info and globals().get(info['chave']))
+
+
+def _novo_resultado(ctl_in_codigo, atividade=None, etapa=None):
     return {'ctl_in_codigo': ctl_in_codigo, 'ok': 0, 'erro': 0, 'erros': [], 'pendentes': 0,
-            'msg_efetivar': None, 'efetivado_oracle': False, 'erro_oracle': None, 'apt_in_sequencia': None}
+            'msg_efetivar': None, 'efetivado_oracle': False, 'erro_oracle': None, 'apt_in_sequencia': None,
+            'atividade': atividade, 'etapa': etapa}
 
 
-def gravar_controle(v_session):
-    """1o clique: grava no Oracle o que estiver pendente ('A') no controle. Nao efetiva.
-    resultado['pendentes'] = 0 quando nao havia nada a gravar (proximo passo: efetivar)."""
+def efetivar_apontamento(v_session, atividade, etapa=1, data_apontamento=None):
+    """Rotina unica do Efetivar Apontamento. atividade/etapa conforme ATIVIDADES. Nunca levanta
+    excecao: erro do Oracle vira resultado['erro_oracle'] (o controle continua aberto pra tentar de
+    novo). Devolve o dict de resultado (com 'atividade' e 'etapa')."""
     ctl_in_codigo = v_session.get('ctl_in_codigo')
-    resultado = _novo_resultado(ctl_in_codigo)
+    resultado = _novo_resultado(ctl_in_codigo, atividade, etapa)
+    rotulo = f'[Atividade {atividade} - etapa {etapa}]'
+    info = ATIVIDADES.get(atividade)
+    if info is None or etapa not in info['etapas']:
+        resultado['erro_oracle'] = f'{rotulo} atividade/etapa inexistente. Nada foi gravado.'
+        return resultado
+    if not atividade_ligada(atividade):
+        resultado['erro_oracle'] = f"{info['nome']} desligada ({info['chave']}). Nada foi gravado."
+        return resultado
     try:
-        if not ctl_in_codigo:
-            resultado['erro_oracle'] = 'Controle não encontrado na sessão. Favor logar na ordem.'
-            return resultado
-        from apontamento.models import Apt_Controle
-        controle = Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl_in_codigo).first()
-        lotes, demandas = _pendentes(ctl_in_codigo)
-        resultado['pendentes'] = len(lotes) + len(demandas)
-        if not resultado['pendentes']:
-            return resultado
-        from apontamento.apontamento import _abrir_conexao
-        with _abrir_conexao() as con:
-            _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado)
+        if atividade == ATIVIDADE_ETAPA_UNICA:
+            _gravar_e_efetivar_controle(v_session, data_apontamento, resultado)
+        elif not ctl_in_codigo:
+            resultado['erro_oracle'] = MSG_SEM_CONTROLE
+        elif etapa == 1:
+            _etapa_gravar(v_session, ctl_in_codigo, resultado)
+        else:
+            _etapa_efetivar(v_session, ctl_in_codigo, data_apontamento, resultado)
     except Exception as e:
         import traceback
-        print('ERRO EFETIVAR APONTAMENTO (gravar):', traceback.format_exc())
+        print(f'ERRO EFETIVAR APONTAMENTO {rotulo}:', traceback.format_exc())
         resultado['erro_oracle'] = str(e)
     return resultado
 
 
+def _etapa_gravar(v_session, ctl_in_codigo, resultado):
+    """Atividade 1, etapa 1: grava no Oracle o que estiver pendente ('A') no controle. Nao efetiva.
+    resultado['pendentes'] = 0 quando nao havia nada a gravar (proximo passo: etapa 2)."""
+    from apontamento.models import Apt_Controle
+    controle = Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl_in_codigo).first()
+    lotes, demandas = _pendentes(ctl_in_codigo)
+    resultado['pendentes'] = len(lotes) + len(demandas)
+    if not resultado['pendentes']:
+        return
+    from apontamento.apontamento import _abrir_conexao
+    with _abrir_conexao() as con:
+        _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado)
+
+
+def _etapa_efetivar(v_session, ctl_in_codigo, data_apontamento, resultado):
+    """Atividade 1, etapa 2: confere (nada pendente + apontamento aberto no Mega) e efetiva."""
+    conferencia = conferir_controle(v_session)
+    if conferencia['erro']:
+        resultado['erro_oracle'] = conferencia['erro']
+        return
+    from apontamento.models import Apt_Controle
+    from apontamento.apontamento import _abrir_conexao
+    controle = Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl_in_codigo).first()
+    if not controle:
+        resultado['erro_oracle'] = 'Controle não encontrado no app.'
+        return
+    with _abrir_conexao() as con:
+        _efetivar(con, v_session, controle, ctl_in_codigo, conferencia['apt_in_sequencia'],
+                  data_apontamento, resultado)
+
+
 def conferir_controle(v_session):
-    """Antes da tela da data: nada pendente no app e apontamento aberto no Mega para o CTL.
-    Devolve {'erro': texto ou None, 'apt_in_sequencia': ...}. So leitura."""
+    """Antes da tela da data (atividade 1, etapa 2): nada pendente no app e apontamento aberto no
+    Mega para o CTL. Devolve {'erro': texto ou None, 'apt_in_sequencia': ...}. So leitura."""
     ctl_in_codigo = v_session.get('ctl_in_codigo')
     try:
         if not ctl_in_codigo:
-            return {'erro': 'Controle não encontrado na sessão. Favor logar na ordem.', 'apt_in_sequencia': None}
+            return {'erro': MSG_SEM_CONTROLE, 'apt_in_sequencia': None}
         lotes, demandas = _pendentes(ctl_in_codigo)
         if lotes or demandas:
             return {'erro': MSG_PENDENTE, 'apt_in_sequencia': None}
@@ -251,26 +313,10 @@ def conferir_controle(v_session):
         return {'erro': f'Oracle: {e}', 'apt_in_sequencia': None}
 
 
+# Atalhos (mesmo comportamento de antes, agora pela rotina unica)
+def gravar_controle(v_session):
+    return efetivar_apontamento(v_session, ATIVIDADE_DUAS_ETAPAS, 1)
+
+
 def efetivar_controle(v_session, data_apontamento):
-    """2o clique (POST da tela da data): efetiva o apontamento aberto do CTL no Mega."""
-    ctl_in_codigo = v_session.get('ctl_in_codigo')
-    resultado = _novo_resultado(ctl_in_codigo)
-    conferencia = conferir_controle(v_session)
-    if conferencia['erro']:
-        resultado['erro_oracle'] = conferencia['erro']
-        return resultado
-    try:
-        from apontamento.models import Apt_Controle
-        from apontamento.apontamento import _abrir_conexao
-        controle = Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl_in_codigo).first()
-        if not controle:
-            resultado['erro_oracle'] = 'Controle não encontrado no app.'
-            return resultado
-        with _abrir_conexao() as con:
-            _efetivar(con, v_session, controle, ctl_in_codigo, conferencia['apt_in_sequencia'],
-                      data_apontamento, resultado)
-    except Exception as e:
-        import traceback
-        print('ERRO EFETIVAR APONTAMENTO (efetivar):', traceback.format_exc())
-        resultado['erro_oracle'] = str(e)
-    return resultado
+    return efetivar_apontamento(v_session, ATIVIDADE_DUAS_ETAPAS, 2, data_apontamento)

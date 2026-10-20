@@ -111,6 +111,88 @@ class BotaoEfetivarTests(_ComOracle):
         self.mocks['efetivar'].assert_not_called()
 
 
+class AtividadesTests(_ComOracle):
+    """AJUSTE 2026-10-20: rotina unica efetivar_apontamento, cada forma de efetivar e uma atividade."""
+
+    def test_atividade_e_etapa_no_resultado(self):
+        _lote()
+        r = integ.efetivar_apontamento(SESSAO, integ.ATIVIDADE_DUAS_ETAPAS, 1)
+        self.assertEqual((r['atividade'], r['etapa'], r['ok']), (1, 1, 1))
+        r = integ.efetivar_apontamento(SESSAO, integ.ATIVIDADE_DUAS_ETAPAS, 2, datetime(2026, 10, 20, 17, 0))
+        self.assertEqual((r['atividade'], r['etapa'], r['efetivado_oracle']), (1, 2, True))
+
+    def test_atividade_ou_etapa_inexistente(self):
+        for atividade, etapa in ((9, 1), (integ.ATIVIDADE_DUAS_ETAPAS, 3), (integ.ATIVIDADE_ETAPA_UNICA, 2)):
+            r = integ.efetivar_apontamento(SESSAO, atividade, etapa)
+            self.assertIn('inexistente', r['erro_oracle'])
+        self.mocks['abrir'].assert_not_called()
+
+    def test_atividade_desligada_nao_grava(self):
+        _lote()
+        for chave, atividade in (('BOTAO_EFETIVAR_TODAS_OPS', integ.ATIVIDADE_DUAS_ETAPAS),
+                                 ('FECHAMENTO_GRAVA_ORACLE', integ.ATIVIDADE_ETAPA_UNICA)):
+            with patch.object(integ, chave, False):
+                r = integ.efetivar_apontamento(SESSAO, atividade, 1)
+            self.assertIn('desligada', r['erro_oracle'])
+        self.mocks['abrir'].assert_not_called()
+        self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'A')
+
+    def test_chaves_ligadas(self):
+        self.assertTrue(integ.atividade_ligada(integ.ATIVIDADE_DUAS_ETAPAS))
+        self.assertTrue(integ.atividade_ligada(integ.ATIVIDADE_ETAPA_UNICA))  # fechamento grava no Mega
+
+
+class FechamentoAtividade2Tests(_ComOracle):
+    """Fechamento diario chama a atividade 2 (etapa unica) com a data da tela + hora fim."""
+
+    def setUp(self):
+        super().setUp()
+        Apt_Controle.objects.filter(CTL_IN_CODIGO=CTL).update(CTL_ST_STATUS='A')
+        from app.models import apt_pro_ordens
+        apt_pro_ordens.objects.create(ORG_TAB_IN_CODIGO=1, ORG_PAD_IN_CODIGO=1, ORG_IN_CODIGO=2,
+                                      ORG_TAU_ST_CODIGO='G', ORD_TAB_IN_CODIGO=218, ORD_SEQ_IN_CODIGO=1,
+                                      ORD_IN_CODIGO=900, PRO_TAB_IN_CODIGO=100, PRO_PAD_IN_CODIGO=1,
+                                      PRO_IN_CODIGO=2273, ORD_RE_QTDE_ORDEM=10, FIL_IN_CODIGO=3)
+
+    def _fechar(self):
+        from apontamento.api_view import Fechamento
+        return Fechamento.registrar(900, '2026-10-20', '07:00', '17:00', 'OPER', qtd_produzida=1, filial=3,
+                                    ctl_in_codigo=CTL, seq_in_operacao=1, ord_st_extenso='ORD-1')
+
+    def test_grava_efetiva_com_a_data_da_tela_e_fecha(self):
+        _lote()
+        ok, dados, erro = self._fechar()
+        self.assertEqual((ok, erro), (True, None))
+        self.assertEqual(dados['oracle']['atividade'], integ.ATIVIDADE_ETAPA_UNICA)
+        self.assertEqual(self.mocks['efetivar'].call_args.kwargs['data_apontamento'], datetime(2026, 10, 20, 17, 0))
+        self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'I')
+        self.assertEqual(Apt_Controle.objects.get().CTL_ST_STATUS, 'F')
+
+    def test_erro_no_oracle_nao_fecha(self):
+        _lote()
+        self.mocks['efetivar'].return_value = ('Erro: ORA-1', False)
+        ok, _dados, erro = self._fechar()
+        self.assertFalse(ok)
+        self.assertIn('não efetivado', erro)
+        self.assertEqual(Apt_Controle.objects.get().CTL_ST_STATUS, 'A')
+
+    def test_sem_conexao_nao_fecha(self):
+        self.mocks['abrir'].side_effect = ConnectionError('Nao foi possivel conectar ao Oracle.')
+        ok, _dados, erro = self._fechar()
+        self.assertFalse(ok)
+        self.assertIn('Oracle', erro)
+        self.assertEqual(Apt_Controle.objects.get().CTL_ST_STATUS, 'A')
+
+    def test_botao_ja_efetivou_fechamento_so_fecha(self):
+        # atividade 1 ja gravou e efetivou: nada pendente e nada aberto no Mega -> fecha sem efetivar
+        _lote(status='I')
+        self.mocks['aberto'].return_value = None
+        ok, _dados, erro = self._fechar()
+        self.assertEqual((ok, erro), (True, None))
+        self.mocks['efetivar'].assert_not_called()
+        self.assertEqual(Apt_Controle.objects.get().CTL_ST_STATUS, 'F')
+
+
 class ViewsEfetivarTests(_ComOracle):
     def _sessao(self):
         s = self.client.session

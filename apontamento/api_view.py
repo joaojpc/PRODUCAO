@@ -1830,16 +1830,18 @@ class Fechamento:
         # de fechar; qualquer erro do Oracle volta para o operador e o controle continua aberto.
         # Datas alinhadas antes de gravar (a data do lote vai para o Oracle). Fora de atomic:
         # a gravação do MP faz commit na conexão local. - JPC - João Castro
-        from apontamento.integracao_apontamento import FECHAMENTO_GRAVA_ORACLE, gravar_e_efetivar_controle
-        if FECHAMENTO_GRAVA_ORACLE:
+        # AJUSTE 2026-10-20: rotina unica do Efetivar Apontamento -- atividade 2 (etapa unica)
+        from apontamento.integracao_apontamento import (ATIVIDADE_ETAPA_UNICA, atividade_ligada,
+                                                        efetivar_apontamento)
+        if atividade_ligada(ATIVIDADE_ETAPA_UNICA):
             dados['demandas_alinhadas'] = db.alinhar_demandas_do_controle(ctl_in_codigo, data_apontamento)
             dados['lotes_alinhados'] = db.alinhar_lotes_do_controle(ctl_in_codigo, data_apontamento)
             # data/hora gravada pelo efetivar (apt_dt_encerramento -> APO_DT_APONTAMENTO)
             dt_efetivar = datetime.combine(datetime.strptime(str(data_apontamento)[:10], '%Y-%m-%d').date(),
                                            Fechamento._parse_hora(hora_fim))
-            resultado = gravar_e_efetivar_controle({'ctl_in_codigo': ctl_in_codigo, 'usuario': usuario,
-                                                    'seq_in_operacao': seq_in_operacao,
-                                                    'ordem': ord_st_extenso}, dt_efetivar)
+            resultado = efetivar_apontamento({'ctl_in_codigo': ctl_in_codigo, 'usuario': usuario,
+                                              'seq_in_operacao': seq_in_operacao,
+                                              'ordem': ord_st_extenso}, ATIVIDADE_ETAPA_UNICA, 1, dt_efetivar)
             dados['oracle'] = resultado
             if resultado.get('erro_oracle'):
                 return False, None, f"Oracle: {resultado['erro_oracle']}"
