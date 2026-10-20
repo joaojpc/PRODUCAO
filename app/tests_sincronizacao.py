@@ -434,12 +434,10 @@ class PadraoTests(TestCase):
 
     def test_reglote_sem_op_usa_rotina_nova(self):
         self._sessao()
-        from django.http import HttpResponse
         vazio = MagicMock()
         vazio.json.return_value = []
-        # render isolado: apontamento/pre_apontamento.html esta fora de templates/ (bug antigo, a parte)
+        # AJUSTE 2026-10-20: renderiza a tela de verdade (pre_apontamento.html movido para templates/)
         with patch('apontamento.views.requests.get', return_value=vazio), patch('time.sleep'), \
-                patch('apontamento.views.render', side_effect=lambda req, tpl, ctx: HttpResponse(ctx['msg'])), \
                 patch('app.sincronizacao.sincronizar_ordens', return_value={}) as nova, \
                 patch('apontamento.api_view.IntOrdens.buscaOrdens') as antiga:
             resp = self.client.get(reverse('incluir_lote'))
