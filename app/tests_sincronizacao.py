@@ -438,13 +438,37 @@ class PadraoTests(TestCase):
         vazio.json.return_value = []
         # AJUSTE 2026-10-20: renderiza a tela de verdade (pre_apontamento.html movido para templates/)
         with patch('apontamento.views.requests.get', return_value=vazio), patch('time.sleep'), \
-                patch('app.sincronizacao.sincronizar_ordens', return_value={}) as nova, \
+                patch('app.sincronizacao.sincronizar_ordem_login', return_value={}) as nova, \
                 patch('apontamento.api_view.IntOrdens.buscaOrdens') as antiga:
             resp = self.client.get(reverse('incluir_lote'))
         self.assertContains(resp, 'Falha ao baixar ordem 900/3')
         self.assertEqual(nova.call_count, 5)
-        nova.assert_called_with(2, 3, 900, 'N')
+        nova.assert_called_with(3, 900)
         antiga.assert_not_called()
+
+    # AJUSTE 2026-10-20: login/Reglote testam o Oracle antes (3 s), como o NMV
+    def test_sem_oracle_nao_baixa_e_nao_trava(self):
+        with patch.object(sync, 'conexao_oracle_testada', return_value=None), \
+                patch.object(sync, 'sincronizar_ordens') as s:
+            resumo = sync.sincronizar_ordem_login(3, 900)
+        self.assertIn('Sem conexão', resumo['erro_conexao'])
+        s.assert_not_called()
+
+    def test_com_oracle_baixa_na_conexao_testada(self):
+        con = MagicMock()
+        with patch.object(sync, 'conexao_oracle_testada', return_value=con), \
+                patch.object(sync, 'sincronizar_ordens', return_value={'ordens': []}) as s:
+            sync.sincronizar_ordem_login(3, 900)
+        s.assert_called_once_with(2, 3, 900, 'N', conexao=con)
+        con.close.assert_called_once()
+
+    def test_conexao_testada_usa_timeout_curto(self):
+        con = MagicMock()
+        with patch('oracle_connection.getOracleConnection', return_value=con) as g:
+            self.assertIs(sync.conexao_oracle_testada(), con)
+        g.assert_called_once_with(timeout=sync.ORACLE_TIMEOUT_LOGIN)
+        with patch('oracle_connection.getOracleConnection', side_effect=Exception('DPY-6005')):
+            self.assertIsNone(sync.conexao_oracle_testada())
 
     def test_telas_nao_chamam_a_rotina_antiga(self):
         base = pathlib.Path(settings.BASE_DIR)

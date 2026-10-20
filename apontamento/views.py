@@ -745,10 +745,10 @@ def manutencao(request):
 
 def _sincronizar_op(fil_in_codigo, ord_in_codigo):
     """AJUSTE 2026-10-20: rotina nova de sincronizacao (app/sincronizacao.py) como padrao no login
-    na ordem e no Reglote (OP ainda nao baixada). Nunca levanta excecao; devolve o resumo."""
+    na ordem e no Reglote (OP ainda nao baixada). Testa o Oracle antes (3 s, como o NMV) -- com o
+    Oracle fora nao trava o login. Nunca levanta excecao; devolve o resumo."""
     from app import sincronizacao
-    return sincronizacao.sincronizar_ordens(sincronizacao.org_da_filial(fil_in_codigo), fil_in_codigo,
-                                            ord_in_codigo, 'N')
+    return sincronizacao.sincronizar_ordem_login(fil_in_codigo, ord_in_codigo)
 
 def sincronizarOrdensNova(request):
     """AJUSTE 2026-10-20: botao "Baixar Ordens" (Manutencao) -- chama a rotina nova

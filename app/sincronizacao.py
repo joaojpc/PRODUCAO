@@ -385,3 +385,51 @@ def sincronizar_ordens(org_in_codigo, fil_in_codigo=None, ord_in_codigo=None, pa
     finally:
         resumo['tempo_ms'] = int((time.perf_counter() - inicio) * 1000)
     return resumo
+
+
+# AJUSTE 2026-10-20 (copiado do NMV, validado la): login/Reglote testam o Oracle antes de baixar a OP
+ORACLE_TIMEOUT_LOGIN = 3  # segundos para desistir da conexao (sem isso: ~21 s com o Oracle fora)
+
+
+def conexao_oracle_testada(timeout=ORACLE_TIMEOUT_LOGIN):
+    """Abre a conexao com timeout curto e TESTA (select 1 from dual) antes de baixar qualquer coisa.
+    Devolve a conexao aberta ou None. Nunca levanta excecao."""
+    con = None
+    try:
+        from oracle_connection import getOracleConnection
+        con = getOracleConnection(timeout=timeout)
+        if con:
+            with con.cursor() as cur:
+                cur.execute('select 1 from dual')
+                cur.fetchone()
+            return con
+    except Exception as e:
+        print('ORACLE SEM RESPOSTA:', e)
+    if con:
+        try:
+            con.close()
+        except Exception:
+            pass
+    return None
+
+
+def sincronizar_ordem_login(fil_in_codigo, ord_in_codigo):
+    """Login na ordem / Reglote com a OP fora do app: testa a conexao (3 s) e baixa a OP pela rotina
+    nova, gravando so o que mudou. Sem Oracle: nada e baixado e o login segue. (No NMV ha uma 2a
+    tentativa com 'S'; aqui o get_integracao por filial nao filtra status -- seria a mesma busca.)
+    Nunca levanta excecao; erro_conexao preenchido = nada foi baixado."""
+    con = conexao_oracle_testada()
+    if not con:
+        return {'gravado': False, 'erros': [], 'ordens': [], 'itens': {}, 'caracteristicas_novas': 0,
+                'maquinas_novas': 0, 'tempo_ms': 0,
+                'erro_conexao': 'Sem conexão com o Oracle (Mega). Não foi possível baixar a OP.'}
+    try:
+        resumo = sincronizar_ordens(org_da_filial(fil_in_codigo), fil_in_codigo, ord_in_codigo, 'N', conexao=con)
+    finally:
+        try:
+            con.close()
+        except Exception:
+            pass
+    print('SINCRONIZAR OP LOGIN', fil_in_codigo, ord_in_codigo, '->', resumo.get('ordens'),
+          resumo.get('erros'), resumo.get('erro_conexao'), f"{resumo.get('tempo_ms')} ms")
+    return resumo
