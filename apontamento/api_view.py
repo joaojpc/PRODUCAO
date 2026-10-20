@@ -479,6 +479,8 @@ class IntOrdens:
         self.org_in = None
         self.fil_in = None
         self.pro_in = None
+    # AJUSTE 2026-10-20: DESCONTINUADA -- login, Reglote e o botao Baixar Ordens usam a rotina nova
+    # (app/sincronizacao.py). Mantida no codigo, sem uso, para consulta/volta. - JPC - João Castro
     def buscaOrdens(self,pparams):
         #Busca as ordens pendentes no Mega;
         lista_conv = []

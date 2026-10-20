@@ -416,6 +416,46 @@ class CompararGravarTests(_ComOracle):
         self.assertIn('Sem conexão', resumo['erro_conexao'])
 
 
+class PadraoTests(TestCase):
+    """AJUSTE 2026-10-20: rotina nova e o padrao (login, Reglote, Baixar Ordens); buscaOrdens descontinuada."""
+
+    def _sessao(self):
+        s = self.client.session
+        s.update({'ord_in_codigo': 900, 'fil_in_codigo': 3, 'ctl_in_codigo': 1, 'cliente': '1', 'usuario': 'X'})
+        s.save()
+
+    def test_baixar_ordens_usa_rotina_nova(self):
+        self._sessao()
+        resp = self.client.get(reverse('manutencao') + '?action=get_ordens')
+        self.assertRedirects(resp, reverse('sincronizar_ordens_nova'), fetch_redirect_response=False)
+        html = self.client.get(reverse('manutencao')).content.decode()
+        self.assertIn(reverse('sincronizar_ordens_nova'), html)
+        self.assertNotIn('?action=get_ordens', html)
+
+    def test_reglote_sem_op_usa_rotina_nova(self):
+        self._sessao()
+        from django.http import HttpResponse
+        vazio = MagicMock()
+        vazio.json.return_value = []
+        # render isolado: apontamento/pre_apontamento.html esta fora de templates/ (bug antigo, a parte)
+        with patch('apontamento.views.requests.get', return_value=vazio), patch('time.sleep'), \
+                patch('apontamento.views.render', side_effect=lambda req, tpl, ctx: HttpResponse(ctx['msg'])), \
+                patch('app.sincronizacao.sincronizar_ordens', return_value={}) as nova, \
+                patch('apontamento.api_view.IntOrdens.buscaOrdens') as antiga:
+            resp = self.client.get(reverse('incluir_lote'))
+        self.assertContains(resp, 'Falha ao baixar ordem 900/3')
+        self.assertEqual(nova.call_count, 5)
+        nova.assert_called_with(2, 3, 900, 'N')
+        antiga.assert_not_called()
+
+    def test_telas_nao_chamam_a_rotina_antiga(self):
+        base = pathlib.Path(settings.BASE_DIR)
+        for arq in ('apontamento/views.py', 'templates/apontamento/manutencao.html'):
+            texto = (base / arq).read_text(encoding='utf-8', errors='ignore')
+            self.assertNotIn('buscaOrdens(', texto, arq)
+            self.assertNotIn('action=get_ordens', texto, arq)
+
+
 class IsolamentoTests(TestCase):
     """Rotina nova isolada: so a view nova (e os leitores) usam; o Baixar Ordens segue com buscaOrdens."""
 

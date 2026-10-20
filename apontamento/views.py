@@ -214,13 +214,8 @@ def session_demo(request):
                 c_ordem = requests.get(url, params=payload).json()
                 #f.write(str(c_ordem))                
                 if not (c_ordem):
-                    v_listOrd = []
-                    v_listOrd.append(None)
-                    v_listOrd.append(fil_in_codigo)
-                    v_listOrd.append(ord_in_codigo)
-                    v_listOrd.append('N')
-                    ini = IntOrdens()
-                    ini.buscaOrdens(v_listOrd)                
+                    # AJUSTE 2026-10-20: rotina nova de sincronizacao como padrao (buscaOrdens descontinuada)
+                    _sincronizar_op(fil_in_codigo, ord_in_codigo)
                 return redirect('menu')
             else:
                 #print(request.session.keys())
@@ -591,9 +586,8 @@ def reglote(request):
         c_ordem = requests.get(url, params=payload, timeout=2).json()
         if c_ordem:
             break
-        v_listOrd = [None, v_filial, v_ordem, 'N']
-        ini = IntOrdens()
-        ini.buscaOrdens(v_listOrd)
+        # AJUSTE 2026-10-20: rotina nova de sincronizacao como padrao (buscaOrdens descontinuada)
+        _sincronizar_op(v_filial, v_ordem)
         time.sleep(1)
 
     if not c_ordem:
@@ -733,24 +727,9 @@ def manutencao(request):
                     integrarProducao(v_lista)
                     return redirect('menu')
                 if action == 'get_ordens':
-                    #baixar ordens pendentes de integração
-                    fil_in = request.session['fil_in_codigo']
-                    ord_in = request.session['ord_in_codigo']
-                    v_lista = []
-                    if fil_in == 3:
-                        v_lista.append(2)
-                    elif fil_in == 312:
-                        v_lista.append(311)
-                    elif fil_in == 302:
-                        v_lista.append(301)
-                    else:
-                        v_lista.append(2)                    
-                    v_lista.append(fil_in)
-                    v_lista.append(ord_in)
-                    v_lista.append('N')
-                    ini = IntOrdens()
-                    ini.buscaOrdens(v_lista)
-                    return redirect('menu')
+                    # AJUSTE 2026-10-20: "Baixar Ordens" usa a rotina nova (tela de resultado);
+                    # buscaOrdens descontinuada
+                    return redirect('sincronizar_ordens_nova')
                 if action == 'get_tipoordens':
                     fil_in = v_session.get('fil_in_codigo')
                     gettipoordens(request)
@@ -764,10 +743,17 @@ def manutencao(request):
     else:
         return redirect('demos_sessions')
 
+def _sincronizar_op(fil_in_codigo, ord_in_codigo):
+    """AJUSTE 2026-10-20: rotina nova de sincronizacao (app/sincronizacao.py) como padrao no login
+    na ordem e no Reglote (OP ainda nao baixada). Nunca levanta excecao; devolve o resumo."""
+    from app import sincronizacao
+    return sincronizacao.sincronizar_ordens(sincronizacao.org_da_filial(fil_in_codigo), fil_in_codigo,
+                                            ord_in_codigo, 'N')
+
 def sincronizarOrdensNova(request):
-    """AJUSTE 2026-10-20: botao "Sincronizar Ordens (nova)" (Manutencao) -- chama a rotina nova
-    app/sincronizacao.py (copiada do NMV) com os mesmos parametros do "Baixar Ordens" (OP da
-    sessao). Grava so o que estiver diferente (SYNC_ORDENS_GRAVA). O "Baixar Ordens" segue igual."""
+    """AJUSTE 2026-10-20: botao "Baixar Ordens" (Manutencao) -- chama a rotina nova
+    app/sincronizacao.py (copiada do NMV) para a OP da sessao e mostra o resultado. Grava so o que
+    estiver diferente (SYNC_ORDENS_GRAVA). A rotina antiga (buscaOrdens) foi descontinuada."""
     from app import sincronizacao
     if 'ord_in_codigo' not in request.session:
         return redirect('demos_sessions')

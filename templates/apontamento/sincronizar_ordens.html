@@ -1,10 +1,11 @@
 {% extends 'apontamento/base_bs5.html' %}
 {# AJUSTE 2026-10-20: resultado da sincronizacao nova de ordens (copiada do NMV), tela nova em BS5 - JPC - João Castro #}
-{% block title %}Sincronizar Ordens{% endblock %}
+{% block title %}Baixar Ordens{% endblock %}
 {% block content %}
 <div class="card shadow-sm">
     <div class="card-header bg-producao">
-        Sincronizar Ordens (nova) &mdash; OP {{ ord_in_codigo }} / filial {{ fil_in_codigo }}
+        {# AJUSTE 2026-10-20: rotina nova e o padrao do Baixar Ordens #}
+        Baixar Ordens &mdash; OP {{ ord_in_codigo }} / filial {{ fil_in_codigo }}
     </div>
     <div class="card-body">
         {% if resumo.erro_conexao %}
@@ -12,7 +13,7 @@
         {% elif resumo.gravado %}
         <div class="alert alert-success">Gravado no app: {{ resumo.ops_gravadas }} OP(s).</div>
         {% else %}
-        <div class="alert alert-info">Modo comparação: nada foi gravado. O "Baixar Ordens" continua sendo a rotina em uso.</div>
+        <div class="alert alert-info">Modo comparação (SYNC_ORDENS_GRAVA desligada): nada foi gravado.</div>
         {% endif %}
 
         {% if resumo.operadores_gravados %}
