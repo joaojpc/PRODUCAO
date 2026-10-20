@@ -1,0 +1,38 @@
+{% extends 'apontamento/base_bs5.html' %}
+{# AJUSTE 2026-10-20: 2o clique do Efetivar Apontamento (manutencao) -- copiado do NMV, tela nova em BS5 - JPC - João Castro #}
+{% block title %}Efetivar no Mega{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-producao">
+                <h4 class="mb-0">Efetivar no Mega</h4>
+            </div>
+            <div class="card-body">
+                <table class="table table-bordered align-middle">
+                    <tbody>
+                        <tr><th class="table-light" style="width: 35%">Ordem</th><td>{{ ord_in_codigo }}</td></tr>
+                        <tr><th class="table-light">Controle (CTL)</th><td>{{ ctl_in_codigo }}</td></tr>
+                        {% if apt_in_sequencia %}<tr><th class="table-light">Apontamento no Mega</th><td>{{ apt_in_sequencia|stringformat:"d" }}</td></tr>{% endif %}
+                    </tbody>
+                </table>
+                <div class="alert alert-warning">
+                    Nada pendente no app: efetiva o apontamento inteiro no Mega (gera os movimentos de
+                    produção). O controle não é encerrado aqui.
+                </div>
+                <form method="post">
+                    {% csrf_token %}
+                    <label for="data_apontamento" class="form-label fw-bold">Data de encerramento (data do apontamento das movimentações no Mega)</label>
+                    <input type="datetime-local" class="form-control form-control-lg" id="data_apontamento"
+                           name="data_apontamento" value="{{ data_padrao }}" required>
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% url 'manutencao' %}" class="btn btn-outline-secondary btn-lg">Voltar</a>
+                        <button type="submit" class="btn btn-producao btn-lg"
+                                onclick="return confirm('Efetivar o apontamento no Mega?');">Efetivar no Mega</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

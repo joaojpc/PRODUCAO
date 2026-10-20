@@ -101,6 +101,70 @@ def gravar_e_efetivar_controle(v_session, data_apontamento=None):
         return resultado
 
 
+def _pendentes(ctl_in_codigo):
+    lotes = Apt_ApontaOrdem.objects.filter(CTL_IN_CODIGO=ctl_in_codigo, APT_CH_STATUS='A')
+    demandas = Apt_Pro_Demandas.objects.filter(CTL_IN_CODIGO=ctl_in_codigo, MOV_ST_STATUS='A')
+    return lotes, demandas
+
+
+def _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado):
+    """Itens 1 e 2 do fluxo do MP: grava tudo ou nada e marca 'I'. Devolve (gravou, apt_in_sequencia).
+    AJUSTE 2026-10-20: separado do _gravar_e_efetivar_controle (mesmo codigo) para o botao
+    Efetivar Apontamento da manutencao usar em dois cliques; o fechamento segue igual."""
+    try:
+        lotes_gravados, resultados_demanda = _gravar_tudo_ou_nada(con, v_session, lotes, demandas)
+    except Exception as e:
+        con.rollback()
+        resultado['erro'] = 1
+        resultado['erros'] = [str(e)]
+        return False, None  # nada foi gravado; controle continua aberto
+    con.commit()  # tudo deu certo -- lote(s) e demanda(s) juntos
+    for row, _resp in lotes_gravados:
+        row.APT_CH_STATUS = 'I'
+        row.save(update_fields=['APT_CH_STATUS'])
+    if lotes_gravados and controle:
+        apt_gravado = lotes_gravados[0][1][0]['sequencia']
+        if controle.APT_IN_SEQUENCIA != apt_gravado:
+            controle.APT_IN_SEQUENCIA = apt_gravado
+            controle.save(update_fields=['APT_IN_SEQUENCIA'])
+    linhas_por_mvd = {row.MOV_IN_SEQUENCIA: row for row in demandas}
+    ok_dem = erro_dem = 0
+    erros_dem = []
+    for r in resultados_demanda:
+        mensagem = r.get('mensagem')
+        if mensagem in ('Ok', 'Cancelada', 'Ja cancelada no local'):
+            if mensagem == 'Ok':
+                row = linhas_por_mvd.get(r.get('mvd'))
+                if row is not None:
+                    row.MOV_ST_STATUS = 'I'
+                    row.save(update_fields=['MOV_ST_STATUS'])
+            ok_dem += 1
+        else:
+            erro_dem += 1
+            erros_dem.append(f"Demanda mvd={r.get('mvd')}: {r.get('detalhe', mensagem)}")
+    resultado.update({'ok': len(lotes_gravados) + ok_dem, 'erro': erro_dem, 'erros': erros_dem})
+    return True, (lotes_gravados[0][1][0]['sequencia'] if lotes_gravados else None)
+
+
+def _efetivar(con, v_session, controle, ctl_in_codigo, apt_in_sequencia, data_apontamento, resultado):
+    """Item 3 do fluxo do MP: p_efetivaapontamento. AJUSTE 2026-10-20: separado (mesmo codigo)."""
+    from apontamento.apontamento import efetivar_apontamento_oracle, _apt_in_sequencia_do_ctl
+    if apt_in_sequencia is None:
+        with con.cursor() as cur:
+            apt_in_sequencia = _apt_in_sequencia_do_ctl(cur, ctl_in_codigo)
+    if apt_in_sequencia and controle:
+        usuario_efetivou = v_session.get('usuario') or controle.CTL_ST_USUARIO
+        msg_efetivar, efetivado = efetivar_apontamento_oracle(
+            apt_in_sequencia, usuario_efetivou, controle.FIL_IN_CODIGO, conexao=con,
+            data_apontamento=data_apontamento)
+        resultado['msg_efetivar'] = msg_efetivar
+        resultado['efetivado_oracle'] = efetivado
+        resultado['apt_in_sequencia'] = apt_in_sequencia
+    else:
+        # nada apontado no Oracle para esse controle: nao ha' o que efetivar
+        resultado['efetivado_oracle'] = True
+
+
 def _gravar_e_efetivar_controle(v_session, data_apontamento, resultado):
     """Itens 1, 2 e 3 do fluxo do MP (gravar tudo ou nada, marcar 'I', efetivar), sem o
     encerramento do controle."""
@@ -112,59 +176,101 @@ def _gravar_e_efetivar_controle(v_session, data_apontamento, resultado):
     from apontamento.models import Apt_Controle
     controle = Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl_in_codigo).first()
 
-    lotes = Apt_ApontaOrdem.objects.filter(CTL_IN_CODIGO=ctl_in_codigo, APT_CH_STATUS='A')
-    demandas = Apt_Pro_Demandas.objects.filter(CTL_IN_CODIGO=ctl_in_codigo, MOV_ST_STATUS='A')
+    lotes, demandas = _pendentes(ctl_in_codigo)
 
-    from apontamento.apontamento import _abrir_conexao, efetivar_apontamento_oracle, _apt_in_sequencia_do_ctl
+    from apontamento.apontamento import _abrir_conexao
     with _abrir_conexao() as con:
         apt_in_sequencia = None
         if lotes or demandas:
-            try:
-                lotes_gravados, resultados_demanda = _gravar_tudo_ou_nada(con, v_session, lotes, demandas)
-            except Exception as e:
-                con.rollback()
-                resultado['erro'] = 1
-                resultado['erros'] = [str(e)]
-                return resultado  # nada foi gravado; controle continua aberto
-            con.commit()  # tudo deu certo -- lote(s) e demanda(s) juntos
-            for row, _resp in lotes_gravados:
-                row.APT_CH_STATUS = 'I'
-                row.save(update_fields=['APT_CH_STATUS'])
-            if lotes_gravados and controle:
-                apt_gravado = lotes_gravados[0][1][0]['sequencia']
-                if controle.APT_IN_SEQUENCIA != apt_gravado:
-                    controle.APT_IN_SEQUENCIA = apt_gravado
-                    controle.save(update_fields=['APT_IN_SEQUENCIA'])
-            linhas_por_mvd = {row.MOV_IN_SEQUENCIA: row for row in demandas}
-            ok_dem = erro_dem = 0
-            erros_dem = []
-            for r in resultados_demanda:
-                mensagem = r.get('mensagem')
-                if mensagem in ('Ok', 'Cancelada', 'Ja cancelada no local'):
-                    if mensagem == 'Ok':
-                        row = linhas_por_mvd.get(r.get('mvd'))
-                        if row is not None:
-                            row.MOV_ST_STATUS = 'I'
-                            row.save(update_fields=['MOV_ST_STATUS'])
-                    ok_dem += 1
-                else:
-                    erro_dem += 1
-                    erros_dem.append(f"Demanda mvd={r.get('mvd')}: {r.get('detalhe', mensagem)}")
-            resultado.update({'ok': len(lotes_gravados) + ok_dem, 'erro': erro_dem, 'erros': erros_dem})
-            apt_in_sequencia = lotes_gravados[0][1][0]['sequencia'] if lotes_gravados else None
-
+            gravou, apt_in_sequencia = _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado)
+            if not gravou:
+                return resultado
         # Sempre tenta efetivar (cobre o retry depois de um efetivar que falhou)
-        if apt_in_sequencia is None:
-            with con.cursor() as cur:
-                apt_in_sequencia = _apt_in_sequencia_do_ctl(cur, ctl_in_codigo)
-        if apt_in_sequencia and controle:
-            usuario_efetivou = v_session.get('usuario') or controle.CTL_ST_USUARIO
-            msg_efetivar, efetivado = efetivar_apontamento_oracle(
-                apt_in_sequencia, usuario_efetivou, controle.FIL_IN_CODIGO, conexao=con,
-                data_apontamento=data_apontamento)
-            resultado['msg_efetivar'] = msg_efetivar
-            resultado['efetivado_oracle'] = efetivado
-        else:
-            # nada apontado no Oracle para esse controle: nao ha' o que efetivar
-            resultado['efetivado_oracle'] = True
+        _efetivar(con, v_session, controle, ctl_in_codigo, apt_in_sequencia, data_apontamento, resultado)
+    return resultado
+
+
+# ---------------------------------------------------------------------------
+# AJUSTE 2026-10-20: botao "Efetivar Apontamento" da manutencao (fluxo do NMV, reaproveitando a
+# gravacao direta acima -- decisao do usuario). 1o clique: grava lotes/demandas pendentes ('A')
+# no Oracle (tudo ou nada) e marca 'I'. 2o clique (nada pendente): confirma a data e efetiva
+# (p_efetivaapontamento). NAO encerra o controle. Botao liberado para todas as OPs.
+BOTAO_EFETIVAR_TODAS_OPS = True
+MSG_PENDENTE = ('Ainda há lote(s)/demanda(s) pendente(s) no app. Clique em Efetivar Apontamento para '
+                'gravar no Oracle antes de efetivar.')
+MSG_NADA_ABERTO = 'Nenhum apontamento aberto no Mega para este controle. Nada a efetivar.'
+
+
+def _novo_resultado(ctl_in_codigo):
+    return {'ctl_in_codigo': ctl_in_codigo, 'ok': 0, 'erro': 0, 'erros': [], 'pendentes': 0,
+            'msg_efetivar': None, 'efetivado_oracle': False, 'erro_oracle': None, 'apt_in_sequencia': None}
+
+
+def gravar_controle(v_session):
+    """1o clique: grava no Oracle o que estiver pendente ('A') no controle. Nao efetiva.
+    resultado['pendentes'] = 0 quando nao havia nada a gravar (proximo passo: efetivar)."""
+    ctl_in_codigo = v_session.get('ctl_in_codigo')
+    resultado = _novo_resultado(ctl_in_codigo)
+    try:
+        if not ctl_in_codigo:
+            resultado['erro_oracle'] = 'Controle não encontrado na sessão. Favor logar na ordem.'
+            return resultado
+        from apontamento.models import Apt_Controle
+        controle = Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl_in_codigo).first()
+        lotes, demandas = _pendentes(ctl_in_codigo)
+        resultado['pendentes'] = len(lotes) + len(demandas)
+        if not resultado['pendentes']:
+            return resultado
+        from apontamento.apontamento import _abrir_conexao
+        with _abrir_conexao() as con:
+            _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado)
+    except Exception as e:
+        import traceback
+        print('ERRO EFETIVAR APONTAMENTO (gravar):', traceback.format_exc())
+        resultado['erro_oracle'] = str(e)
+    return resultado
+
+
+def conferir_controle(v_session):
+    """Antes da tela da data: nada pendente no app e apontamento aberto no Mega para o CTL.
+    Devolve {'erro': texto ou None, 'apt_in_sequencia': ...}. So leitura."""
+    ctl_in_codigo = v_session.get('ctl_in_codigo')
+    try:
+        if not ctl_in_codigo:
+            return {'erro': 'Controle não encontrado na sessão. Favor logar na ordem.', 'apt_in_sequencia': None}
+        lotes, demandas = _pendentes(ctl_in_codigo)
+        if lotes or demandas:
+            return {'erro': MSG_PENDENTE, 'apt_in_sequencia': None}
+        from apontamento.apontamento import _abrir_conexao, _apt_in_sequencia_do_ctl
+        with _abrir_conexao() as con, con.cursor() as cur:
+            apt_in_sequencia = _apt_in_sequencia_do_ctl(cur, ctl_in_codigo)
+        if not apt_in_sequencia:
+            return {'erro': MSG_NADA_ABERTO, 'apt_in_sequencia': None}
+        return {'erro': None, 'apt_in_sequencia': apt_in_sequencia}
+    except Exception as e:
+        return {'erro': f'Oracle: {e}', 'apt_in_sequencia': None}
+
+
+def efetivar_controle(v_session, data_apontamento):
+    """2o clique (POST da tela da data): efetiva o apontamento aberto do CTL no Mega."""
+    ctl_in_codigo = v_session.get('ctl_in_codigo')
+    resultado = _novo_resultado(ctl_in_codigo)
+    conferencia = conferir_controle(v_session)
+    if conferencia['erro']:
+        resultado['erro_oracle'] = conferencia['erro']
+        return resultado
+    try:
+        from apontamento.models import Apt_Controle
+        from apontamento.apontamento import _abrir_conexao
+        controle = Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl_in_codigo).first()
+        if not controle:
+            resultado['erro_oracle'] = 'Controle não encontrado no app.'
+            return resultado
+        with _abrir_conexao() as con:
+            _efetivar(con, v_session, controle, ctl_in_codigo, conferencia['apt_in_sequencia'],
+                      data_apontamento, resultado)
+    except Exception as e:
+        import traceback
+        print('ERRO EFETIVAR APONTAMENTO (efetivar):', traceback.format_exc())
+        resultado['erro_oracle'] = str(e)
     return resultado

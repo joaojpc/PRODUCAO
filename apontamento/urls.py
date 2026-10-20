@@ -56,4 +56,7 @@ urlpatterns = [
     path('fechar-op/', views.fechar_op_diario, name='fechar_op_diario'),
     # AJUSTE 2026-10-20: sincronizacao nova de ordens Oracle -> SQLite (app/sincronizacao.py)
     path('sincronizar_ordens_nova/', views.sincronizarOrdensNova, name='sincronizar_ordens_nova'),
+    # AJUSTE 2026-10-20: Efetivar Apontamento na manutencao (1o clique grava, 2o efetiva)
+    path('efetivar_apontamento_oracle/', views.efetivarApontamentoOracle, name='efetivar_apontamento_oracle'),
+    path('efetivar_mega_oracle/', views.efetivarMegaOracle, name='efetivar_mega_oracle'),
 ]

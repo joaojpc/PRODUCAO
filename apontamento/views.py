@@ -777,6 +777,65 @@ def sincronizarOrdensNova(request):
     return render(request, 'apontamento/sincronizar_ordens.html',
                   {'resumo': resumo, 'ord_in_codigo': ord_in, 'fil_in_codigo': fil_in})
 
+def efetivarApontamentoOracle(request):
+    """AJUSTE 2026-10-20: botao "Efetivar Apontamento" (Manutencao), fluxo do NMV reaproveitando a
+    gravacao direta do PRODUCAO (integracao_apontamento). 1o clique grava no Oracle os lotes e
+    demandas pendentes do CTL; sem nada pendente, abre a confirmacao da data (2o clique)."""
+    from django.contrib import messages
+    from django.urls import reverse
+    from apontamento import integracao_apontamento
+    if request.method != 'POST':
+        return redirect('manutencao')
+    if not integracao_apontamento.BOTAO_EFETIVAR_TODAS_OPS:
+        messages.error(request, 'Efetivar Apontamento desligado (BOTAO_EFETIVAR_TODAS_OPS). Nada foi gravado.')
+        return redirect('manutencao')
+    resultado = integracao_apontamento.gravar_controle(carrega_sessao(request))
+    if resultado['erro_oracle']:
+        messages.error(request, resultado['erro_oracle'])
+    elif not resultado['pendentes']:
+        # nada pendente: 2o clique -- confirmacao da data e efetivacao
+        return redirect(reverse('efetivar_mega_oracle'))
+    elif resultado['ok'] and not resultado['erro']:
+        messages.success(request, f"{resultado['ok']} lote(s)/demanda(s) gravado(s) no Oracle. "
+                                  f"Clique de novo em Efetivar Apontamento para efetivar.")
+    for erro in resultado['erros']:
+        messages.error(request, erro)
+    return redirect('manutencao')
+
+def efetivarMegaOracle(request):
+    """AJUSTE 2026-10-20: 2o clique do "Efetivar Apontamento". GET = confirmacao com a data do
+    apontamento (editavel, padrao agora); POST = efetiva (p_efetivaapontamento). Nao encerra o CTL."""
+    from django.contrib import messages
+    from apontamento import integracao_apontamento
+    v_session = carrega_sessao(request)
+    if not integracao_apontamento.BOTAO_EFETIVAR_TODAS_OPS:
+        messages.error(request, 'Efetivar Apontamento desligado (BOTAO_EFETIVAR_TODAS_OPS). Nada foi efetivado.')
+        return redirect('manutencao')
+    if request.method == 'GET':
+        # a tela da data so aparece sem pendencia no app e com apontamento aberto no Mega
+        conferencia = integracao_apontamento.conferir_controle(v_session)
+        if conferencia['erro']:
+            messages.error(request, conferencia['erro'])
+            return redirect('manutencao')
+        return render(request, 'apontamento/confirma_efetivar_mega.html', {
+            'apt_in_sequencia': conferencia['apt_in_sequencia'],
+            'ctl_in_codigo': v_session.get('ctl_in_codigo'), 'ord_in_codigo': v_session.get('ord_in_codigo'),
+            'data_padrao': timezone.localtime().strftime('%Y-%m-%dT%H:%M')})
+    try:
+        data_apontamento = datetime.strptime(request.POST.get('data_apontamento', ''), '%Y-%m-%dT%H:%M')
+    except ValueError:
+        messages.error(request, 'Data do apontamento inválida.')
+        return redirect('efetivar_mega_oracle')
+    resultado = integracao_apontamento.efetivar_controle(v_session, data_apontamento)
+    if resultado['erro_oracle']:
+        messages.error(request, resultado['erro_oracle'])
+    elif resultado['efetivado_oracle']:
+        messages.success(request, f"Apontamento {resultado.get('apt_in_sequencia')} efetivado no Mega."
+                                  + (f" {resultado['msg_efetivar']}" if resultado['msg_efetivar'] else ''))
+    else:
+        messages.error(request, f"Apontamento não efetivado: {resultado.get('msg_efetivar')}")
+    return redirect('manutencao')
+
 def grafico(request):
     template = "apontamento/highcharts/charts.html"
     return render(request, template)
