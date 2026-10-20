@@ -398,6 +398,28 @@ def insOcorrencia(request):
         form = RegOcorForm()
     return render(request, template, {'form': form,'lista': lista})
 
+MSG_CTL_ENCERRADO = ('Controle {ctl} encerrado: somente consulta. Para apontar, baixar demanda ou fechar, '
+                     'saia pelo menu (Sair) e faça login na ordem novamente -- um novo controle será aberto.')
+
+
+def ctl_aberto_required(view_func):
+    """AJUSTE 2026-10-20 (JPC): decisao do usuario -- CTL encerrado (status diferente de 'A') nao
+    serve para apontamento, fechamento nem baixa/cancelamento de demanda/lote; so para consultas.
+    Sem CTL na sessao a view segue como antes (ela mesma manda para o login)."""
+    from functools import wraps
+
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        ctl = request.session.get('ctl_in_codigo')
+        if ctl and not Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl, CTL_ST_STATUS='A').exists():
+            from django.contrib import messages as _messages
+            _messages.error(request, MSG_CTL_ENCERRADO.format(ctl=ctl))
+            return redirect('menu')
+        return view_func(request, *args, **kwargs)
+    return _wrapped
+
+
+@ctl_aberto_required
 def baixaDemanda(request):
     v_session = carrega_sessao(request)
     template = 'apontamento/demandas.html'
@@ -405,6 +427,7 @@ def baixaDemanda(request):
     c_demanda  = json.loads(ini_prod.empenho_demanda())
     return render(request, template, {'dem': c_demanda})
 
+@ctl_aberto_required
 def baixaDemandaLocal(request):
     template = 'apontamento/demandalocal.html'
     v_session = carrega_sessao(request)
@@ -419,6 +442,7 @@ def baixaDemandaLocal(request):
         return redirect('demos_sessions')
 
 # processo vinculado a api_view
+@ctl_aberto_required
 def insDemandas(request):
     """ A view of all bands. """
     v_session = carrega_sessao(request)
@@ -473,6 +497,7 @@ def insDemandas(request):
 
 
 
+@ctl_aberto_required
 def insDemandaslocal(request):
     v_session = carrega_sessao(request)
     l_demandas = []
@@ -560,6 +585,7 @@ def listarlotes(request):
     listLotes  = json.loads(ini_prod.listar_producao(v_lista))
     return render(request, template, {'listLotes': listLotes})
 
+@ctl_aberto_required
 def reglote(request):
     v_session = carrega_sessao(request)
 
@@ -838,6 +864,7 @@ def etiqueta(request):
     template = "apontamento/etiqueta.html"
     return render(request, template)
 
+@ctl_aberto_required
 def apontamento(request):
     #Busca equipamento vinculado ao ip;
     v_session = carrega_sessao(request)
@@ -874,6 +901,7 @@ def apontamento(request):
     else:
         return redirect('demos_sessions')
 
+@ctl_aberto_required
 def demandas(request):
     #Busca equipamento vinculado ao ip;
     v_session = carrega_sessao(request)
@@ -1288,6 +1316,7 @@ def lotesInventario(request):
             return render(request, template, {'form': form,'saldoitem': dados})
     return render(request, template, {'form': form})
 
+@ctl_aberto_required
 def ExcluirApontamento(request,pk):
     template = "apontamento/confirma_delete.html"
     v_session = carrega_sessao(request)
@@ -1306,6 +1335,7 @@ def ExcluirApontamento(request,pk):
         raise Http404("lote não encontrado!")
     return redirect('incluir_lote')
 
+@ctl_aberto_required
 def ExcluirDemanda(request,pk):
     template = "apontamento/confirma_delete_demanda.html"
     v_session = carrega_sessao(request)
@@ -1361,6 +1391,7 @@ from apontamento.api_view import Fechamento
 
 @operador_required
 @require_http_methods(["GET", "POST"])
+@ctl_aberto_required  # AJUSTE 2026-10-20: CTL da sessao encerrado nao fecha (nem cai em outro CTL da OP)
 def fechar_op_diario(request):
     v_session = carrega_sessao(request)
     ordem = v_session.get('ord_in_codigo')

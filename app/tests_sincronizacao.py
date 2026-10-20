@@ -420,6 +420,11 @@ class PadraoTests(TestCase):
     """AJUSTE 2026-10-20: rotina nova e o padrao (login, Reglote, Baixar Ordens); buscaOrdens descontinuada."""
 
     def _sessao(self):
+        # AJUSTE 2026-10-20: CTL da sessao aberto ('A') -- CTL encerrado/inexistente so consulta
+        from django.utils import timezone
+        from apontamento.models import Apt_Controle
+        Apt_Controle.objects.create(CTL_IN_CODIGO=1, CTL_ST_USUARIO='X', ORD_IN_CODIGO=900, FIL_IN_CODIGO=3,
+                                    CTL_DT_LOGIN=timezone.now(), CTL_ST_IPADDRESS='1', CTL_ST_STATUS='A')
         s = self.client.session
         s.update({'ord_in_codigo': 900, 'fil_in_codigo': 3, 'ctl_in_codigo': 1, 'cliente': '1', 'usuario': 'X'})
         s.save()
