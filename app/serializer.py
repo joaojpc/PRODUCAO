@@ -50,6 +50,18 @@ class ManItensOrdensSerializer(serializers.ModelSerializer):
                   'PRO_ST_DESCRICAO','UNI_ST_UNIDADE','RFC_IN_CODIGO','PRO_ST_ATRIBUTOS','PRO_ST_REFERENCIA','PRO_ST_MEDIDAS',
                   'MVS_ST_REFERENCIA','PRO_ST_ID','PRO_ST_CONVERSOR']
 
+    # AJUSTE 2026-10-20: os JSONField acima estao dentro do Meta (ignorados) e as colunas saem como
+    # texto: str(valor). Item gravado pela Sincronizar Ordens (nova), JSON normalizado, virava
+    # "[{'FMT_ST_NOME': ...}]" (repr do Python, nao e JSON). So na saida: lista/dict sai como JSON;
+    # texto (formato antigo) sai igual a antes. A entrada (POST do Baixar Ordens) nao muda.
+    def to_representation(self, instance):
+        dados = super().to_representation(instance)
+        for campo in ('PRO_ST_ATRIBUTOS', 'PRO_ST_REFERENCIA', 'PRO_ST_MEDIDAS', 'PRO_ST_CONVERSOR'):
+            valor = getattr(instance, campo, None)
+            if isinstance(valor, (list, dict)):
+                dados[campo] = valor
+        return dados
+
 class ManProAtividadeSerializer(serializers.ModelSerializer):
     class Meta:
         model = apt_pro_atividade

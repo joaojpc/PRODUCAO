@@ -490,8 +490,16 @@
             v_Return = JSON.parse(v_json);
             for (var i = 0, len = v_Return.length; i < len; ++i) {
                 // AJUSTE 2026-06-24: Só faz parse se tiver valor. Evita Unexpected end of JSON input
-                if (v_Return[i].PRO_ST_CONVERSOR && v_Return[i].PRO_ST_CONVERSOR.trim()!== '') {
-                    v_conversor = JSON.parse(v_Return[i].PRO_ST_CONVERSOR);
+                if (v_Return[i].PRO_ST_CONVERSOR) {
+                    // AJUSTE 2026-10-20 (copiado do NMV): padrao antigo (texto JSON, as vezes dentro de
+                    // texto) e novo (JSON normalizado da Sincronizar Ordens nova, ja lista)
+                    v_conversor = v_Return[i].PRO_ST_CONVERSOR;
+                    for (var n = 0; n < 3 && typeof v_conversor === 'string'; n++) {
+                        try { v_conversor = JSON.parse(v_conversor); } catch (e) { v_conversor = []; }
+                    }
+                    if (!Array.isArray(v_conversor)) v_conversor = [];
+                    // [{"CONVERSORES": null}] = item sem conversor; so entra conversor com formula
+                    v_conversor = v_conversor.filter(function(c) { return c && c.UNI_ST_FORMULA; });
                 }
             }
             // AJUSTE 2026-06-24: Log pra debug. Mostra conteúdo antes do retorno.
@@ -517,7 +525,13 @@
                         v_retorno = litens[i].pro_st_id;
                     }
                     if (value == 3) {
+                        // AJUSTE 2026-10-20 (copiado do NMV): entende padrao antigo (texto) e novo (JSON padrao)
                         v_retorno = litens[i].mvs_st_referencia;
+                        for (var n = 0; n < 3 && typeof v_retorno === 'string' && /^\s*[\{"]/.test(v_retorno); n++) {
+                            try { v_retorno = JSON.parse(v_retorno); } catch (e) { break; }
+                        }
+                        if (v_retorno && typeof v_retorno === 'object') v_retorno = v_retorno.MVS_ST_REFERENCIA;
+                        if (typeof v_retorno !== 'string') v_retorno = '';
                     }
                 }
             }

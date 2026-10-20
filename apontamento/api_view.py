@@ -46,6 +46,40 @@ def monta_ordem(pparams):
     v_retorno =  org_tab.zfill(3)+ org_pad.zfill(3)+org_cod.zfill(7)+org_tau.zfill(3)+ord_tab.zfill(3)+ord_seq.zfill(3)+ord_cod.zfill(20)
     return (v_retorno)
 
+def _ler_conversor(valor):
+    """AJUSTE 2026-10-20 (copiado do NMV): PRO_ST_CONVERSOR do item no padrao antigo (texto JSON, as
+    vezes dentro de texto) ou novo (JSON normalizado, ja lista -- Sincronizar Ordens nova). Antes era
+    json.loads direto, que quebra no novo. So entra conversor com formula ([{"CONVERSORES": null}] =
+    item sem conversor). Sempre devolve lista."""
+    from app.services import ler_json
+    valor = ler_json(valor if valor is not None else '[]')
+    return [v for v in valor if isinstance(v, dict) and v.get('UNI_ST_FORMULA')] if isinstance(valor, list) else []
+
+def _referencia_padrao_itens(lista):
+    """AJUSTE 2026-10-20 (copiado do NMV): itens da OP para a tela (Reglote) com mvs_st_referencia
+    (caracteristica padrao) em texto, entendendo o padrao antigo (texto cru) e o novo (JSON padrao).
+    Se a ordem estiver com 'Indefinido', usa o padrao gravado em apt_itens_ordens (pelo pro_st_id).
+    Chaves minusculas (PRO_ST_ITENS do PRODUCAO). Nunca quebra a tela: em erro devolve como veio."""
+    try:
+        from app.services import itens_locais, ler_json, referencia_padrao
+        lista = ler_json(lista)
+        if not isinstance(lista, list):
+            return lista
+        sem_padrao = [i.get('pro_st_id') for i in lista
+                      if isinstance(i, dict) and referencia_padrao(i.get('mvs_st_referencia')) == 'Indefinido'
+                      and i.get('pro_st_id')]
+        do_item = {l['PRO_ST_ID']: referencia_padrao(l.get('MVS_ST_REFERENCIA')) for l in itens_locais(sem_padrao)}
+        for item in lista:
+            if isinstance(item, dict):
+                ref = referencia_padrao(item.get('mvs_st_referencia'))
+                if ref == 'Indefinido':
+                    ref = do_item.get(item.get('pro_st_id'), ref)
+                item['mvs_st_referencia'] = ref
+        return lista
+    except Exception as e:
+        print(f'_referencia_padrao_itens: {e}')
+        return lista
+
 def separa_string(pString, vINI, vFIM):
     return (pString[vINI:vFIM])
 
@@ -820,7 +854,7 @@ class prep_producao:
             payload = {'cmaq_id': self.maquina}
         v_maquina = requests.get(app_url, params=payload).json()
         try:
-            lista = d2
+            lista = _referencia_padrao_itens(d2)  # AJUSTE 2026-10-20: padrao antigo e novo
             if (v_lista[1] == 3) and (v_lista[5]== 'OP002'):
                 v_criar = 'S'
             else:
@@ -957,7 +991,7 @@ class prep_producao:
                 payload_itn = {'pro_st_id': self.pro_st_id}
                 cr_prod = requests.get(url_itn, params=payload_itn).json()
                 for res_prod in cr_prod:
-                    v_conversor = json.loads(res_prod['PRO_ST_CONVERSOR'])
+                    v_conversor = _ler_conversor(res_prod['PRO_ST_CONVERSOR'])  # AJUSTE 2026-10-20: antigo e novo
                     if v_conversor:
                         for rs_cn in v_conversor:
                             self.fator = float(rs_cn.get('UNI_ST_FORMULA').replace(',','.'))

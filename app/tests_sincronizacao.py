@@ -93,6 +93,64 @@ class LerJsonTests(TestCase):
         self.assertEqual(local.json_texto([{'d': 'Tábua'}]), '[{"d": "Tábua"}]')
 
 
+class LeitoresTests(TestCase):
+    """Leitores do padrao antigo e do novo (Reglote, conversor, API de itens)."""
+
+    def test_ler_conversor_antigo_e_novo(self):
+        from apontamento.api_view import _ler_conversor
+        conv = [{'FMT_ST_NOME': 'Cx', 'UNI_ST_FORMULA': '2,79'}]
+        for valor in (conv, json.dumps(conv), json.dumps(json.dumps(conv))):
+            self.assertEqual(_ler_conversor(valor), conv)
+        for vazio in (None, '', 'lixo', [{'CONVERSORES': None}], json.dumps(json.dumps([{'CONVERSORES': None}]))):
+            self.assertEqual(_ler_conversor(vazio), [])
+
+    def test_lista_do_reglote_em_texto(self):
+        from apontamento.api_view import _referencia_padrao_itens
+        ref = '0000730=732;0001750=2187;'
+        with connection.cursor() as cur:  # item com padrao novo gravado no app
+            local.inserir(cur, 'apt_itens_ordens', local.COLUNAS_ITEM, local.JSON_ITEM,
+                          {'PRO_TAB_IN_CODIGO': 100, 'PRO_PAD_IN_CODIGO': 1, 'PRO_IN_CODIGO': 480,
+                           'PRO_ST_DESCRICAO': 'x', 'UNI_ST_UNIDADE': 'M3', 'RFC_IN_CODIGO': 5,
+                           'PRO_ST_ATRIBUTOS': [], 'PRO_ST_REFERENCIA': [], 'PRO_ST_MEDIDAS': [],
+                           'MVS_ST_REFERENCIA': {'MVS_ST_REFERENCIA': ref}, 'PRO_ST_ID': '1000010000480',
+                           'PRO_ST_CONVERSOR': []})
+        lista = [{'pro_in_codigo': 480, 'pro_st_id': '1000010000480', 'mvs_st_referencia': 'Indefinido'},
+                 {'pro_in_codigo': 420, 'pro_st_id': '1000010000420',
+                  'mvs_st_referencia': {'MVS_ST_REFERENCIA': 'X=1;', 'PRO_RE_CE': None}},
+                 {'pro_in_codigo': 9, 'pro_st_id': '1000010000009', 'mvs_st_referencia': 'Indefinido'},
+                 {'pro_in_codigo': 7, 'pro_st_id': '1000010000007', 'mvs_st_referencia': 'A=1;'}]
+        res = _referencia_padrao_itens(lista)
+        self.assertEqual([i['mvs_st_referencia'] for i in res], [ref, 'X=1;', 'Indefinido', 'A=1;'])
+        self.assertEqual(_referencia_padrao_itens({}), {})  # ordem nao encontrada: como veio
+
+    def test_api_itens_json_normalizado_sai_como_json(self):
+        from app.serializer import ManItensOrdensSerializer
+        conv = [{'FMT_ST_NOME': 'Cx', 'UNI_ST_FORMULA': '2,79'}]
+        item = apt_itens_ordens(PRO_TAB_IN_CODIGO=1, PRO_PAD_IN_CODIGO=1, PRO_IN_CODIGO=2, PRO_ST_DESCRICAO='x',
+                                UNI_ST_UNIDADE='M3', RFC_IN_CODIGO=5, PRO_ST_ATRIBUTOS=[{'a': None}],
+                                PRO_ST_REFERENCIA=[], PRO_ST_MEDIDAS=[{'c': 2}], MVS_ST_REFERENCIA='Indefinido',
+                                PRO_ST_ID='1', PRO_ST_CONVERSOR=conv)
+        dados = ManItensOrdensSerializer(item).data
+        self.assertEqual((dados['PRO_ST_CONVERSOR'], dados['PRO_ST_ATRIBUTOS']), (conv, [{'a': None}]))
+        # formato antigo (texto) sai exatamente como antes
+        antigo = json.dumps([{'CONVERSORES': None}])
+        item.PRO_ST_CONVERSOR = antigo
+        self.assertEqual(ManItensOrdensSerializer(item).data['PRO_ST_CONVERSOR'], antigo)
+
+    def test_post_do_baixar_ordens_grava_igual(self):
+        """A entrada do serializer (POST form do Baixar Ordens) nao muda."""
+        from django.http import QueryDict
+        from app.serializer import ManItensOrdensSerializer
+        q = QueryDict(mutable=True)
+        q.update({'PRO_TAB_IN_CODIGO': 1, 'PRO_PAD_IN_CODIGO': 1, 'PRO_IN_CODIGO': 2, 'PRO_ST_DESCRICAO': 'x',
+                  'UNI_ST_UNIDADE': 'M3', 'RFC_IN_CODIGO': 5, 'PRO_ST_ATRIBUTOS': '[]', 'PRO_ST_REFERENCIA': '[]',
+                  'PRO_ST_MEDIDAS': '[]', 'MVS_ST_REFERENCIA': 'Indefinido', 'PRO_ST_ID': '1',
+                  'PRO_ST_CONVERSOR': json.dumps(json.dumps([{'CONVERSORES': None}]))})
+        s = ManItensOrdensSerializer(data=q)
+        self.assertTrue(s.is_valid(), s.errors)
+        self.assertEqual(s.validated_data['PRO_ST_CONVERSOR'], json.dumps(json.dumps([{'CONVERSORES': None}])))
+
+
 class MontarPlanoTests(_ComOracle):
     """Mesmo resultado da buscaOrdens do PRODUCAO, montado direto do Oracle."""
 
@@ -349,7 +407,9 @@ class IsolamentoTests(TestCase):
                       if importa.search(p.read_text(encoding='utf-8', errors='ignore'))
                       and p.name not in ('sincronizacao.py', 'tests_sincronizacao.py')
                       and not {'prodenv', '.venv', 'venv'} & set(p.parts))
-        self.assertEqual(usos, [str(pathlib.Path('apontamento/views.py'))])
+        # api_view usa os leitores do padrao antigo e do novo (ler_json, referencia_padrao)
+        self.assertEqual(usos, [str(pathlib.Path('apontamento/api_view.py')),
+                                str(pathlib.Path('apontamento/views.py'))])
 
     def test_view_renderiza_resumo(self):
         sessao = self.client.session
