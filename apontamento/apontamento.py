@@ -1176,6 +1176,49 @@ def demanda_existe_no_oracle(fil_in_codigo, ord_in_codigo, mvd_in_sequencia, ctl
         cur, 'demanda', fil_in_codigo, ord_in_codigo, mvd_in_sequencia, ctl_in_codigo))
 
 
+def confirmar_no_oracle(con, tipo, chaves):
+    """AJUSTE 2026-10-20 (copiado do NMV/MP, validado): SOMENTE LEITURA, chamada DEPOIS do commit --
+    nada vira 'I' no app sem ser relido no Oracle pela chave EXATA (fil, ord, seq, ctl), seq =
+    mvp_in_sequencia (lote) ou mvd_in_sequencia (demanda; cancelada no Oracle nao conta). Em blocos
+    de 500 (limite do IN). Devolve {(fil, ord, seq, ctl): apt_in_sequencia} so' das encontradas."""
+    tabela, coluna = _TAB_SEQ[tipo]
+    extra = " AND NVL(dde_st_situacao, 'A') <> 'C'" if tipo == 'demanda' else ''
+    grupos = {}
+    for fil, ord_, seq, ctl in chaves:
+        grupos.setdefault((int(fil), int(ord_), int(ctl)), set()).add(int(seq))
+    achadas = {}
+    with con.cursor() as cur:
+        for (fil, ord_, ctl), seqs in grupos.items():
+            seqs = sorted(seqs)
+            for i in range(0, len(seqs), 500):
+                binds = {f's{j}': s for j, s in enumerate(seqs[i:i + 500])}
+                cur.execute(f"SELECT {coluna}, apt_in_sequencia FROM {tabela} "
+                            f"WHERE fil_in_codigo = :fil AND ord_in_codigo = :ord AND ctl_in_codigo = :ctl"
+                            f"{extra} AND {coluna} IN ({', '.join(':' + k for k in binds)})",
+                            dict(binds, fil=fil, ord=ord_, ctl=ctl))
+                for seq, apt in cur.fetchall():
+                    achadas[(fil, ord_, int(seq), ctl)] = apt
+    return achadas
+
+
+def itens_do_ctl_no_oracle(con, fil_in_codigo, ord_in_codigo, ctl_in_codigo):
+    """AJUSTE 2026-10-20 (copiado do NMV/MP): SOMENTE LEITURA -- tudo que o Oracle tem gravado PARA
+    ESTE CTL (so' linhas do app: mvp/mvd e ctl preenchidos). Usada antes de efetivar (nao efetiva sem
+    tudo do CTL integrado). Devolve {'lotes': {mvp: apt}, 'demandas': {mvd: apt}} -- demanda
+    cancelada no Oracle fica de fora."""
+    binds = {'fil': int(fil_in_codigo), 'ord': int(ord_in_codigo), 'ctl': int(ctl_in_codigo)}
+    with con.cursor() as cur:
+        cur.execute("""SELECT mvp_in_sequencia, apt_in_sequencia FROM apt_apontaordem_lote
+                        WHERE fil_in_codigo = :fil AND ord_in_codigo = :ord AND ctl_in_codigo = :ctl
+                          AND mvp_in_sequencia IS NOT NULL""", binds)
+        lotes = {int(s): a for s, a in cur.fetchall()}
+        cur.execute("""SELECT mvd_in_sequencia, apt_in_sequencia FROM apt_apontademanda_estoque
+                        WHERE fil_in_codigo = :fil AND ord_in_codigo = :ord AND ctl_in_codigo = :ctl
+                          AND mvd_in_sequencia IS NOT NULL AND NVL(dde_st_situacao, 'A') <> 'C'""", binds)
+        demandas = {int(s): a for s, a in cur.fetchall()}
+    return {'lotes': lotes, 'demandas': demandas}
+
+
 def _chaves_oracle(cur, tipo, dias, so_canceladas=False):
     """Chaves (fil, ord, seq, ctl) gravadas no Oracle nos ultimos `dias` dias; ctl pode ser None.
     so_canceladas (so demanda): apenas linhas com dde_st_situacao = 'C'."""

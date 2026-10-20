@@ -44,11 +44,23 @@ class _ComOracle(TestCase):
                              side_effect=lambda dados, **k: [{'mensagem': 'Ok', 'mvd': d['mvd_in_sequencia']}
                                                              for d in dados]),
             'efetivar': patch('apontamento.apontamento.efetivar_apontamento_oracle', return_value=('Ok', True)),
-            'aberto': patch('apontamento.apontamento._apt_in_sequencia_do_ctl', return_value=7001),
+            # AJUSTE 2026-10-20: protecoes do NMV -- releitura pela chave exata, itens do CTL no Mega
+            # (espelho do que esta 'I' no app) e status do apontamento no Mega ('A' = aberto)
+            'confirmar': patch('apontamento.apontamento.confirmar_no_oracle',
+                               side_effect=lambda con, tipo, chaves: {k: 7001 for k in chaves}),
+            'itens': patch('apontamento.apontamento.itens_do_ctl_no_oracle', side_effect=self._itens_mega),
+            'status': patch('apontamento.apontamento._apt_ch_status', return_value='A'),
         }
         self.mocks = {k: p.start() for k, p in self.m.items()}
         for p in self.m.values():
             self.addCleanup(p.stop)
+
+    @staticmethod
+    def _itens_mega(con, fil, ord_, ctl):
+        return {'lotes': {l.APT_IN_SEQUENCIA: 7001 for l in Apt_ApontaOrdem.objects.filter(
+                    CTL_IN_CODIGO=ctl, APT_CH_STATUS='I')},
+                'demandas': {d.MOV_IN_SEQUENCIA: 7001 for d in Apt_Pro_Demandas.objects.filter(
+                    CTL_IN_CODIGO=ctl, MOV_ST_STATUS='I')}}
 
 
 class FechamentoRegressaoTests(_ComOracle):
@@ -94,7 +106,7 @@ class BotaoEfetivarTests(_ComOracle):
         self.assertEqual(integ.conferir_controle(SESSAO)['erro'], integ.MSG_PENDENTE)
         Apt_ApontaOrdem.objects.update(APT_CH_STATUS='I')
         self.assertEqual(integ.conferir_controle(SESSAO), {'erro': None, 'apt_in_sequencia': 7001})
-        self.mocks['aberto'].return_value = None
+        self.mocks['status'].return_value = 'E'  # ja efetivado no Mega
         self.assertEqual(integ.conferir_controle(SESSAO)['erro'], integ.MSG_NADA_ABERTO)
 
     def test_segundo_clique_efetiva_com_a_data(self):
@@ -109,6 +121,71 @@ class BotaoEfetivarTests(_ComOracle):
         r = integ.efetivar_controle(SESSAO, datetime(2026, 10, 20, 17, 30))
         self.assertEqual(r['erro_oracle'], integ.MSG_PENDENTE)
         self.mocks['efetivar'].assert_not_called()
+
+
+class ProtecoesTests(_ComOracle):
+    """AJUSTE 2026-10-20: protecoes copiadas do NMV validado (conexao testada, limite de tempo,
+    'I' so depois de reler no Oracle, CTL inteiro conferido antes de efetivar)."""
+
+    def test_sem_conexao_nada_gravado(self):
+        _lote()
+        self.mocks['abrir'].side_effect = ConnectionError('Nao foi possivel conectar ao Oracle.')
+        r = integ.efetivar_apontamento(SESSAO, integ.ATIVIDADE_DUAS_ETAPAS, 1)
+        self.assertEqual(r['erro_oracle'], integ.MSG_SEM_CONEXAO)
+        self.mocks['lote'].assert_not_called()
+        self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'A')
+
+    def test_lock_vira_mensagem_e_nada_marcado(self):
+        _lote()
+        self.mocks['lote'].side_effect = Exception('DPY-4024: call timeout of 120000 ms exceeded')
+        r = integ.efetivar_apontamento(SESSAO, integ.ATIVIDADE_DUAS_ETAPAS, 1)
+        self.assertEqual(r['erro_oracle'], integ.MSG_ORACLE_BLOQUEADO)
+        self.con.rollback.assert_called_once()
+        self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'A')
+
+    def test_limite_de_tempo_na_gravacao(self):
+        _lote()
+        tempos = []
+        self.mocks['lote'].side_effect = lambda *a, **k: (tempos.append(self.con.call_timeout),
+                                                          [{'mensagem': 'Ok', 'mensagem_sub': 'Ok',
+                                                            'sequencia': 7001}])[1]
+        integ.efetivar_apontamento(SESSAO, integ.ATIVIDADE_DUAS_ETAPAS, 1)
+        self.assertEqual(tempos, [integ.GRAVACAO_TIMEOUT_MS])
+        self.assertEqual(self.con.call_timeout, 0)
+
+    def test_nao_confirmado_no_oracle_nao_marca(self):
+        _lote()
+        _demanda()
+        self.mocks['confirmar'].side_effect = lambda con, tipo, chaves: {}
+        r = integ.efetivar_apontamento(SESSAO, integ.ATIVIDADE_DUAS_ETAPAS, 1)
+        self.assertIn('não foi possível confirmar', r['erro_oracle'])
+        self.con.commit.assert_called_once()  # gravou no Oracle; o retry nao regrava
+        self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'A')
+        self.assertEqual(Apt_Pro_Demandas.objects.get().MOV_ST_STATUS, 'A')
+
+    def test_item_no_mega_que_o_app_nao_tem_bloqueia_efetivar(self):
+        _lote(status='I')
+        self.mocks['itens'].side_effect = lambda con, fil, ord_, ctl: {'lotes': {1: 7001, 999: 7001}, 'demandas': {}}
+        r = integ.efetivar_apontamento(SESSAO, integ.ATIVIDADE_DUAS_ETAPAS, 2, datetime(2026, 10, 20, 17, 0))
+        self.assertIn('cancelado(s) ou inexistente(s) no app: [999]', r['erro_oracle'])
+        self.mocks['efetivar'].assert_not_called()
+
+    def test_dois_apontamentos_abertos_bloqueia(self):
+        _lote(1, status='I')
+        _lote(2, status='I')
+        self.mocks['itens'].side_effect = lambda con, fil, ord_, ctl: {'lotes': {1: 7001, 2: 7002}, 'demandas': {}}
+        r = integ.efetivar_apontamento(SESSAO, integ.ATIVIDADE_ETAPA_UNICA, 1, datetime(2026, 10, 20, 17, 0))
+        self.assertIn('mais de um apontamento aberto', r['erro_oracle'])
+        self.mocks['efetivar'].assert_not_called()
+
+    def test_apontamento_ja_efetivado_nao_conta(self):
+        # particularidade PRODUCAO: 7001 efetivado pelo botao no meio do dia; 7002 aberto depois
+        _lote(1, status='I')
+        _lote(2, status='I')
+        self.mocks['itens'].side_effect = lambda con, fil, ord_, ctl: {'lotes': {1: 7001, 2: 7002}, 'demandas': {}}
+        self.mocks['status'].side_effect = lambda cur, apt: 'E' if apt == 7001 else 'A'
+        r = integ.efetivar_apontamento(SESSAO, integ.ATIVIDADE_ETAPA_UNICA, 1, datetime(2026, 10, 20, 17, 0))
+        self.assertEqual((r['erro_oracle'], r['apt_in_sequencia']), (None, 7002))
 
 
 class AtividadesTests(_ComOracle):
@@ -186,7 +263,7 @@ class FechamentoAtividade2Tests(_ComOracle):
     def test_botao_ja_efetivou_fechamento_so_fecha(self):
         # atividade 1 ja gravou e efetivou: nada pendente e nada aberto no Mega -> fecha sem efetivar
         _lote(status='I')
-        self.mocks['aberto'].return_value = None
+        self.mocks['status'].return_value = 'E'  # apontamento do CTL ja efetivado pelo botao
         ok, _dados, erro = self._fechar()
         self.assertEqual((ok, erro), (True, None))
         self.mocks['efetivar'].assert_not_called()
@@ -202,6 +279,7 @@ class ViewsEfetivarTests(_ComOracle):
 
     def test_clique_sem_pendente_abre_confirmacao(self):
         self._sessao()
+        _lote(status='I')  # ja integrado (apontamento 7001 aberto no Mega)
         resp = self.client.post(reverse('efetivar_apontamento_oracle'))
         self.assertRedirects(resp, reverse('efetivar_mega_oracle'), fetch_redirect_response=False)
         resp = self.client.get(reverse('efetivar_mega_oracle'))
@@ -217,6 +295,7 @@ class ViewsEfetivarTests(_ComOracle):
 
     def test_post_da_data_efetiva(self):
         self._sessao()
+        _lote(status='I')  # ja integrado (apontamento 7001 aberto no Mega)
         resp = self.client.post(reverse('efetivar_mega_oracle'), {'data_apontamento': '2026-10-20T17:30'})
         self.assertRedirects(resp, reverse('manutencao'), fetch_redirect_response=False)
         self.mocks['efetivar'].assert_called_once()

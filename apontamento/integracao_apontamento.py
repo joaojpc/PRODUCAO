@@ -103,57 +103,194 @@ def gravar_e_efetivar_controle(v_session, data_apontamento=None):
     return efetivar_apontamento(v_session, ATIVIDADE_ETAPA_UNICA, 1, data_apontamento)
 
 
+# AJUSTE 2026-10-20 (JPC): protecoes da gravacao no Oracle copiadas do NMV (validado) / MP:
+# conexao testada antes, limite de tempo na gravacao (lock de outra sessao do Mega vira mensagem),
+# 'I' no app so depois de reler no Oracle pela chave exata (numa transacao) e CTL inteiro conferido
+# (app x Mega) antes de efetivar. Valem para todas as atividades e para o cron.
+ORACLE_TESTE_TIMEOUT_S = 15       # teste da conexao (SELECT 1 FROM dual)
+GRAVACAO_TIMEOUT_MS = 120000      # gravacao dos lotes/demandas (nao vale para commit nem efetivar)
+_ERRO_TEMPO = r'DPY-4024|DPI-1067|DPI-1080|ORA-03156|ORA-00054'
+MSG_SEM_CONEXAO = 'Sem conexão com o Oracle (Mega). Nada foi gravado. Tente novamente em instantes.'
+MSG_ORACLE_BLOQUEADO = ('O Oracle (Mega) não respondeu a tempo -- provavelmente bloqueado por outra '
+                        'sessão do Mega. Nada foi gravado. Tente novamente em instantes.')
+MSG_NAO_CONFIRMADO = ('Gravado no Oracle, mas não foi possível confirmar tudo pela chave exata '
+                      '({faltando}). Nada foi marcado no app -- conferir no Mega.')
+MSG_FALHA_CARIMBO = ('Gravado e confirmado no Oracle, mas falhou ao marcar no app. Tente de novo: '
+                     'o que já está no Oracle não é gravado de novo.')
+
+
+def abrir_conexao_oracle_testada():
+    """Abre a conexao e testa com SELECT 1 FROM dual (limite de tempo). Devolve (con, None) ou
+    (None, mensagem). Quem chama fecha a conexao (with con)."""
+    from apontamento.apontamento import _abrir_conexao
+    con = None
+    try:
+        con = _abrir_conexao()
+        con.call_timeout = ORACLE_TESTE_TIMEOUT_S * 1000
+        with con.cursor() as cur:
+            cur.execute('SELECT 1 FROM dual')
+            cur.fetchone()
+        con.call_timeout = 0
+        return con, None
+    except Exception:
+        import traceback
+        print('ERRO TESTE CONEXAO ORACLE:', traceback.format_exc())
+        if con:
+            try:
+                con.close()
+            except Exception:
+                pass
+        return None, MSG_SEM_CONEXAO
+
+
 def _pendentes(ctl_in_codigo):
     lotes = Apt_ApontaOrdem.objects.filter(CTL_IN_CODIGO=ctl_in_codigo, APT_CH_STATUS='A')
     demandas = Apt_Pro_Demandas.objects.filter(CTL_IN_CODIGO=ctl_in_codigo, MOV_ST_STATUS='A')
     return lotes, demandas
 
 
+def _chave(row, seq):
+    return (int(row.FIL_IN_CODIGO), int(row.ORD_IN_CODIGO), int(seq), int(row.CTL_IN_CODIGO))
+
+
+def _confirmar_e_carimbar(con, lotes, demandas_ok):
+    """Depois do commit no Oracle: rele pela chave exata (fil, ord, mvp/mvd, ctl); so se TUDO
+    estiver la, marca 'I' no app numa unica transacao (so o que ainda esta 'A'). Devolve None (ok)
+    ou a mensagem de erro. Nunca levanta excecao."""
+    from apontamento.apontamento import confirmar_no_oracle
+    ch_lotes = {_chave(r, r.APT_IN_SEQUENCIA) for r in lotes}
+    ch_dem = {_chave(r, r.MOV_IN_SEQUENCIA) for r in demandas_ok}
+    try:
+        achou_l = confirmar_no_oracle(con, 'lote', ch_lotes) if ch_lotes else {}
+        achou_d = confirmar_no_oracle(con, 'demanda', ch_dem) if ch_dem else {}
+    except Exception:
+        import traceback
+        print('ERRO CONFIRMAR NO ORACLE:', traceback.format_exc())
+        return MSG_NAO_CONFIRMADO.format(faltando='falha ao reler o Oracle')
+    falta_l = sorted(k[2] for k in ch_lotes if k not in achou_l)
+    falta_d = sorted(k[2] for k in ch_dem if k not in achou_d)
+    if falta_l or falta_d:
+        faltando = ', '.join(filter(None, [f'lotes {falta_l}' if falta_l else '',
+                                           f'demandas {falta_d}' if falta_d else '']))
+        print(f'ERRO CONFIRMAR: nao achados no Oracle -- {faltando}')
+        return MSG_NAO_CONFIRMADO.format(faltando=faltando)
+    try:
+        from django.db import transaction
+        with transaction.atomic():
+            if lotes:
+                Apt_ApontaOrdem.objects.filter(APT_IN_SEQUENCIA__in=[r.APT_IN_SEQUENCIA for r in lotes],
+                                               APT_CH_STATUS='A').update(APT_CH_STATUS='I')
+            if demandas_ok:
+                Apt_Pro_Demandas.objects.filter(MOV_IN_SEQUENCIA__in=[r.MOV_IN_SEQUENCIA for r in demandas_ok],
+                                                MOV_ST_STATUS='A').update(MOV_ST_STATUS='I')
+    except Exception:
+        import traceback
+        print('ERRO CARIMBAR APP:', traceback.format_exc())
+        return MSG_FALHA_CARIMBO
+    return None
+
+
 def _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado):
     """Itens 1 e 2 do fluxo do MP: grava tudo ou nada e marca 'I'. Devolve (gravou, apt_in_sequencia).
-    AJUSTE 2026-10-20: separado do _gravar_e_efetivar_controle (mesmo codigo) para o botao
-    Efetivar Apontamento da manutencao usar em dois cliques; o fechamento segue igual."""
+    AJUSTE 2026-10-20: separado do _gravar_e_efetivar_controle para o botao Efetivar Apontamento.
+    AJUSTE 2026-10-20 (protecoes do NMV): gravacao com limite de tempo; 'I' so depois de reler no
+    Oracle pela chave exata. Faltou algo: nada e marcado (o retry nao regrava o que ja esta la)."""
+    import re
+    lotes, demandas = list(lotes), list(demandas)
     try:
+        con.call_timeout = GRAVACAO_TIMEOUT_MS
         lotes_gravados, resultados_demanda = _gravar_tudo_ou_nada(con, v_session, lotes, demandas)
+        con.call_timeout = 0
     except Exception as e:
-        con.rollback()
+        try:
+            con.rollback()
+        except Exception:
+            pass
         resultado['erro'] = 1
         resultado['erros'] = [str(e)]
+        if re.search(_ERRO_TEMPO, str(e)):
+            resultado['erro_oracle'] = MSG_ORACLE_BLOQUEADO
         return False, None  # nada foi gravado; controle continua aberto
     con.commit()  # tudo deu certo -- lote(s) e demanda(s) juntos
-    for row, _resp in lotes_gravados:
-        row.APT_CH_STATUS = 'I'
-        row.save(update_fields=['APT_CH_STATUS'])
-    if lotes_gravados and controle:
-        apt_gravado = lotes_gravados[0][1][0]['sequencia']
-        if controle.APT_IN_SEQUENCIA != apt_gravado:
-            controle.APT_IN_SEQUENCIA = apt_gravado
-            controle.save(update_fields=['APT_IN_SEQUENCIA'])
     linhas_por_mvd = {row.MOV_IN_SEQUENCIA: row for row in demandas}
-    ok_dem = erro_dem = 0
-    erros_dem = []
+    dem_ok, ok_dem, erros_dem = [], 0, []
     for r in resultados_demanda:
         mensagem = r.get('mensagem')
         if mensagem in ('Ok', 'Cancelada', 'Ja cancelada no local'):
-            if mensagem == 'Ok':
-                row = linhas_por_mvd.get(r.get('mvd'))
-                if row is not None:
-                    row.MOV_ST_STATUS = 'I'
-                    row.save(update_fields=['MOV_ST_STATUS'])
+            if mensagem == 'Ok' and r.get('mvd') in linhas_por_mvd:
+                dem_ok.append(linhas_por_mvd[r.get('mvd')])
             ok_dem += 1
         else:
-            erro_dem += 1
             erros_dem.append(f"Demanda mvd={r.get('mvd')}: {r.get('detalhe', mensagem)}")
-    resultado.update({'ok': len(lotes_gravados) + ok_dem, 'erro': erro_dem, 'erros': erros_dem})
-    return True, (lotes_gravados[0][1][0]['sequencia'] if lotes_gravados else None)
+    erro_conf = _confirmar_e_carimbar(con, [row for row, _resp in lotes_gravados], dem_ok)
+    if erro_conf:
+        resultado['erro'] = 1
+        resultado['erro_oracle'] = erro_conf
+        return False, None
+    apt_gravado = lotes_gravados[0][1][0]['sequencia'] if lotes_gravados else None
+    if apt_gravado and controle and controle.APT_IN_SEQUENCIA != apt_gravado:
+        controle.APT_IN_SEQUENCIA = apt_gravado
+        controle.save(update_fields=['APT_IN_SEQUENCIA'])
+    resultado.update({'ok': len(lotes_gravados) + ok_dem, 'erro': len(erros_dem), 'erros': erros_dem})
+    return True, apt_gravado
+
+
+def verificar_ctl_integrado(con, controle):
+    """Copia do NMV/MP. So leitura. Antes de efetivar: nada 'A' no app; todo 'I' esta no Oracle pela
+    chave exata; o Oracle nao tem item deste CTL cancelado/inexistente no app; um unico apontamento
+    ABERTO. Devolve (apt_in_sequencia aberto ou None, None) ou (None, mensagem).
+    AJUSTE 2026-10-20 (particularidade PRODUCAO): apontamento ja efetivado ('E') no Mega nao entra na
+    regra de "um apontamento so" -- o botao pode efetivar no meio do dia e o operador seguir
+    apontando no mesmo CTL (novo apontamento aberto no Mega); o fechamento efetiva o que estiver aberto."""
+    from apontamento.apontamento import itens_do_ctl_no_oracle, _apt_ch_status
+    ctl = controle.CTL_IN_CODIGO
+    lotes = list(Apt_ApontaOrdem.objects.filter(CTL_IN_CODIGO=ctl).values_list(
+        'FIL_IN_CODIGO', 'ORD_IN_CODIGO', 'APT_IN_SEQUENCIA', 'APT_CH_STATUS'))
+    dems = list(Apt_Pro_Demandas.objects.filter(CTL_IN_CODIGO=ctl).values_list(
+        'FIL_IN_CODIGO', 'ORD_IN_CODIGO', 'MOV_IN_SEQUENCIA', 'MOV_ST_STATUS'))
+    problemas = []
+    pend_l = sorted(s for _f, _o, s, st in lotes if st == 'A')
+    pend_d = sorted(s for _f, _o, s, st in dems if st == 'A')
+    if pend_l:
+        problemas.append(f'lote(s) pendente(s) no app (não gravado(s) no Mega): {pend_l}')
+    if pend_d:
+        problemas.append(f'demanda(s) pendente(s) no app (não gravada(s) no Mega): {pend_d}')
+    pares = {(int(f), int(o)) for f, o, _s, _st in lotes + dems}
+    if controle.FIL_IN_CODIGO and controle.ORD_IN_CODIGO:
+        pares.add((int(controle.FIL_IN_CODIGO), int(controle.ORD_IN_CODIGO)))
+    ora_l, ora_d = {}, {}
+    for fil, ord_ in pares:
+        itens = itens_do_ctl_no_oracle(con, fil, ord_, ctl)
+        ora_l.update(itens['lotes'])
+        ora_d.update(itens['demandas'])
+    i_l = {int(s) for _f, _o, s, st in lotes if st == 'I'}
+    i_d = {int(s) for _f, _o, s, st in dems if st == 'I'}
+    ativos_l = {int(s) for _f, _o, s, st in lotes if st != 'C'}
+    ativos_d = {int(s) for _f, _o, s, st in dems if st != 'C'}
+    if i_l - set(ora_l):
+        problemas.append(f'lote(s) integrado(s) no app sem registro no Mega: {sorted(i_l - set(ora_l))}')
+    if i_d - set(ora_d):
+        problemas.append(f'demanda(s) integrada(s) no app sem registro no Mega: {sorted(i_d - set(ora_d))}')
+    if set(ora_l) - ativos_l:
+        problemas.append(f'lote(s) no Mega cancelado(s) ou inexistente(s) no app: {sorted(set(ora_l) - ativos_l)}')
+    if set(ora_d) - ativos_d:
+        problemas.append(f'demanda(s) no Mega cancelada(s) ou inexistente(s) no app: '
+                         f'{sorted(set(ora_d) - ativos_d)}')
+    apts = sorted(set(ora_l.values()) | set(ora_d.values()))
+    with con.cursor() as cur:
+        abertos = [a for a in apts if _apt_ch_status(cur, a) == 'A']
+    if len(abertos) > 1:
+        problemas.append(f'itens do CTL em mais de um apontamento aberto no Mega: {abertos}')
+    if problemas:
+        return None, (f'Apontamento não efetivado: o CTL {ctl} não está totalmente integrado -- '
+                      + '; '.join(problemas) + '. Conferir antes de efetivar.')
+    return (abertos[0] if abertos else None), None
 
 
 def _efetivar(con, v_session, controle, ctl_in_codigo, apt_in_sequencia, data_apontamento, resultado):
-    """Item 3 do fluxo do MP: p_efetivaapontamento. AJUSTE 2026-10-20: separado (mesmo codigo)."""
-    from apontamento.apontamento import efetivar_apontamento_oracle, _apt_in_sequencia_do_ctl
-    if apt_in_sequencia is None:
-        with con.cursor() as cur:
-            apt_in_sequencia = _apt_in_sequencia_do_ctl(cur, ctl_in_codigo)
+    """Item 3 do fluxo do MP: p_efetivaapontamento no apontamento ABERTO do CTL (conferido antes por
+    verificar_ctl_integrado). Sem apontamento aberto: nada a efetivar."""
+    from apontamento.apontamento import efetivar_apontamento_oracle
     if apt_in_sequencia and controle:
         usuario_efetivou = v_session.get('usuario') or controle.CTL_ST_USUARIO
         msg_efetivar, efetivado = efetivar_apontamento_oracle(
@@ -163,13 +300,13 @@ def _efetivar(con, v_session, controle, ctl_in_codigo, apt_in_sequencia, data_ap
         resultado['efetivado_oracle'] = efetivado
         resultado['apt_in_sequencia'] = apt_in_sequencia
     else:
-        # nada apontado no Oracle para esse controle: nao ha' o que efetivar
+        # nada aberto no Oracle para esse controle (sem producao ou ja efetivado): nada a efetivar
         resultado['efetivado_oracle'] = True
 
 
 def _gravar_e_efetivar_controle(v_session, data_apontamento, resultado):
     """Itens 1, 2 e 3 do fluxo do MP (gravar tudo ou nada, marcar 'I', efetivar), sem o
-    encerramento do controle."""
+    encerramento do controle. AJUSTE 2026-10-20: conexao testada e CTL inteiro conferido."""
     ctl_in_codigo = v_session.get('ctl_in_codigo')
     if not ctl_in_codigo:
         resultado['erro_oracle'] = 'Controle (CTL_IN_CODIGO) não informado.'
@@ -177,17 +314,25 @@ def _gravar_e_efetivar_controle(v_session, data_apontamento, resultado):
 
     from apontamento.models import Apt_Controle
     controle = Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl_in_codigo).first()
+    if not controle:
+        resultado['erro_oracle'] = f'Controle {ctl_in_codigo} não encontrado no app.'
+        return resultado
 
     lotes, demandas = _pendentes(ctl_in_codigo)
-
-    from apontamento.apontamento import _abrir_conexao
-    with _abrir_conexao() as con:
-        apt_in_sequencia = None
+    con, erro = abrir_conexao_oracle_testada()
+    if erro:
+        resultado['erro_oracle'] = erro
+        return resultado
+    with con:
         if lotes or demandas:
-            gravou, apt_in_sequencia = _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado)
+            gravou, _apt = _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado)
             if not gravou:
                 return resultado
-        # Sempre tenta efetivar (cobre o retry depois de um efetivar que falhou)
+        # Sempre confere e tenta efetivar (cobre o retry depois de um efetivar que falhou)
+        apt_in_sequencia, erro_ctl = verificar_ctl_integrado(con, controle)
+        if erro_ctl:
+            resultado['erro_oracle'] = erro_ctl
+            return resultado
         _efetivar(con, v_session, controle, ctl_in_codigo, apt_in_sequencia, data_apontamento, resultado)
     return resultado
 
@@ -271,41 +416,59 @@ def _etapa_gravar(v_session, ctl_in_codigo, resultado):
     resultado['pendentes'] = len(lotes) + len(demandas)
     if not resultado['pendentes']:
         return
-    from apontamento.apontamento import _abrir_conexao
-    with _abrir_conexao() as con:
+    # AJUSTE 2026-10-20: conexao testada antes de gravar (protecoes do NMV)
+    con, erro = abrir_conexao_oracle_testada()
+    if erro:
+        resultado['erro_oracle'] = erro
+        return
+    with con:
         _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado)
 
 
 def _etapa_efetivar(v_session, ctl_in_codigo, data_apontamento, resultado):
-    """Atividade 1, etapa 2: confere (nada pendente + apontamento aberto no Mega) e efetiva."""
-    conferencia = conferir_controle(v_session)
-    if conferencia['erro']:
-        resultado['erro_oracle'] = conferencia['erro']
-        return
+    """Atividade 1, etapa 2: confere o CTL inteiro (app x Mega) e efetiva o apontamento aberto,
+    na mesma conexao testada."""
     from apontamento.models import Apt_Controle
-    from apontamento.apontamento import _abrir_conexao
     controle = Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl_in_codigo).first()
     if not controle:
         resultado['erro_oracle'] = 'Controle não encontrado no app.'
         return
-    with _abrir_conexao() as con:
-        _efetivar(con, v_session, controle, ctl_in_codigo, conferencia['apt_in_sequencia'],
-                  data_apontamento, resultado)
+    if any(_pendentes(ctl_in_codigo)):
+        resultado['erro_oracle'] = MSG_PENDENTE
+        return
+    con, erro = abrir_conexao_oracle_testada()
+    if erro:
+        resultado['erro_oracle'] = erro.replace('gravado', 'efetivado')
+        return
+    with con:
+        apt_in_sequencia, erro_ctl = verificar_ctl_integrado(con, controle)
+        if erro_ctl or not apt_in_sequencia:
+            resultado['erro_oracle'] = erro_ctl or MSG_NADA_ABERTO
+            return
+        _efetivar(con, v_session, controle, ctl_in_codigo, apt_in_sequencia, data_apontamento, resultado)
 
 
 def conferir_controle(v_session):
-    """Antes da tela da data (atividade 1, etapa 2): nada pendente no app e apontamento aberto no
-    Mega para o CTL. Devolve {'erro': texto ou None, 'apt_in_sequencia': ...}. So leitura."""
+    """Antes da tela da data (atividade 1, etapa 2): nada pendente no app, CTL inteiro conferido
+    (app x Mega, como o NMV) e apontamento aberto no Mega. Devolve {'erro': texto ou None,
+    'apt_in_sequencia': ...}. So leitura."""
     ctl_in_codigo = v_session.get('ctl_in_codigo')
     try:
         if not ctl_in_codigo:
             return {'erro': MSG_SEM_CONTROLE, 'apt_in_sequencia': None}
-        lotes, demandas = _pendentes(ctl_in_codigo)
-        if lotes or demandas:
+        if any(_pendentes(ctl_in_codigo)):
             return {'erro': MSG_PENDENTE, 'apt_in_sequencia': None}
-        from apontamento.apontamento import _abrir_conexao, _apt_in_sequencia_do_ctl
-        with _abrir_conexao() as con, con.cursor() as cur:
-            apt_in_sequencia = _apt_in_sequencia_do_ctl(cur, ctl_in_codigo)
+        from apontamento.models import Apt_Controle
+        controle = Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl_in_codigo).first()
+        if not controle:
+            return {'erro': 'Controle não encontrado no app.', 'apt_in_sequencia': None}
+        con, erro = abrir_conexao_oracle_testada()
+        if erro:
+            return {'erro': erro.replace('gravado', 'efetivado'), 'apt_in_sequencia': None}
+        with con:
+            apt_in_sequencia, erro_ctl = verificar_ctl_integrado(con, controle)
+        if erro_ctl:
+            return {'erro': erro_ctl, 'apt_in_sequencia': None}
         if not apt_in_sequencia:
             return {'erro': MSG_NADA_ABERTO, 'apt_in_sequencia': None}
         return {'erro': None, 'apt_in_sequencia': apt_in_sequencia}
