@@ -206,7 +206,7 @@ def _diferencas(nova, atual, colunas, colunas_json):
 
 
 def _decidir(nova, atuais, colunas, colunas_json, pk):
-    """O que fazer com UMA linha. atuais = linhas locais da mesma chave, em ordem de PK: a 1a
+    """O que fazer com UMA linha. atuais = linhas locais da mesma chave, na ordem da leitura: a 1a
     fica (comparada campo a campo), as demais sao duplicadas e saem."""
     if not atuais:
         return {'situacao': 'nova', 'campos': [], 'pk': None, 'extras': []}
@@ -222,9 +222,22 @@ def _agrupar(linhas, chave):
     return grupos
 
 
-def _decisoes_itens(ids):
-    locais = _agrupar(local.itens_locais(ids), lambda l: l['PRO_ST_ID'])
+def _chave_item(linha):
+    """PRO_ST_ID da linha local; vazio (item antigo) = montado com PRO_TAB/PAD/IN (AJUSTE 2026-10-20)."""
+    if (linha.get('PRO_ST_ID') or '').strip():
+        return linha['PRO_ST_ID']
+    return _monta_pro_st_id(linha.get('PRO_TAB_IN_CODIGO'), linha.get('PRO_PAD_IN_CODIGO'), linha.get('PRO_IN_CODIGO'))
+
+
+def _decisoes_itens(plano, ids):
+    pros = sorted({plano['itens'][i]['PRO_IN_CODIGO'] for i in ids})
+    locais = _agrupar(local.itens_locais(ids, pros), _chave_item)
     return {i: locais.get(i, []) for i in ids}
+
+
+def _ordem_local(o):
+    """Linhas locais da OP do plano (ORD_ST_ID ou, sem ID, org + seq + ordem)."""
+    return local.ordem_local(o['linha']['ORD_ST_ID'], o['org'], o['seq'], o['ord'])
 
 
 def _decisoes_caracteristicas(plano, ids):
@@ -266,12 +279,11 @@ def comparar(plano):
     duplicadas e caracteristicas/maquinas/operadores diferentes."""
     ordens = []
     for o in plano['ordens']:
-        d = _decidir(o['linha'], local.ordem_local(o['linha']['ORD_ST_ID']), local.COLUNAS_ORDEM,
-                     local.JSON_ORDEM, local.PK_ORDEM)
+        d = _decidir(o['linha'], _ordem_local(o), local.COLUNAS_ORDEM, local.JSON_ORDEM, local.PK_ORDEM)
         ordens.append({'ord': o['ord'], 'situacao': d['situacao'], 'campos': d['campos'],
                        'itens': len(o['itens']), 'duplicadas': len(d['extras']), 'erro': o['erro']})
     itens = {'novos': 0, 'iguais': 0, 'diferentes': [], 'duplicados': 0}
-    for pro_st_id, atuais in _decisoes_itens(list(plano['itens'])).items():
+    for pro_st_id, atuais in _decisoes_itens(plano, list(plano['itens'])).items():
         item = plano['itens'][pro_st_id]
         d = _decidir(item, atuais, local.COLUNAS_ITEM, local.JSON_ITEM, local.PK_ITEM)
         itens['duplicados'] += len(d['extras'])
@@ -306,7 +318,7 @@ def _aplicar(cur, tabela, colunas_insert, colunas_json, pk, linha, d):
 def gravar(plano):
     """Grava no SQLite, uma transacao por OP, so o que estiver diferente -- ordem, itens e
     caracteristicas: INSERT do novo, UPDATE so das colunas diferentes, linhas duplicadas apagadas
-    (fica a de menor PK). Maquinas: mesma regra, comparando so os campos do Mega.
+    (OP/item: fica a mais nova). Maquinas: mesma regra, comparando so os campos do Mega.
     Devolve (ops gravadas, erros)."""
     from django.db import connection, transaction
     gravadas, erros = 0, []
@@ -315,11 +327,10 @@ def gravar(plano):
             continue
         try:
             with transaction.atomic(), connection.cursor() as cur:
-                d = _decidir(o['linha'], local.ordem_local(o['linha']['ORD_ST_ID']), local.COLUNAS_ORDEM,
-                             local.JSON_ORDEM, local.PK_ORDEM)
+                d = _decidir(o['linha'], _ordem_local(o), local.COLUNAS_ORDEM, local.JSON_ORDEM, local.PK_ORDEM)
                 _aplicar(cur, 'apt_pro_ordens', local.COLUNAS_ORDEM, local.JSON_ORDEM, local.PK_ORDEM,
                          o['linha'], d)
-                for pro_st_id, atuais in _decisoes_itens(list(dict.fromkeys(o['itens']))).items():
+                for pro_st_id, atuais in _decisoes_itens(plano, list(dict.fromkeys(o['itens']))).items():
                     item = plano['itens'][pro_st_id]
                     _aplicar(cur, 'apt_itens_ordens', local.COLUNAS_ITEM, local.JSON_ITEM, local.PK_ITEM, item,
                              _decidir(item, atuais, local.COLUNAS_ITEM, local.JSON_ITEM, local.PK_ITEM))

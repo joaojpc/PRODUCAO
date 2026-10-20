@@ -8,7 +8,9 @@ diferentes, DELETE das linhas duplicadas). Quem chama: app/sincronizacao.py; ler
 referencia_padrao tambem sao usados pelos leitores (antigo e novo formato).
 Diferenca do NMV: aqui nao houve troca de PK (decisao do usuario) -- apt_pro_ordens e
 apt_itens_ordens seguem com PK TAB_IN_SEQUENCIA; a chave natural da comparacao e ORD_ST_ID /
-PRO_ST_ID e, havendo duplicadas, fica a de menor TAB_IN_SEQUENCIA.
+PRO_ST_ID e, havendo duplicadas, fica a MAIS NOVA (maior TAB_IN_SEQUENCIA, como a migracao 0044).
+AJUSTE 2026-10-20: linha antiga gravada SEM o ID entra pela chave da rotina antiga (OP: org + seq
++ ordem; item: produto) e e atualizada (recebe o ID) -- antes virava uma linha nova duplicada.
 """
 import json
 
@@ -90,7 +92,8 @@ def _valores(linha, colunas, colunas_json):
 
 # Gravar so o que estiver diferente (le, compara campo a campo e faz UPDATE so das colunas
 # diferentes), em vez de apagar e inserir. Nao pode haver linha duplicada: com mais de uma linha na
-# mesma chave, fica a de menor PK e as extras saem. PK local de cada tabela:
+# mesma chave, fica a 1a que a leitura devolve e as extras saem (OP/item: a mais nova; maquina e
+# operador: a de menor PK, como no NMV). PK local de cada tabela:
 PK_ORDEM, PK_ITEM, PK_CARACTERISTICA, PK_MAQUINA = ('TAB_IN_SEQUENCIA', 'TAB_IN_SEQUENCIA', 'CAR_ST_ID',
                                                     'MAQ_IN_SEQUENCIA')
 CHAVE_MAQUINA = ('CMAQ_ST_ID', 'CTR_ST_ID')
@@ -105,18 +108,27 @@ PK_OPERADOR = 'OPD_IN_CODIGO'
 
 
 # --------------------------------------------------------------------- leitura (comparar)
-def ordem_local(ord_st_id):
-    """Linhas da ordem pela chave ORD_ST_ID, em ordem de PK (a 1a fica; as demais sao duplicadas)."""
-    return _consultar('SELECT * FROM apt_pro_ordens WHERE ORD_ST_ID = %s ORDER BY TAB_IN_SEQUENCIA',
-                      [ord_st_id])
+def ordem_local(ord_st_id, org_in_codigo=None, ord_seq_in_codigo=None, ord_in_codigo=None):
+    """Linhas da ordem pela chave ORD_ST_ID, a mais nova primeiro (a 1a fica; as demais sao
+    duplicadas). AJUSTE 2026-10-20: linha antiga com ORD_ST_ID vazio entra pela chave da rotina
+    antiga (org + seq + ordem)."""
+    return _consultar("SELECT * FROM apt_pro_ordens WHERE ORD_ST_ID = %s "
+                      "OR ((ORD_ST_ID IS NULL OR TRIM(ORD_ST_ID) = '') AND ORG_IN_CODIGO = %s "
+                      "AND ORD_SEQ_IN_CODIGO = %s AND ORD_IN_CODIGO = %s) ORDER BY TAB_IN_SEQUENCIA DESC",
+                      [ord_st_id, org_in_codigo, ord_seq_in_codigo, ord_in_codigo])
 
 
-def itens_locais(pro_st_ids):
-    pro_st_ids = list(pro_st_ids)
+def itens_locais(pro_st_ids, pro_in_codigos=()):
+    """Itens pelo PRO_ST_ID, os mais novos primeiro. AJUSTE 2026-10-20: com pro_in_codigos, entram
+    tambem os itens antigos com PRO_ST_ID vazio desses produtos (quem chama agrupa pelo ID montado)."""
+    pro_st_ids, pro_in_codigos = list(pro_st_ids), list(pro_in_codigos)
     if not pro_st_ids:
         return []
-    return _consultar(f'SELECT * FROM apt_itens_ordens WHERE PRO_ST_ID IN ({_marcas(len(pro_st_ids))}) '
-                      f'ORDER BY TAB_IN_SEQUENCIA', pro_st_ids)
+    sql = f'SELECT * FROM apt_itens_ordens WHERE PRO_ST_ID IN ({_marcas(len(pro_st_ids))})'
+    if pro_in_codigos:
+        sql += (f" OR ((PRO_ST_ID IS NULL OR TRIM(PRO_ST_ID) = '') "
+                f"AND PRO_IN_CODIGO IN ({_marcas(len(pro_in_codigos))}))")
+    return _consultar(sql + ' ORDER BY TAB_IN_SEQUENCIA DESC', pro_st_ids + pro_in_codigos)
 
 
 def caracteristicas_locais(car_st_ids):

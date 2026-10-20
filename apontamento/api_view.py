@@ -68,7 +68,9 @@ def _referencia_padrao_itens(lista):
         sem_padrao = [i.get('pro_st_id') for i in lista
                       if isinstance(i, dict) and referencia_padrao(i.get('mvs_st_referencia')) == 'Indefinido'
                       and i.get('pro_st_id')]
-        do_item = {l['PRO_ST_ID']: referencia_padrao(l.get('MVS_ST_REFERENCIA')) for l in itens_locais(sem_padrao)}
+        do_item = {}
+        for l in itens_locais(sem_padrao):  # mais novo primeiro: ele prevalece
+            do_item.setdefault(l['PRO_ST_ID'], referencia_padrao(l.get('MVS_ST_REFERENCIA')))
         for item in lista:
             if isinstance(item, dict):
                 ref = referencia_padrao(item.get('mvs_st_referencia'))

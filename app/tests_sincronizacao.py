@@ -317,8 +317,9 @@ class CompararGravarTests(_ComOracle):
         o = apt_pro_ordens.objects.get()
         self.assertEqual((o.pk, float(o.ORD_RE_QTDE_ORDEM)), (pk, 30.779))
 
-    def test_duplicadas_saem_fica_a_menor_sequencia(self):
-        # sem troca de PK (decisao do usuario): chave ORD_ST_ID/PRO_ST_ID, fica a menor TAB_IN_SEQUENCIA
+    def test_duplicadas_saem_fica_a_mais_nova(self):
+        # sem troca de PK (decisao do usuario): chave ORD_ST_ID/PRO_ST_ID; AJUSTE 2026-10-20: fica a
+        # mais nova (maior TAB_IN_SEQUENCIA), como a migracao 0044
         self._ligar()
         plano = self._plano()
         with connection.cursor() as cur:
@@ -326,13 +327,31 @@ class CompararGravarTests(_ComOracle):
                 local.inserir(cur, 'apt_pro_ordens', local.COLUNAS_ORDEM, local.JSON_ORDEM, plano['ordens'][0]['linha'])
                 local.inserir(cur, 'apt_itens_ordens', local.COLUNAS_ITEM, local.JSON_ITEM,
                               plano['itens']['1000010002273'])
-        menor_ordem = apt_pro_ordens.objects.order_by('pk').first().pk
-        menor_item = apt_itens_ordens.objects.order_by('pk').first().pk
+        maior_ordem = apt_pro_ordens.objects.order_by('-pk').first().pk
+        maior_item = apt_itens_ordens.objects.order_by('-pk').first().pk
         comp = sync.comparar(plano)
         self.assertEqual((comp['ordens'][0]['duplicadas'], comp['itens']['duplicados']), (1, 1))
         sync.gravar(plano)
-        self.assertEqual(list(apt_pro_ordens.objects.values_list('pk', flat=True)), [menor_ordem])
-        self.assertEqual(list(apt_itens_ordens.objects.values_list('pk', flat=True)), [menor_item])
+        self.assertEqual(list(apt_pro_ordens.objects.values_list('pk', flat=True)), [maior_ordem])
+        self.assertEqual(list(apt_itens_ordens.objects.values_list('pk', flat=True)), [maior_item])
+
+    def test_linha_antiga_sem_id_e_atualizada_nao_duplica(self):
+        # AJUSTE 2026-10-20: OP/item gravados sem ORD_ST_ID/PRO_ST_ID entram pela chave da rotina antiga
+        self._ligar()
+        plano = self._plano()
+        with connection.cursor() as cur:
+            local.inserir(cur, 'apt_pro_ordens', local.COLUNAS_ORDEM, local.JSON_ORDEM,
+                          dict(plano['ordens'][0]['linha'], ORD_ST_ID=None, ORD_RE_QTDE_ORDEM=1))
+            local.inserir(cur, 'apt_itens_ordens', local.COLUNAS_ITEM, local.JSON_ITEM,
+                          dict(plano['itens']['1000010002273'], PRO_ST_ID=''))
+        pk_ordem, pk_item = apt_pro_ordens.objects.get().pk, apt_itens_ordens.objects.get().pk
+        comp = sync.comparar(plano)
+        self.assertEqual(comp['ordens'][0]['situacao'], 'diferente')
+        self.assertEqual(comp['itens']['diferentes'][0]['campos'], ['PRO_ST_ID'])
+        sync.gravar(plano)
+        o, i = apt_pro_ordens.objects.get(), apt_itens_ordens.objects.get()  # get: uma linha so
+        self.assertEqual((o.pk, o.ORD_ST_ID, float(o.ORD_RE_QTDE_ORDEM)), (pk_ordem, ORD_ST_ID, 10.0))
+        self.assertEqual((i.pk, i.PRO_ST_ID), (pk_item, '1000010002273'))
 
     def test_caracteristica_diferente_atualizada(self):
         m = self._ligar()
