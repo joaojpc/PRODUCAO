@@ -1,15 +1,39 @@
 {% extends 'apontamento/base_bs5.html' %}
 {# AJUSTE 2026-10-06: fechamento diário de OP - copiado do MP (oee/fechar_op.html), sem pendente, em Bootstrap 5 (base_bs5.html) #}
+{# AJUSTE 2026-10-20: abas como o Apontar Múltiplo do NMV (Fechamento | Acumulado da OP); data só a do controle; #}
+{# um fechamento por OP/dia (controles do mesmo dia são somados); confirmação da data antes de registrar - JPC - João Castro #}
+{% load l10n %}
 {% block title %}Fechamento Diário de OP{% endblock %}
 {% block content %}
+<style>
+    /* abas tipo TabSheet do Delphi -- painel com borda emendado na aba ativa (igual ao NMV) */
+    .tab-content.painel-abas { border: 1px solid var(--bs-border-color); border-top: 0; padding: 20px; background: #fff; }
+    .nav-tabs .nav-link { font-weight: 600; }
+</style>
 <div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-producao">
-                <h4 class="mb-0">Fechamento OP {{ ordem }}</h4>
-            </div>
-            <div class="card-body">
-                <form method="post" id="formFechamento" action="{% url 'fechar_op_diario' %}">
+    <div class="col-lg-10">
+        <h4 class="mb-3">Fechamento OP {{ ordem }}</h4>
+
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-fechamento" data-bs-toggle="tab" data-bs-target="#aba-fechamento"
+                        type="button" role="tab" aria-controls="aba-fechamento" aria-selected="true">Fechamento</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-acumulado" data-bs-toggle="tab" data-bs-target="#aba-acumulado"
+                        type="button" role="tab" aria-controls="aba-acumulado" aria-selected="false">Acumulado da OP</button>
+            </li>
+        </ul>
+        <div class="tab-content painel-abas">
+        <div class="tab-pane fade show active" id="aba-fechamento" role="tabpanel" aria-labelledby="tab-fechamento">
+                {% if fechamento_no_dia %}
+                <div class="alert alert-warning py-2">
+                    A OP {{ ordem }} já tem fechamento em {{ data_apontamento|date:'d/m/Y' }} &mdash; este controle será
+                    <strong>somado ao fechamento do dia</strong>.
+                </div>
+                {% endif %}
+                <form method="post" id="formFechamento" action="{% url 'fechar_op_diario' %}"
+                      data-soma-ao-dia="{% if fechamento_no_dia %}1{% else %}0{% endif %}">
                     {% csrf_token %}
                     <input type="hidden" name="ORD_IN_CODIGO" value="{{ ordem }}">
 
@@ -18,8 +42,8 @@
                         <input type="date" class="form-control" name="FEC_DT_DATA" id="id_FEC_DT_DATA"
                                value="{{ data_apontamento|date:'Y-m-d' }}"
                                min="{{ data_apontamento_min|date:'Y-m-d' }}"
-                               max="{{ data_apontamento_max|date:'Y-m-d' }}" required>
-                        <div class="form-text">Só é permitido manter a data atual ou voltar para o último dia útil.</div>
+                               max="{{ data_apontamento_max|date:'Y-m-d' }}" readonly required>
+                        <div class="form-text">Data do controle: o fechamento é sempre do dia em que o apontamento começou (mesmo encerrado no próximo dia útil).</div>
                     </div>
 
                     <div class="row g-3 mb-3">
@@ -61,7 +85,65 @@
                         </button>
                     </div>
                 </form>
+        </div>{# fim aba-fechamento #}
+
+        <div class="tab-pane fade" id="aba-acumulado" role="tabpanel" aria-labelledby="tab-acumulado">
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped align-middle mb-0" id="tabela_acumulado">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Data</th>
+                            <th>Início</th>
+                            <th>Fim</th>
+                            <th class="text-end">Tempo líquido</th>
+                            <th>Usuário(s)</th>
+                            <th class="text-end">Produção</th>
+                            <th class="text-end">Demandas</th>
+                            <th class="text-end">Rendimento</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in acumulado.dias %}
+                        <tr>
+                            <td>{{ d.data|date:'d/m/Y' }}{% if d.controles > 1 %} <span class="badge bg-secondary">{{ d.controles }} controles</span>{% endif %}</td>
+                            <td>{{ d.hr_inicio|default:'-' }}</td>
+                            <td>{{ d.hr_fim|default:'-' }}</td>
+                            <td class="text-end">{{ d.tempo_txt }}</td>
+                            <td>{{ d.usuarios|join:', '|default:'-' }}</td>
+                            <td class="text-end">{{ d.produzida|floatformat:3|unlocalize }}</td>
+                            <td class="text-end">{{ d.demandas|floatformat:3|unlocalize }}</td>
+                            <td class="text-end">{% if d.rendimento is not None %}{{ d.rendimento|floatformat:2|unlocalize }}%{% else %}-{% endif %}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="8" class="text-center text-secondary">Nenhum fechamento anterior desta OP.</td></tr>
+                        {% endfor %}
+                        {% if acumulado %}
+                        <tr class="table-warning">
+                            <td>Este fechamento &mdash; {{ acumulado.atual.data|date:'d/m/Y' }}{% if acumulado.atual.soma_ao_dia %} <span class="badge bg-warning text-dark">soma ao dia</span>{% endif %}</td>
+                            <td colspan="4"></td>
+                            <td class="text-end">{{ acumulado.atual.produzida|floatformat:3|unlocalize }}</td>
+                            <td class="text-end">{{ acumulado.atual.demandas|floatformat:3|unlocalize }}</td>
+                            <td class="text-end">{% if acumulado.atual.rendimento is not None %}{{ acumulado.atual.rendimento|floatformat:2|unlocalize }}%{% else %}-{% endif %}</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                    {% if acumulado %}
+                    <tfoot>
+                        <tr class="table-dark fw-bold">
+                            <td>Total geral ({{ acumulado.total.dias }} dia(s))</td>
+                            <td colspan="2"></td>
+                            <td class="text-end">{{ acumulado.total.tempo_txt }}</td>
+                            <td></td>
+                            <td class="text-end">{{ acumulado.total.produzida|floatformat:3|unlocalize }}</td>
+                            <td class="text-end">{{ acumulado.total.demandas|floatformat:3|unlocalize }}</td>
+                            <td class="text-end">{% if acumulado.total.rendimento is not None %}{{ acumulado.total.rendimento|floatformat:2|unlocalize }}%{% else %}-{% endif %}</td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
             </div>
+            <div class="form-text mt-2">Rendimento = Produção ÷ Demandas × 100. Um fechamento por OP/dia: controles do mesmo dia aparecem somados.</div>
+        </div>{# fim aba-acumulado #}
         </div>
     </div>
 </div>

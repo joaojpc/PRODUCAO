@@ -70,6 +70,19 @@ if (form) {
             e.preventDefault();
             return;
         }
+        // AJUSTE 2026-10-20: decisao do usuario -- o operador sempre confirma a data do apontamento
+        // (o fechamento pode ser feito no proximo dia util, mas e sempre do dia do controle)
+        var data = (document.getElementById('id_FEC_DT_DATA').value || '').split('-');
+        var dataBr = data.length === 3 ? data[2] + '/' + data[1] + '/' + data[0] : '';
+        var texto = 'Confirmar o fechamento do apontamento de ' + dataBr + ', das ' + hrInicio + ' às ' + hrFim + '?';
+        if (form.getAttribute('data-soma-ao-dia') === '1') {
+            texto += '\n\nA OP já tem fechamento neste dia: este controle será somado ao fechamento do dia.';
+        }
+        texto += '\n\nO apontamento será gravado e efetivado no Mega.';
+        if (!confirm(texto)) {
+            e.preventDefault();
+            return;
+        }
         if (btn) { btn.disabled = true; btn.innerHTML = 'Registrando...'; }
     });
 }

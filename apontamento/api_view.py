@@ -1699,7 +1699,54 @@ class Fechamento:
     @staticmethod
     def datas_permitidas(data_controle):
         # Regra: data do controle, último dia útil anterior a ela ou hoje
-        return {d for d in (data_controle, dia_util_anterior(data_controle), timezone.localdate()) if d}
+        # AJUSTE 2026-10-20 (JPC): decisao do usuario -- so a data do controle. O apontamento abre de
+        # manha e fecha no fim do dia ou no proximo dia util, mas o fechamento e sempre do dia do CTL.
+        return {data_controle} if data_controle else set()
+
+    @staticmethod
+    def _rendimento(produzida, demandas):
+        """AJUSTE 2026-10-20: rendimento = producao / demanda x 100 (None sem demanda)."""
+        produzida, demandas = float(produzida or 0), float(demandas or 0)
+        return round(produzida / demandas * 100, 2) if demandas else None
+
+    @classmethod
+    def acumulado_op(cls, fechamentos, data_atual, produzida_atual, demandas_atual):
+        """AJUSTE 2026-10-20 (JPC): guia Acumulado da OP. Um fechamento por OP/dia -- os CTLs do
+        mesmo dia sao somados (producao, demandas, tempo liquido; do 1o inicio ao ultimo fim).
+        Devolve {'dias': [...], 'atual': {...}, 'total': {...}} -- 'atual' e o fechamento em
+        andamento (soma_ao_dia = ja existe fechamento da OP nessa data); 'total' = dias + atual."""
+        dias = {}
+        for f in fechamentos:
+            data = f['FEC_DT_APONTAMENTO']
+            data = data if isinstance(data, date) else datetime.strptime(str(data)[:10], '%Y-%m-%d').date()
+            d = dias.setdefault(data, {'data': data, 'hr_inicio': None, 'hr_fim': None, 'tempo_liquido': 0,
+                                       'produzida': 0.0, 'demandas': 0.0, 'usuarios': [], 'controles': 0})
+            ini, fim = str(f['FEC_HR_INICIO'] or '')[:5], str(f['FEC_HR_FIM'] or '')[:5]
+            if ini and (not d['hr_inicio'] or ini < d['hr_inicio']):
+                d['hr_inicio'] = ini
+            if fim and (not d['hr_fim'] or fim > d['hr_fim']):
+                d['hr_fim'] = fim
+            d['tempo_liquido'] += int(f['FEC_IN_TEMPO_LIQUIDO'] or 0)
+            d['produzida'] += float(f['FEC_RE_QTD_PRODUZIDA'] or 0)
+            d['demandas'] += float(f['FEC_RE_QTD_DEMANDAS'] or 0)
+            usuario = f.get('FEC_USU_INCLUSAO') or f.get('CTL_ST_USUARIO')
+            if usuario and usuario not in d['usuarios']:
+                d['usuarios'].append(usuario)
+            d['controles'] += 1
+        def hhmm(minutos):
+            return f'{int(minutos) // 60}h {int(minutos) % 60:02d}m'
+        lista = [dict(d, rendimento=cls._rendimento(d['produzida'], d['demandas']), tempo_txt=hhmm(d['tempo_liquido']))
+                 for _k, d in sorted(dias.items())]
+        atual = {'data': data_atual, 'produzida': float(produzida_atual or 0), 'demandas': float(demandas_atual or 0),
+                 'soma_ao_dia': data_atual in dias}
+        atual['rendimento'] = cls._rendimento(atual['produzida'], atual['demandas'])
+        total = {'produzida': sum(d['produzida'] for d in lista) + atual['produzida'],
+                 'demandas': sum(d['demandas'] for d in lista) + atual['demandas'],
+                 'tempo_liquido': sum(d['tempo_liquido'] for d in lista),
+                 'dias': len(set(dias) | {data_atual})}
+        total['rendimento'] = cls._rendimento(total['produzida'], total['demandas'])
+        total['tempo_txt'] = hhmm(total['tempo_liquido'])
+        return {'dias': lista, 'atual': atual, 'total': total}
 
     def api_buscar_dados_op(self, params):
         ordem = params.get('ord_in_codigo')
@@ -1724,8 +1771,15 @@ class Fechamento:
         data_controle = dt_login.date()
         datas = self.datas_permitidas(data_controle)
 
-        resumo_dia = self.db.get_totais_dia({'filial': filial, 'ordem': ordem, 'data_apontamento': data_controle})
+        # AJUSTE 2026-10-20: totais do CTL (tudo que foi apontado nele), nao do dia -- o CTL pode ser
+        # fechado no proximo dia util; antes: get_totais_dia (OP + data)
+        resumo_dia = self.db.get_totais_ctl(controle_data.get('CTL_IN_CODIGO'))
+        acumulado = self.acumulado_op(
+            self.db.fechamentos_da_op(filial, ordem, exceto_ctl=controle_data.get('CTL_IN_CODIGO')),
+            data_controle, resumo_dia.get('produzida', 0), resumo_dia.get('demandas', 0))
         response.update({
+            'acumulado': acumulado,
+            'fechamento_no_dia': acumulado['atual']['soma_ao_dia'],
             'hr_inicio': hr_inicio,
             'data_apontamento': data_controle,
             'data_apontamento_min': min(datas),

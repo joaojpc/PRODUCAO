@@ -1407,7 +1407,8 @@ def fechar_op_diario(request):
         })
         if response.get('success'):
             messages.success(request, response.get('msg', 'Fechamento registrado com sucesso'))
-            return redirect('menu')
+            # AJUSTE 2026-10-20: igual ao NMV/MP -- pergunta se inicia um novo apontamento
+            return redirect('confirmar_novo_apontamento')
         messages.error(request, f"Erro: {response.get('error')}")
 
     context = {
@@ -1419,8 +1420,43 @@ def fechar_op_diario(request):
         'data_apontamento_min': dados_api.get('data_apontamento_min'),
         'data_apontamento_max': dados_api.get('data_apontamento_max'),
         'usuario': operador,
+        # AJUSTE 2026-10-20: guia Acumulado da OP e aviso de fechamento ja existente no dia (soma)
+        'acumulado': dados_api.get('acumulado'),
+        'fechamento_no_dia': dados_api.get('fechamento_no_dia'),
     }
     return render(request, 'apontamento/fechar_op.html', context)
+
+
+@operador_required
+def confirmar_novo_apontamento(request):
+    """AJUSTE 2026-10-20 (JPC): igual ao NMV/MP -- depois do fechamento diario pergunta se inicia um
+    novo apontamento para a MESMA ordem/operador da sessao, sem novo login (data e hora atuais).
+    "Sim" = mesma rotina do login (Login_inicial_sqlite.conectar_sqlite); "Nao" ou falha = encerra a
+    sessao e volta para o login."""
+    v_session = carrega_sessao(request)
+    if not v_session.get('ordem'):
+        return redirect('demos_sessions')
+    if request.method == 'POST':
+        if request.POST.get('criar') == 'sim':
+            iniciar = Login_inicial_sqlite(v_session.get('ordem'), v_session.get('usuario'),
+                                           v_session.get('cliente') or get_client_ip(request))
+            try:
+                cr_ini = json.loads(iniciar.conectar_sqlite())
+            except Exception:
+                import traceback
+                print('ERRO NOVO APONTAMENTO:', traceback.format_exc())
+                cr_ini = []
+            for rs_ini in cr_ini:
+                if rs_ini.get('logado') and rs_ini.get('ctl_in_codigo'):
+                    request.session['ctl_in_codigo'] = rs_ini['ctl_in_codigo']
+                    request.session['pro_st_descricao'] = rs_ini.get('pro_st_descricao')
+                    messages.success(request, 'Novo apontamento iniciado.')
+                    return redirect('menu')
+            messages.error(request, 'Não foi possível iniciar um novo apontamento. Faça login novamente.')
+        request.session.flush()
+        return redirect('demos_sessions')
+    return render(request, 'apontamento/confirma_novo_apontamento.html',
+                  {'ordem': v_session.get('ord_in_codigo') or v_session.get('ordem'), 'hoje': timezone.localdate()})
 
 #Imprimir arquivo;
 '''f = open("validar.txt", "a")

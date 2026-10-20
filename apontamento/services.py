@@ -144,6 +144,31 @@ class controle_db:
             ctl_in_codigo,
         ])
 
+    def get_totais_ctl(self, ctl_in_codigo):
+        """AJUSTE 2026-10-20 (JPC): particularidade PRODUCAO -- o apontamento abre de manha e fecha no
+        fim do dia ou no proximo dia util; tudo que foi apontado no CTL entra no fechamento dele
+        (controlado pelo CTL, nao pela data). Mesmos filtros do get_totais_dia: lote 'A'/'I' e
+        demanda nao cancelada."""
+        produzida = self._fetch_val(
+            "SELECT COALESCE(SUM(ORL_RE_QTDLOTE), 0) FROM Apt_ApontaOrdem "
+            "WHERE CTL_IN_CODIGO = %s AND APT_CH_STATUS IN ('A', 'I')", [ctl_in_codigo])
+        demandas = self._fetch_val(
+            "SELECT COALESCE(SUM(PRO_RE_QTDLOTE), 0) FROM Apt_Pro_Demandas "
+            "WHERE CTL_IN_CODIGO = %s AND MOV_ST_STATUS <> 'C'", [ctl_in_codigo])
+        return {'produzida': produzida or 0, 'demandas': demandas or 0}
+
+    def fechamentos_da_op(self, fil_in_codigo, ord_in_codigo, exceto_ctl=None):
+        """AJUSTE 2026-10-20 (JPC): fechamentos ja registrados da OP/filial (um CTL por linha), para a
+        guia Acumulado da OP. Quem chama soma por dia (um fechamento por OP/dia)."""
+        return self._fetch_all(
+            """SELECT CTL_IN_CODIGO, CTL_ST_USUARIO, FEC_USU_INCLUSAO, FEC_DT_APONTAMENTO, FEC_HR_INICIO,
+                      FEC_HR_FIM, FEC_IN_TEMPO_LIQUIDO, FEC_RE_QTD_PRODUZIDA, FEC_RE_QTD_DEMANDAS
+                 FROM Apt_Controle
+                WHERE FIL_IN_CODIGO = %s AND ORD_IN_CODIGO = %s AND FEC_DT_APONTAMENTO IS NOT NULL
+                  AND CTL_IN_CODIGO <> %s
+                ORDER BY FEC_DT_APONTAMENTO, CTL_IN_CODIGO""",
+            [fil_in_codigo, ord_in_codigo, exceto_ctl or -1])
+
     def alinhar_demandas_do_controle(self, ctl_in_codigo, data_para):
         """Demandas do controle passam a ter a data do fechamento. Retorna linhas alteradas."""
         return self._exec(
