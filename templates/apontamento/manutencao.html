@@ -3,6 +3,9 @@
     <h3>Manutenção de integração de dados</h3>
     <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="?action=get_ordens">Baixar Ordens</a>
 <button type="button" class="btn btn-light" disabled></button>
+    {# AJUSTE 2026-10-20: rotina nova de sincronizacao (copiada do NMV) #}
+    <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url 'sincronizar_ordens_nova' %}">Sincronizar Ordens (nova)</a>
+<button type="button" class="btn btn-light" disabled></button>
     <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url "menu" %}?action=encerrar_get">Encerrar</a>
 <button type="button" class="btn btn-light" disabled></button>
     <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="?action=integrarProducao">Integrar</a>

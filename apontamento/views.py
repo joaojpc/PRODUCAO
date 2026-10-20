@@ -763,7 +763,20 @@ def manutencao(request):
         return render(request, tmpl)
     else:
         return redirect('demos_sessions')
-    
+
+def sincronizarOrdensNova(request):
+    """AJUSTE 2026-10-20: botao "Sincronizar Ordens (nova)" (Manutencao) -- chama a rotina nova
+    app/sincronizacao.py (copiada do NMV) com os mesmos parametros do "Baixar Ordens" (OP da
+    sessao). Grava so o que estiver diferente (SYNC_ORDENS_GRAVA). O "Baixar Ordens" segue igual."""
+    from app import sincronizacao
+    if 'ord_in_codigo' not in request.session:
+        return redirect('demos_sessions')
+    fil_in = request.session['fil_in_codigo']
+    ord_in = request.session['ord_in_codigo']
+    resumo = sincronizacao.sincronizar_ordens(sincronizacao.org_da_filial(fil_in), fil_in, ord_in, 'N')
+    return render(request, 'apontamento/sincronizar_ordens.html',
+                  {'resumo': resumo, 'ord_in_codigo': ord_in, 'fil_in_codigo': fil_in})
+
 def grafico(request):
     template = "apontamento/highcharts/charts.html"
     return render(request, template)

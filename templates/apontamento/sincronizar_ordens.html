@@ -1,0 +1,74 @@
+{% extends 'apontamento/base_bs5.html' %}
+{# AJUSTE 2026-10-20: resultado da sincronizacao nova de ordens (copiada do NMV), tela nova em BS5 - JPC - João Castro #}
+{% block title %}Sincronizar Ordens{% endblock %}
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header bg-producao">
+        Sincronizar Ordens (nova) &mdash; OP {{ ord_in_codigo }} / filial {{ fil_in_codigo }}
+    </div>
+    <div class="card-body">
+        {% if resumo.erro_conexao %}
+        <div class="alert alert-danger">{{ resumo.erro_conexao }}</div>
+        {% elif resumo.gravado %}
+        <div class="alert alert-success">Gravado no app: {{ resumo.ops_gravadas }} OP(s).</div>
+        {% else %}
+        <div class="alert alert-info">Modo comparação: nada foi gravado. O "Baixar Ordens" continua sendo a rotina em uso.</div>
+        {% endif %}
+
+        {% if resumo.operadores_gravados %}
+        <div class="alert alert-success">Operadores gravados no app: {{ resumo.operadores_gravados }}.</div>
+        {% endif %}
+
+        <table class="table table-sm table-bordered align-middle w-auto">
+            <tbody>
+                <tr><th class="table-light">Tempo</th><td>{{ resumo.tempo_ms }} ms</td></tr>
+                <tr><th class="table-light">Itens iguais</th><td>{{ resumo.itens.iguais|default:0 }}</td></tr>
+                <tr><th class="table-light">Itens novos</th><td>{{ resumo.itens.novos|default:0 }}</td></tr>
+                <tr><th class="table-light">Itens diferentes</th><td>{{ resumo.itens.diferentes|length }}</td></tr>
+                <tr><th class="table-light">Características novas</th><td>{{ resumo.caracteristicas_novas }}</td></tr>
+                <tr><th class="table-light">Características diferentes</th><td>{{ resumo.caracteristicas_diferentes|default:0 }}</td></tr>
+                <tr><th class="table-light">Máquinas novas</th><td>{{ resumo.maquinas_novas }}</td></tr>
+                <tr><th class="table-light">Operadores novos</th><td>{{ resumo.operadores_novos|default:0 }}</td></tr>
+                <tr><th class="table-light">Operadores com nome diferente</th><td>{{ resumo.operadores_diferentes|default:0 }}</td></tr>
+            </tbody>
+        </table>
+
+        <h6 class="mt-3">Ordens</h6>
+        {% if resumo.ordens %}
+        <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle w-auto">
+            <thead class="table-light"><tr><th>OP</th><th>Situação</th><th>Campos diferentes</th><th>Itens</th><th>Duplicadas</th></tr></thead>
+            <tbody>
+            {% for o in resumo.ordens %}
+                <tr><td>{{ o.ord }}</td><td>{{ o.situacao }}</td><td>{{ o.campos|join:", "|default:"-" }}</td><td>{{ o.itens }}</td><td>{{ o.duplicadas|default:0 }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p class="text-secondary">Nenhuma ordem encontrada no Mega para esta OP.</p>
+        {% endif %}
+
+        {% if resumo.itens.diferentes %}
+        <h6 class="mt-3">Itens diferentes</h6>
+        <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle w-auto">
+            <thead class="table-light"><tr><th>Item</th><th>PRO_ST_ID</th><th>Campos</th></tr></thead>
+            <tbody>
+            {% for i in resumo.itens.diferentes %}
+                <tr><td>{{ i.pro_in_codigo }}</td><td>{{ i.pro_st_id }}</td><td>{{ i.campos|join:", " }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% endif %}
+
+        {% if resumo.erros %}
+        <h6 class="mt-3 text-danger">Erros</h6>
+        <ul>{% for e in resumo.erros %}<li>{{ e }}</li>{% endfor %}</ul>
+        {% endif %}
+
+        <a href="{% url 'manutencao' %}" class="btn btn-producao">Voltar</a>
+    </div>
+</div>
+{% endblock %}
