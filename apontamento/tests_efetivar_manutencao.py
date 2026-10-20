@@ -188,6 +188,59 @@ class ProtecoesTests(_ComOracle):
         self.assertEqual((r['erro_oracle'], r['apt_in_sequencia']), (None, 7002))
 
 
+class CronDiretoTests(_ComOracle):
+    """AJUSTE 2026-10-20: api_producao (cron) grava direto nas tabelas -- atividade 3, sem efetivar."""
+
+    def setUp(self):
+        super().setUp()
+        import sys
+        sys.modules.setdefault('fcntl', MagicMock())  # api_producao importa fcntl (so existe no Linux)
+        import api_producao
+        self.api = api_producao
+        Apt_Controle.objects.filter(CTL_IN_CODIGO=CTL).update(CTL_ST_STATUS='A', ORD_ST_EXTENSO='0030000900010')
+        sit = patch.object(api_producao.integrador, 'situacao_ordem', return_value='AB')
+        self.situacao = sit.start()
+        self.addCleanup(sit.stop)
+
+    def _rodar(self):
+        self.api.integrador([2, 3, None, None]).integraOrdensDireto()
+
+    def test_grava_pendentes_sem_efetivar(self):
+        _lote()
+        _demanda()
+        self._rodar()
+        self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'I')
+        self.assertEqual(Apt_Pro_Demandas.objects.get().MOV_ST_STATUS, 'I')
+        self.assertEqual(self.mocks['lote'].call_args[0][0]['plf_in_sqoperacao'], 10)  # do ORD_ST_EXTENSO
+        self.mocks['efetivar'].assert_not_called()
+        self.assertEqual(Apt_Controle.objects.get().CTL_ST_STATUS, 'A')  # nao encerra o CTL
+
+    def test_sem_pendente_nao_abre_oracle(self):
+        _lote(status='I')
+        self._rodar()
+        self.mocks['abrir'].assert_not_called()
+
+    def test_lock_fica_para_o_proximo_ciclo(self):
+        _lote()
+        self.mocks['lote'].side_effect = Exception('DPY-4024: call timeout')
+        self._rodar()
+        self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'A')
+
+    def test_ordem_encerrada_no_mega_encerra_o_controle(self):
+        _lote()
+        self.situacao.return_value = 'EN'
+        with patch.object(self.api.requests, 'put') as put:
+            self._rodar()
+        self.assertEqual(put.call_args.kwargs['params'], {'ctl_in_codigo': CTL, 'status': 'E'})
+        self.mocks['lote'].assert_not_called()
+
+    def test_controle_fechado_nao_entra(self):
+        _lote()
+        Apt_Controle.objects.update(CTL_ST_STATUS='F')
+        self._rodar()
+        self.mocks['abrir'].assert_not_called()
+
+
 class AtividadesTests(_ComOracle):
     """AJUSTE 2026-10-20: rotina unica efetivar_apontamento, cada forma de efetivar e uma atividade."""
 

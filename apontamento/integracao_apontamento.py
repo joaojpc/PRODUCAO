@@ -11,7 +11,8 @@ Usado SO pelo fechamento diario; integrarProducao, Encerrar e cron nao mudam.
 AJUSTE 2026-10-20: rotina UNICA efetivar_apontamento(v_session, atividade, etapa, data) --
 decisao do usuario: cada forma de efetivar e uma ATIVIDADE numerada (tabela ATIVIDADES abaixo):
   1 = efetivar apontamento em duas etapas (botao da Manutencao): etapa 1 grava, etapa 2 efetiva;
-  2 = efetivar apontamento em etapa unica (Fechamento diario): grava e efetiva com a data da tela.
+  2 = efetivar apontamento em etapa unica (Fechamento diario): grava e efetiva com a data da tela;
+  3 = integrar apontamento pelo cron (api_producao): grava os pendentes, sem efetivar.
 Mesmas pecas por dentro (_gravar_pendentes, _efetivar); nova forma = nova atividade. Convive com
 o cron: lote/demanda ja gravados pela procedure sao reconhecidos (f_valida_*) e so marcados 'I'.
 """
@@ -342,9 +343,12 @@ def _gravar_e_efetivar_controle(v_session, data_apontamento, resultado):
 # cada forma de efetivar e uma ATIVIDADE numerada. Nova forma = nova linha em ATIVIDADES.
 ATIVIDADE_DUAS_ETAPAS = 1
 ATIVIDADE_ETAPA_UNICA = 2
+ATIVIDADE_CRON = 3  # AJUSTE 2026-10-20: integracao pelo cron (api_producao), como o NMV/MP
 
 # Chaves por atividade (liga/desliga por commit + deploy)
 BOTAO_EFETIVAR_TODAS_OPS = True  # atividade 1: botao da manutencao liberado para todas as OPs
+# atividade 3: cron grava direto nas tabelas do Oracle (False = api_producao volta para as procedures)
+CRON_GRAVA_ORACLE_DIRETO = True
 
 ATIVIDADES = {
     ATIVIDADE_DUAS_ETAPAS: {
@@ -358,6 +362,11 @@ ATIVIDADES = {
         # etapa unica: grava os pendentes e efetiva na mesma chamada, com a data da tela do fechamento
         # (FEC_DT_DATA + hora fim). Quem fecha o controle e o Fechamento, so se tudo deu certo.
         'etapas': (1,), 'chave': 'FECHAMENTO_GRAVA_ORACLE'},
+    ATIVIDADE_CRON: {
+        'nome': 'Integrar apontamento pelo cron', 'quem': 'api_producao (cron)',
+        # etapa unica: grava os pendentes ('A') de cada CTL aberto direto nas tabelas do Oracle (tudo
+        # ou nada por CTL, mesmas protecoes); NAO efetiva e NAO encerra o CTL (como o NMV/MP).
+        'etapas': (1,), 'chave': 'CRON_GRAVA_ORACLE_DIRETO'},
 }
 
 MSG_PENDENTE = ('Ainda há lote(s)/demanda(s) pendente(s) no app. Clique em Efetivar Apontamento para '
@@ -396,7 +405,7 @@ def efetivar_apontamento(v_session, atividade, etapa=1, data_apontamento=None):
             _gravar_e_efetivar_controle(v_session, data_apontamento, resultado)
         elif not ctl_in_codigo:
             resultado['erro_oracle'] = MSG_SEM_CONTROLE
-        elif etapa == 1:
+        elif atividade == ATIVIDADE_CRON or etapa == 1:
             _etapa_gravar(v_session, ctl_in_codigo, resultado)
         else:
             _etapa_efetivar(v_session, ctl_in_codigo, data_apontamento, resultado)

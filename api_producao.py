@@ -457,6 +457,43 @@ class integrador:
         except:
             pass
         print('Integração dos lotes e demandas finalizado!')
+    def integraOrdensDireto(self):
+        # AJUSTE 2026-10-20 (JPC): decisao do usuario -- mesma finalidade do integraOrdens, gravando
+        # DIRETO nas tabelas do Oracle (gravacao direta do Efetivar, atividade 3 da rotina unica
+        # integracao_apontamento.efetivar_apontamento) em vez das procedures linha a linha, como o
+        # NMV/MP. Tudo ou nada por CTL, conexao testada, limite de 120 s (lock vira erro no log e o
+        # CTL fica para o proximo ciclo), 'I' so depois de reler no Oracle. NAO efetiva e NAO encerra
+        # o CTL. Todos os tipos de OP. integraOrdens (procedures) fica intacto para voltar atras.
+        from apontamento.models import Apt_Controle
+        from app.models import Apt_ApontaOrdem, Apt_Pro_Demandas
+        from apontamento.integracao_apontamento import ATIVIDADE_CRON, efetivar_apontamento
+        controles = Apt_Controle.objects.filter(CTL_ST_STATUS='A', FIL_IN_CODIGO=self.fil_in)
+        if self.ord_in is not None:
+            controles = controles.filter(ORD_IN_CODIGO=self.ord_in)
+        for ctl in controles.order_by('CTL_IN_CODIGO'):
+            self.ord_in = ctl.ORD_IN_CODIGO
+            # Ordem encerrada no Mega: encerra o controle (mesma regra do integraOrdens)
+            if self.situacao_ordem() == 'EN':
+                print('Ordem encerrada! ', self.ord_in)
+                requests.put(geturlprod('controleApt/'), params={'ctl_in_codigo': ctl.CTL_IN_CODIGO, 'status': 'E'})
+                continue
+            if not (Apt_ApontaOrdem.objects.filter(CTL_IN_CODIGO=ctl.CTL_IN_CODIGO, APT_CH_STATUS='A').exists()
+                    or Apt_Pro_Demandas.objects.filter(CTL_IN_CODIGO=ctl.CTL_IN_CODIGO, MOV_ST_STATUS='A').exists()):
+                continue
+            try:
+                plf = int(separa_idordem(ctl.ORD_ST_EXTENSO).get('plf_in_sqoperacao'))
+            except (TypeError, ValueError):
+                print(f'CTL {ctl.CTL_IN_CODIGO} ordem {self.ord_in}: ORD_ST_EXTENSO invalido ({ctl.ORD_ST_EXTENSO})')
+                continue
+            sessao = {'ctl_in_codigo': ctl.CTL_IN_CODIGO, 'usuario': ctl.CTL_ST_USUARIO,
+                      'seq_in_operacao': plf, 'ordem': ctl.ORD_ST_EXTENSO}
+            r = efetivar_apontamento(sessao, ATIVIDADE_CRON, 1)
+            if r['erro_oracle'] or r['erro']:
+                print(f"CTL {ctl.CTL_IN_CODIGO} ordem {self.ord_in}: nada marcado -- "
+                      f"{r['erro_oracle'] or '; '.join(r['erros'])}")
+            else:
+                print(f"CTL {ctl.CTL_IN_CODIGO} ordem {self.ord_in}: {r['ok']} lote(s)/demanda(s) gravado(s)")
+        print('Integração direta dos lotes e demandas finalizada!')
     def apt_integrarlote(self, pparams):
         #print(pparams)
         v_listlote = pparams
@@ -601,7 +638,13 @@ class IntegracaoProducao:
         except Exception as e:
             print(f"[{self._now()}] ROLLBACK TOTAL: {e}")
             return -1
-if __name__ == '__main__':    
+if __name__ == '__main__':
+    # AJUSTE 2026-10-20: a integracao direta usa os models do Django -- inicializa (como o NMV)
+    import os as _os
+    _os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'producao.settings')
+    import django as _django
+    _django.setup()
+
     contador = 1
     v_params = []
     v_params.append(2)
@@ -611,5 +654,12 @@ if __name__ == '__main__':
     v_params.append(None)
     init = integrador(v_params)
     #init.manutencao()
-    init.integraOrdens()
+    # AJUSTE 2026-10-20 (JPC): decisao do usuario -- o cron grava direto nas tabelas do Oracle
+    # (integraOrdensDireto, como o NMV/MP). Para voltar para as procedures: CRON_GRAVA_ORACLE_DIRETO
+    # = False em apontamento/integracao_apontamento.py.
+    from apontamento.integracao_apontamento import CRON_GRAVA_ORACLE_DIRETO
+    if CRON_GRAVA_ORACLE_DIRETO:
+        init.integraOrdensDireto()
+    else:
+        init.integraOrdens()
     #ginit.encerra_ordens()
