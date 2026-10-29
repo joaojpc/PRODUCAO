@@ -7,16 +7,16 @@
     </div>
         <!-- Content -->
         <div id="content" class="colM">
-            <h1>Confirma a exclusão?</h1>
-                <p>Você tem certeza que quer remover lote {{ item.APT_IN_SEQUENCIA }} do item: {{ item.PRO_IN_CODIGO }} {{ item.PRO_ST_DESCRICAO }} quantidade: {{ item.ORL_RE_QTDLOTE}}?</p>
-            <h1>Deletar?</h1>
+            {# AJUSTE 2026-10-29 (JPC): padrao de cancelamento -- sem "Deletar?", botao Confirmar, link Voltar #}
+            <h1>Confirma o cancelamento?</h1>
+                <p>Você tem certeza que quer cancelar o lote {{ item.APT_IN_SEQUENCIA }} do item: {{ item.PRO_IN_CODIGO }} {{ item.PRO_ST_DESCRICAO }} quantidade: {{ item.ORL_RE_QTDLOTE}}?</p>
         {% if error_message %}
            <p><strong>{{ error_message }}</strong></p>
         {% endif %}
         <form action="" method="post">{% csrf_token %}
         {{ form.as_p }}
-        <input type="submit" value="Apagar">
-        <a class="button cancel-link" href="{% url "incluir_lote" %}">Cancelar</a>
+        <input type="submit" value="Confirmar">
+        <a class="button cancel-link" href="{% url "incluir_lote" %}">Voltar</a>
     </form>
 </body>
 {% endblock  %}
