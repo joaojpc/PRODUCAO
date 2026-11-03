@@ -43,6 +43,8 @@
                 </div>
             </div>
         </div>
+        {# AJUSTE 2026-11-03 (JPC): protecao contra duplo clique em todas as telas (static/js/anti_duplo_clique.js) #}
+        <script src="{% static 'js/anti_duplo_clique.js' %}"></script>
     </body>
     {% block js %}{% endblock %}
 </html>
