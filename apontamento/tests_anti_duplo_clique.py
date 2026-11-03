@@ -33,7 +33,8 @@ class AntiDuploCliqueTests(SimpleTestCase):
         self.assertEqual(js.count('{'), js.count('}'))
         self.assertEqual(js.count('('), js.count(')'))
         for trecho in ("addEventListener('submit'", "addEventListener('click'", "addEventListener('pageshow'",
-                       'e.defaultPrevented', 'data-sem-trava', "'_blank'"):
+                       'e.defaultPrevented', 'data-sem-trava', "'_blank'",
+                       '!botoes[i].disabled'):  # nao mexe em botao ja travado pela propria tela
             self.assertIn(trecho, js)
 
     def test_copia_servida_pelo_nginx_igual(self):

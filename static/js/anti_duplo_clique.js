@@ -89,7 +89,9 @@
         setTimeout(function () {
             var botoes = form.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"]');
             for (var i = 0; i < botoes.length; i++) {
-                if (!botoes[i].hasAttribute('data-sem-trava')) {
+                // AJUSTE 2026-11-03 (JPC): botao ja desabilitado pela propria tela (Fechar OP, Sincronizar) fica
+                // com a trava dela -- sem isto a liberacao de 60 s reativava o botao com a gravacao em andamento
+                if (!botoes[i].hasAttribute('data-sem-trava') && !botoes[i].disabled) {
                     marcar(botoes[i], botoes[i] === clicado);
                 }
             }
