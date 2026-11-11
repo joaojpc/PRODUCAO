@@ -792,7 +792,8 @@ def sincronizarOrdensNova(request):
 def efetivarApontamentoOracle(request):
     """AJUSTE 2026-10-20: botao "Efetivar Apontamento" (Manutencao), fluxo do NMV reaproveitando a
     gravacao direta do PRODUCAO (integracao_apontamento). 1o clique grava no Oracle os lotes e
-    demandas pendentes do CTL; sem nada pendente, abre a confirmacao da data (2o clique)."""
+    demandas pendentes do CTL; sem nada pendente, abre a confirmacao da data (2o clique).
+    AJUSTE 2026-11-11: gravou sem erro -> ja abre a confirmacao da data (um clique)."""
     from django.contrib import messages
     from django.urls import reverse
     from apontamento import integracao_apontamento
@@ -807,8 +808,10 @@ def efetivarApontamentoOracle(request):
         # nada pendente: 2o clique -- confirmacao da data e efetivacao
         return redirect(reverse('efetivar_mega_oracle'))
     elif resultado['ok'] and not resultado['erro']:
-        messages.success(request, f"{resultado['ok']} lote(s)/demanda(s) gravado(s) no Oracle. "
-                                  f"Clique de novo em Efetivar Apontamento para efetivar.")
+        # AJUSTE 2026-11-11 (JPC): decisao do usuario -- um clique para todas as OPs (como a OP003 do NMV):
+        # gravou sem erro, ja abre a confirmacao da data e efetiva. Com erro, para aqui e nada e efetivado.
+        messages.success(request, f"{resultado['ok']} lote(s)/demanda(s) gravado(s) no Oracle.")
+        return redirect(reverse('efetivar_mega_oracle'))
     for erro in resultado['erros']:
         messages.error(request, erro)
     return redirect('manutencao')
@@ -840,6 +843,9 @@ def efetivarMegaOracle(request):
     # AJUSTE 2026-10-20: rotina unica -- atividade 1 (duas etapas), etapa 2 (efetiva com a data da tela)
     resultado = integracao_apontamento.efetivar_apontamento(
         v_session, integracao_apontamento.ATIVIDADE_DUAS_ETAPAS, 2, data_apontamento)
+    if resultado.get('aviso_centro'):
+        # AJUSTE 2026-11-11 (JPC): centro/maquina corrigidos pela programacao da OP antes de efetivar
+        messages.warning(request, resultado['aviso_centro'])
     if resultado['erro_oracle']:
         messages.error(request, resultado['erro_oracle'])
     elif resultado['efetivado_oracle']:

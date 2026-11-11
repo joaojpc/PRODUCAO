@@ -288,11 +288,42 @@ def verificar_ctl_integrado(con, controle):
     return (abertos[0] if abertos else None), None
 
 
+def alinhar_centro_do_apontamento(con, apt_in_sequencia):
+    """AJUSTE 2026-11-11 (JPC): copiado do NMV -- antes da procedure, centro/maquina do apontamento
+    conferidos pela programacao da OP no Mega (apontamento.alinhar_centro_programacao). Commita o ajuste
+    (a procedure e transacao autonoma e so ve o que ja foi commitado). Nunca levanta excecao.
+    Devolve (aviso ou None, erro ou None)."""
+    from apontamento.apontamento import alinhar_centro_programacao
+    try:
+        r = alinhar_centro_programacao(con, apt_in_sequencia)
+        if r['erro']:
+            con.rollback()
+            return None, r['erro']
+        if r['aviso']:
+            con.commit()
+            print(f'CENTRO APT {apt_in_sequencia}: {r["aviso"]}')
+        return r['aviso'], None
+    except Exception as e:
+        import traceback
+        print('ERRO ALINHAR CENTRO (excecao):', traceback.format_exc())
+        try:
+            con.rollback()
+        except Exception:
+            pass
+        return None, f'Erro ao conferir o centro do apontamento pela programação ({e}). Nada foi efetivado.'
+
+
 def _efetivar(con, v_session, controle, ctl_in_codigo, apt_in_sequencia, data_apontamento, resultado):
     """Item 3 do fluxo do MP: p_efetivaapontamento no apontamento ABERTO do CTL (conferido antes por
     verificar_ctl_integrado). Sem apontamento aberto: nada a efetivar."""
     from apontamento.apontamento import efetivar_apontamento_oracle
     if apt_in_sequencia and controle:
+        # AJUSTE 2026-11-11 (JPC): modelo NMV -- centro/maquina pela programacao da OP antes da procedure
+        aviso_centro, erro_centro = alinhar_centro_do_apontamento(con, apt_in_sequencia)
+        if erro_centro:
+            resultado['erro_oracle'] = erro_centro
+            return
+        resultado['aviso_centro'] = aviso_centro
         usuario_efetivou = v_session.get('usuario') or controle.CTL_ST_USUARIO
         msg_efetivar, efetivado = efetivar_apontamento_oracle(
             apt_in_sequencia, usuario_efetivou, controle.FIL_IN_CODIGO, conexao=con,
@@ -383,6 +414,7 @@ def atividade_ligada(atividade):
 def _novo_resultado(ctl_in_codigo, atividade=None, etapa=None):
     return {'ctl_in_codigo': ctl_in_codigo, 'ok': 0, 'erro': 0, 'erros': [], 'pendentes': 0,
             'msg_efetivar': None, 'efetivado_oracle': False, 'erro_oracle': None, 'apt_in_sequencia': None,
+            'aviso_centro': None,  # AJUSTE 2026-11-11: centro/maquina corrigidos pela programacao da OP
             'atividade': atividade, 'etapa': etapa}
 
 

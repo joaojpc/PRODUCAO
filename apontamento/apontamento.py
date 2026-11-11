@@ -194,6 +194,28 @@ def _buscar_apontamento_aberto(cur, ordem, plf):
     return _dict_linha(cur)
 
 
+def programacao_da_operacao(cur, apt):
+    """AJUSTE 2026-11-11 (JPC): copiado do NMV -- centro (maq_*) e operacao (opr_in_codigo) da
+    PROGRAMACAO DA ORDEM no Mega (pro_prog_ordem), mesmo filtro de _maquina_da_ordem. apt: chaves da
+    ordem + fil_in_codigo + plf_in_sqoperacao. Devolve dict(maq_tab, maq_pad, maq, opr) ou None."""
+    cur.execute("""SELECT maq_tab_in_codigo, maq_pad_in_codigo, maq_in_codigo, opr_in_codigo
+                     FROM pro_prog_ordem
+                    WHERE org_tab_in_codigo = :org_tab_in_codigo AND org_pad_in_codigo = :org_pad_in_codigo
+                      AND org_in_codigo = :org_in_codigo AND org_tau_st_codigo = :org_tau_st_codigo
+                      AND ord_tab_in_codigo = :ord_tab_in_codigo AND ord_seq_in_codigo = :ord_seq_in_codigo
+                      AND ord_in_codigo = :ord_in_codigo AND fil_in_codigo = :fil_in_codigo
+                      AND tmp_ch_aponta = 'S'
+                      AND (plf_in_sqoperacao = :plf OR :plf IS NULL)
+                      AND maq_in_codigo IS NOT NULL
+                    ORDER BY plf_in_sqoperacao DESC FETCH FIRST 1 ROW ONLY""",
+                {k: apt[k] for k in ('org_tab_in_codigo', 'org_pad_in_codigo', 'org_in_codigo',
+                                     'org_tau_st_codigo', 'ord_tab_in_codigo', 'ord_seq_in_codigo',
+                                     'ord_in_codigo', 'fil_in_codigo')}
+                | {'plf': apt.get('plf_in_sqoperacao')})
+    linha = cur.fetchone()
+    return dict(zip(('maq_tab', 'maq_pad', 'maq', 'opr'), linha)) if linha else None
+
+
 def _criar_apontamento(cur, ordem, d, pads):
     """Equivale a apt_inserir_apt (ramo INSERT; o ramo UPDATE da procedure e codigo morto)."""
     plf = d['plf']
@@ -215,11 +237,22 @@ def _criar_apontamento(cur, ordem, d, pads):
     linha = cur.fetchone()
     ati_in = linha[0] if linha else None
 
+    # AJUSTE 2026-11-11 (JPC): modelo NMV -- o centro do apontamento vem da programacao da ordem no Mega
+    # (pro_prog_ordem), como a procedure fazia (p_programacaoordem). Antes ia sempre NULL (nenhum chamador
+    # manda 'apt_maq_in_codigo'): OPs 74615/74639/74640/74651/74652/74661 (filial 2) acertadas a mao.
+    maq = d['maq']
+    if maq is None:
+        prog = programacao_da_operacao(cur, dict(ordem, plf_in_sqoperacao=plf))
+        if prog is None:
+            raise ValueError(f"Ordem {ordem['ord_in_codigo']} (operação {plf}) sem centro na programação do "
+                             f"Mega (pro_prog_ordem) -- nada gravado.")
+        maq = prog['maq']
+
     valores = dict(_chave_ordem(ordem))
     valores.update({
         'fil_in_codigo': ordem['fil_in_codigo'],
         'ctl_in_codigo': d['ctl'],
-        'apt_maq_in_codigo': d['maq'],
+        'apt_maq_in_codigo': maq,
         'plf_in_sqoperacao': plf,
         'apt_dt_apontamento': d['dt_apt'],
         'apt_ati_tab_in_codigo': 204,
@@ -1406,6 +1439,50 @@ def _apt_ch_status(cur, apt_in_sequencia):
                 {'apt': apt_in_sequencia})
     linha = cur.fetchone()
     return linha[0] if linha else None
+
+
+# AJUSTE 2026-11-11 (JPC): copiado do NMV -- na efetivacao, o centro do apontamento e conferido pela
+# programacao da ordem no Mega (pro_prog_ordem). A procedure so preenche o centro quando ele esta vazio;
+# centro errado caia em p_DefineLocalizacaoItem com erro falso de "item sem almoxarifado" (NMV, OP 540).
+# Maquina: fica se centro+maquina+operacao existir em APT_PRO_MAQUINA_PROD; senao NULL (a procedure
+# aceita maquina nula). Nao commita.
+def alinhar_centro_programacao(con, apt_in_sequencia):
+    """Devolve {'aviso': texto ou None, 'erro': texto ou None}."""
+    with con.cursor() as cur:
+        cur.execute("""SELECT org_tab_in_codigo, org_pad_in_codigo, org_in_codigo, org_tau_st_codigo,
+                              ord_tab_in_codigo, ord_seq_in_codigo, ord_in_codigo, fil_in_codigo,
+                              plf_in_sqoperacao, apt_maq_in_codigo, apt_cmaq_in_codigo, apt_ch_status
+                         FROM apt_apontaordem WHERE apt_in_sequencia = :apt""", {'apt': apt_in_sequencia})
+        apt = _dict_linha(cur)
+        if apt is None or apt['apt_ch_status'] != 'A':
+            return {'aviso': None, 'erro': None}
+        prog = programacao_da_operacao(cur, apt)
+        if prog is None:
+            return {'aviso': None, 'erro': (
+                f"Apontamento {apt_in_sequencia} não efetivado: a ordem {apt['ord_in_codigo']} (operação "
+                f"{apt['plf_in_sqoperacao']}) está sem centro na programação do Mega (pro_prog_ordem).")}
+        maq, cmaq = apt['apt_maq_in_codigo'], apt['apt_cmaq_in_codigo']
+        nova_cmaq = cmaq
+        if cmaq is not None:
+            cur.execute("""SELECT COUNT(*) FROM idp.apt_pro_maquina_prod
+                            WHERE ctr_tab_in_codigo = :mtab AND ctr_pad_in_codigo = :mpad AND ctr_in_codigo = :maq
+                              AND cmaq_in_codigo = :cmaq AND opr_in_codigo = :opr""",
+                        {'mtab': prog['maq_tab'], 'mpad': prog['maq_pad'], 'maq': prog['maq'],
+                         'cmaq': cmaq, 'opr': prog['opr']})
+            if not cur.fetchone()[0]:
+                nova_cmaq = None
+        if maq == prog['maq'] and nova_cmaq == cmaq:
+            return {'aviso': None, 'erro': None}
+        cur.execute("""UPDATE apt_apontaordem SET apt_maq_in_codigo = :maq, apt_cmaq_in_codigo = :cmaq
+                        WHERE apt_in_sequencia = :apt AND apt_ch_status = 'A'""",
+                    {'maq': prog['maq'], 'cmaq': nova_cmaq, 'apt': apt_in_sequencia})
+    partes = []
+    if maq != prog['maq']:
+        partes.append(f"centro {maq if maq is not None else 'vazio'} -> {prog['maq']}")
+    if nova_cmaq != cmaq:
+        partes.append(f"máquina {cmaq} -> {nova_cmaq if nova_cmaq is not None else 'vazia'}")
+    return {'aviso': (f"Apontamento {apt_in_sequencia} ajustado pela programação da OP (operação "
+                      f"{prog['opr']}): " + ', '.join(partes) + '.'), 'erro': None}
 
 
 def _efetivar_apontamento(con, apt_in_sequencia, gru_in_codigo, data_apontamento=None):

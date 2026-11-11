@@ -50,6 +50,10 @@ class _ComOracle(TestCase):
                                side_effect=lambda con, tipo, chaves: {k: 7001 for k in chaves}),
             'itens': patch('apontamento.apontamento.itens_do_ctl_no_oracle', side_effect=self._itens_mega),
             'status': patch('apontamento.apontamento._apt_ch_status', return_value='A'),
+            # AJUSTE 2026-11-11: centro ja alinhado com a programacao da OP (testes proprios em
+            # tests_centro_programacao.py)
+            'centro': patch('apontamento.apontamento.alinhar_centro_programacao',
+                            return_value={'aviso': None, 'erro': None}),
         }
         self.mocks = {k: p.start() for k, p in self.m.items()}
         for p in self.m.values():
@@ -339,12 +343,41 @@ class ViewsEfetivarTests(_ComOracle):
         self.assertContains(resp, 'Efetivar no Mega')
         self.assertContains(resp, '7001')
 
-    def test_clique_com_pendente_grava_e_volta(self):
+    def test_clique_com_pendente_grava_e_abre_confirmacao(self):
+        # AJUSTE 2026-11-11: decisao do usuario -- um clique: gravou sem erro, ja abre a tela da data
         self._sessao()
         _lote()
         resp = self.client.post(reverse('efetivar_apontamento_oracle'))
-        self.assertRedirects(resp, reverse('manutencao'), fetch_redirect_response=False)
+        self.assertRedirects(resp, reverse('efetivar_mega_oracle'), fetch_redirect_response=False)
         self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'I')
+        self.mocks['efetivar'].assert_not_called()  # efetiva so no POST da data
+
+    def test_clique_com_erro_na_gravacao_volta_sem_efetivar(self):
+        self._sessao()
+        _lote()
+        self.mocks['lote'].return_value = [{'mensagem': 'Erro', 'detalhe': 'ORA-1'}]
+        resp = self.client.post(reverse('efetivar_apontamento_oracle'))
+        self.assertRedirects(resp, reverse('manutencao'), fetch_redirect_response=False)
+        self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'A')
+        self.mocks['efetivar'].assert_not_called()
+
+    def test_post_da_data_mostra_aviso_do_centro(self):
+        self._sessao()
+        _lote(status='I')
+        self.mocks['centro'].return_value = {'aviso': 'Apontamento 7001 ajustado pela programação', 'erro': None}
+        resp = self.client.post(reverse('efetivar_mega_oracle'), {'data_apontamento': '2026-10-20T17:30'},
+                                follow=True)
+        self.assertContains(resp, 'Apontamento 7001 ajustado pela programação')
+        self.mocks['efetivar'].assert_called_once()
+
+    def test_post_da_data_sem_centro_na_programacao_nao_efetiva(self):
+        self._sessao()
+        _lote(status='I')
+        self.mocks['centro'].return_value = {'aviso': None, 'erro': 'sem centro na programação do Mega'}
+        resp = self.client.post(reverse('efetivar_mega_oracle'), {'data_apontamento': '2026-10-20T17:30'},
+                                follow=True)
+        self.assertContains(resp, 'sem centro na programação do Mega')
+        self.mocks['efetivar'].assert_not_called()
 
     def test_post_da_data_efetiva(self):
         self._sessao()
