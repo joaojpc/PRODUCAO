@@ -150,6 +150,23 @@ class DemFormLocal(forms.Form):
             raise forms.ValidationError(" Quantidade obrigatória!")
         if (qtde is None):
             raise forms.ValidationError(" Quantidade obrigatória!")
+        # AJUSTE 2026-11-11 (JPC): modelo ZK (decisao do usuario) -- antes das validacoes do PRODUCAO (que
+        # continuam como estao): formato da etiqueta e lote todo (9999) ja lido. Digitado de ate 6 digitos passa.
+        if loteDem:
+            if len(loteDem) > 6 and len(loteDem) != 22:
+                raise forms.ValidationError(" Erro de leitura: lote inválido!")
+            # lote de 22 comeca pelo ano ("20..."); codigo lido deslocado tem 22 digitos e passava (caso ZK OP 3450)
+            if len(loteDem) == 22 and not loteDem.startswith('20'):
+                raise forms.ValidationError(" Erro de leitura: lote inválido (leia o código de novo)!")
+            # leitura 9999 (lote todo) ativa do lote, em qualquer ordem, barra a nova leitura; cancelada nao conta
+            from app.models import Apt_Pro_Demandas
+            anterior = (Apt_Pro_Demandas.objects.filter(PRO_ST_LOTE=loteDem, PRO_RE_QTDLOTE=9999)
+                        .exclude(MOV_ST_STATUS='C').order_by('MOV_IN_SEQUENCIA').first())
+            if anterior:
+                raise forms.ValidationError(
+                    f" Leitura duplicada: lote {loteDem} já lido como lote todo (9999) na ordem "
+                    f"{anterior.ORD_IN_CODIGO} (seq. {anterior.MOV_IN_SEQUENCIA}). "
+                    f"Cancele a leitura anterior para ler de novo.")
         #Valida lote Já baixado
         req = {'ordem': ordem,'filial': filial, 'lote': loteDem}
         dados = IntAPI(req)        

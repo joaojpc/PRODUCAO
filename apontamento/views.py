@@ -419,6 +419,38 @@ def ctl_aberto_required(view_func):
     return _wrapped
 
 
+def ctl_gerido_pela_aplicacao(view_func):
+    """AJUSTE 2026-11-11 (JPC): modelo ZK (decisao do usuario: "a aplicacao deve gerir os CTL") -- nas telas de
+    INCLUSAO (apontamento e baixa de demanda), CTL da sessao encerrado no app ou com apontamento ja efetivado no
+    Mega: nada e gravado nele, ele recebe o logout e a aplicacao abre um CTL novo para a OP e o operador (a tela
+    abre de novo nele, com aviso). OP encerrada no Mega ou falha ao abrir o CTL: novo login com aviso.
+    O Mega e conferido uma vez ao ENTRAR na tela (pagina anterior e outra); as leituras seguintes na mesma tela
+    so conferem o app. Regra das demais telas (ctl_aberto_required) nao muda."""
+    from functools import wraps
+
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        from urllib.parse import urlparse
+        from django.contrib import messages as _messages
+        from apontamento.api_view import tratar_controle_encerrado
+        mesma_tela = urlparse(request.META.get('HTTP_REFERER') or '').path == request.path
+        v_ret = tratar_controle_encerrado(request.session.get('ctl_in_codigo'), request.session.get('fil_in_codigo'),
+                                          request.session.get('ord_in_codigo'), request.session.get('ordem'),
+                                          request.session.get('usuario'),
+                                          request.session.get('cliente') or get_client_ip(request),
+                                          consultar_mega=not mesma_tela, leitura=request.method == 'POST')
+        if not v_ret:
+            return view_func(request, *args, **kwargs)
+        if v_ret['novo_ctl']:
+            request.session['ctl_in_codigo'] = v_ret['novo_ctl']
+            _messages.warning(request, v_ret['aviso'])
+            return redirect(request.path)
+        request.session.flush()
+        _messages.warning(request, v_ret['aviso'])
+        return redirect('demos_sessions')
+    return _wrapped
+
+
 @ctl_aberto_required
 def baixaDemanda(request):
     v_session = carrega_sessao(request)
@@ -497,7 +529,7 @@ def insDemandas(request):
 
 
 
-@ctl_aberto_required
+@ctl_gerido_pela_aplicacao  # AJUSTE 2026-11-11: antes ctl_aberto_required (modelo ZK: CTL novo automatico)
 def insDemandaslocal(request):
     v_session = carrega_sessao(request)
     l_demandas = []
@@ -585,7 +617,7 @@ def listarlotes(request):
     listLotes  = json.loads(ini_prod.listar_producao(v_lista))
     return render(request, template, {'listLotes': listLotes})
 
-@ctl_aberto_required
+@ctl_gerido_pela_aplicacao  # AJUSTE 2026-11-11: antes ctl_aberto_required (modelo ZK: CTL novo automatico)
 def reglote(request):
     v_session = carrega_sessao(request)
 

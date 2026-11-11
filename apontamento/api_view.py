@@ -1936,3 +1936,134 @@ class Fechamento:
             return {'success': False, 'msg': None, 'error': erro, 'dados': None}
         except Exception as e:
             return {'success': False, 'msg': None, 'error': f'Erro interno: {str(e)}', 'dados': None}
+
+
+# ---------------------------------------------------------------------------
+# AJUSTE 2026-11-11 (JPC): gestao do CTL pela aplicacao -- modelo ZK (decisao do usuario: "a aplicacao deve
+# gerir os CTL"). Na inclusao (apontamento ou baixa de demanda) com o CTL da sessao encerrado no app OU com
+# apontamento ja efetivado no Mega, nada e gravado nele: o CTL recebe o logout e a aplicacao abre um CTL novo
+# para a OP e o operador da sessao, sem login (mesma rotina do login, Login_inicial_sqlite.conectar_sqlite).
+# Antes: aviso "saia pelo menu e faca login" (so com o CTL encerrado no app; o efetivado no Mega no meio do dia
+# seguia recebendo leituras).
+# ---------------------------------------------------------------------------
+MSG_CONTROLE_ENCERRADO = ("O controle {ctl} já foi encerrado/efetivado{onde}. Faça novo login para abrir um novo "
+                          "controle.")
+MSG_NOVO_CONTROLE = "O controle {ctl} já foi encerrado/efetivado. Aberto o novo controle {novo} para a OP {op}."
+MSG_REFACA_LEITURA = " A última leitura não foi gravada: refaça a leitura."
+MSG_OP_ENCERRADA = " A OP {op} está encerrada no Mega: nenhuma movimentação é permitida."
+
+
+def controle_encerrado(ctl_in_codigo, fil_in_codigo, ord_in_codigo, consultar_mega=True):
+    """Encerrado = CTL_ST_STATUS diferente de 'A' no app OU apontamento ja efetivado no Mega (mesma conferencia
+    da gravacao, que tambem reconhece o cabecalho sem CTL pelos lotes/demandas). Falha na conferencia do Mega
+    nao bloqueia (vale o status do app). consultar_mega=False: so o app.
+    Devolve o aviso para o operador, ou None se o controle esta aberto."""
+    if not ctl_in_codigo:
+        return None
+    try:
+        from apontamento.models import Apt_Controle
+        status = Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl_in_codigo).values_list('CTL_ST_STATUS', flat=True).first()
+        if status is not None and status != 'A':
+            return MSG_CONTROLE_ENCERRADO.format(ctl=ctl_in_codigo, onde='')
+    except Exception:
+        import traceback
+        print('ERRO CONFERIR CONTROLE ENCERRADO (APP):', traceback.format_exc())
+        return None
+    if not consultar_mega or not fil_in_codigo or not ord_in_codigo:
+        return None
+    con = None
+    try:
+        from apontamento.integracao_apontamento import abrir_conexao_oracle_testada
+        from apontamento.apontamento import _ctl_com_apontamento_efetivado
+        con, erro = abrir_conexao_oracle_testada()
+        if erro or not con:
+            return None
+        with con.cursor() as cur:
+            if _ctl_com_apontamento_efetivado(cur, {'fil': int(fil_in_codigo), 'ord': int(ord_in_codigo),
+                                                    'ctl': int(ctl_in_codigo)}):
+                return MSG_CONTROLE_ENCERRADO.format(ctl=ctl_in_codigo, onde=' no Mega')
+    except Exception:
+        import traceback
+        print('ERRO CONFERIR CONTROLE ENCERRADO (MEGA):', traceback.format_exc())
+    finally:
+        if con:
+            try:
+                con.close()
+            except Exception:
+                pass
+    return None
+
+
+def logout_controle_encerrado(ctl_in_codigo):
+    """Grava o logout SO desse CTL (status, lotes e demandas ficam como estao), para o login nao voltar nele.
+    Falha aqui nao impede seguir."""
+    if not ctl_in_codigo:
+        return
+    try:
+        from apontamento.models import Apt_Controle
+        Apt_Controle.objects.filter(CTL_IN_CODIGO=ctl_in_codigo, CTL_DT_LOGOUT__isnull=True).update(
+            CTL_DT_LOGOUT=datetime.now())
+    except Exception:
+        import traceback
+        print('ERRO LOGOUT DO CONTROLE ENCERRADO:', traceback.format_exc())
+
+
+def ordem_encerrada_mega(fil_in_codigo, ord_in_codigo):
+    """OP encerrada no Mega ('EN' na apt_intprod2.f_valida_sitordem, a mesma do cron que encerra os CTLs). So
+    leitura. Falha no Oracle nao bloqueia (False)."""
+    con = None
+    try:
+        from apontamento.integracao_apontamento import abrir_conexao_oracle_testada
+        con, erro = abrir_conexao_oracle_testada()
+        if erro or not con:
+            return False
+        with con.cursor() as cur:
+            return cur.callfunc('apt_intprod2.f_valida_sitordem', str,
+                                [int(fil_in_codigo), int(ord_in_codigo)]) == 'EN'
+    except Exception:
+        import traceback
+        print('ERRO CONFERIR SITUACAO DA OP (MEGA):', traceback.format_exc())
+        return False
+    finally:
+        if con:
+            try:
+                con.close()
+            except Exception:
+                pass
+
+
+def abrir_novo_controle(ordem, usuario, cliente):
+    """Abre um CTL novo para a OP e o operador da sessao pela mesma rotina do login (conectar_sqlite: IP e
+    impressora do equipamento). Confere no app que o CTL foi gravado aberto. Devolve o CTL novo ou None."""
+    try:
+        from apontamento.models import Apt_Controle
+        novo = None
+        for rs in json.loads(Login_inicial_sqlite(ordem, usuario, cliente).conectar_sqlite()):
+            novo = rs.get('ctl_in_codigo') if rs.get('logado') else None
+        if novo and Apt_Controle.objects.filter(CTL_IN_CODIGO=novo, CTL_ST_STATUS='A').exists():
+            return novo
+    except Exception:
+        import traceback
+        print('ERRO ABRIR NOVO CONTROLE:', traceback.format_exc())
+    return None
+
+
+def tratar_controle_encerrado(ctl_in_codigo, fil_in_codigo, ord_in_codigo, ordem, usuario, cliente,
+                              consultar_mega=True, leitura=False):
+    """Na inclusao com o CTL da sessao encerrado (controle_encerrado), nada e gravado nele e o CTL recebe o logout:
+      - OP aberta: abre um CTL novo para a OP e o operador da sessao, sem login;
+      - OP encerrada no Mega, ou falha ao abrir o CTL novo: novo login com aviso.
+    leitura=True: a tentativa era uma leitura (POST), que nao foi gravada -- o aviso pede para refazer.
+    Devolve None (CTL aberto, segue normal) ou {'novo_ctl': CTL novo ou None (= novo login), 'aviso': texto}.
+    (O ZK deixa a OP encerrada no Mega em 'somente consulta'; o PRODUCAO ainda nao tem esse modo -- novo login.)"""
+    aviso = controle_encerrado(ctl_in_codigo, fil_in_codigo, ord_in_codigo, consultar_mega=consultar_mega)
+    if not aviso:
+        return None
+    logout_controle_encerrado(ctl_in_codigo)
+    if ordem_encerrada_mega(fil_in_codigo, ord_in_codigo):
+        return {'novo_ctl': None, 'aviso': aviso + MSG_OP_ENCERRADA.format(op=ord_in_codigo)}
+    novo = abrir_novo_controle(ordem, usuario, cliente)
+    if not novo:
+        return {'novo_ctl': None, 'aviso': aviso}
+    return {'novo_ctl': novo, 'aviso': MSG_NOVO_CONTROLE.format(ctl=ctl_in_codigo, novo=novo, op=ord_in_codigo)
+            + (MSG_REFACA_LEITURA if leitura else '')}

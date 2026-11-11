@@ -191,6 +191,43 @@ def _confirmar_e_carimbar(con, lotes, demandas_ok):
     return None
 
 
+def validar_antes_de_gravar(con, controle, demandas):
+    """AJUSTE 2026-11-11 (JPC): copiado do ZK (decisao do usuario) -- PRIMEIRO as validacoes, so depois a
+    gravacao. SOMENTE LEITURA: confere no Mega TODOS os lotes das demandas pendentes do CTL (mesmas fontes da
+    gravacao) e devolve os avisos agrupados pelo apontamento de origem do lote (caso ZK OP 3462: 11 lotes da
+    OP 3463 com o apontamento 441606 aberto no Mega). Lista vazia = pode seguir. Nunca levanta excecao:
+    falha aqui devolve [] e a gravacao (tudo ou nada) continua validando cada demanda."""
+    try:
+        from apontamento.apontamento import lotes_demanda_nao_encontrados, origem_lote_oracle
+        demandas = [d for d in demandas if d.PRO_ST_LOTE not in (None, '', '*')]
+        if not controle or not demandas:
+            return []
+        faltando = set(lotes_demanda_nao_encontrados(controle.FIL_IN_CODIGO, controle.ORD_IN_CODIGO,
+                                                     [str(d.PRO_ST_LOTE) for d in demandas], con))
+        grupos = {}  # origem (ord, apt, status) ou None -> [lotes]
+        with con.cursor() as cur:
+            for lote in sorted(faltando):
+                grupos.setdefault(origem_lote_oracle(cur, lote), []).append(lote)
+        avisos = []
+        for origem, lotes in sorted(grupos.items(), key=lambda g: str(g[0])):
+            qtd = f"{len(lotes)} lote(s): {', '.join(lotes)}"
+            if origem and origem[2] == 'A':
+                avisos.append(f"Para conseguir apontar a OP {controle.ORD_IN_CODIGO}, alguém precisa efetivar no "
+                              f"Mega o apontamento {origem[1]} da OP {origem[0]} ({qtd}).")
+            elif origem:
+                avisos.append(f"Lotes fora do estoque do Mega, produzidos na OP {origem[0]} (apontamento "
+                              f"{origem[1]}, situação {origem[2]} no Mega) -- verifique no Mega ({qtd}).")
+            else:
+                avisos.append(f"Lotes que não estão no estoque do Mega nem em nenhum apontamento -- confira se a "
+                              f"etiqueta lida está correta e se o lote já foi apontado ({qtd}).")
+        return avisos
+    except Exception:
+        import traceback
+        print(f'ERRO VALIDAR ANTES DE GRAVAR CTL {getattr(controle, "CTL_IN_CODIGO", None)}:',
+              traceback.format_exc())
+        return []
+
+
 def _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado):
     """Itens 1 e 2 do fluxo do MP: grava tudo ou nada e marca 'I'. Devolve (gravou, apt_in_sequencia).
     AJUSTE 2026-10-20: separado do _gravar_e_efetivar_controle para o botao Efetivar Apontamento.
@@ -198,6 +235,13 @@ def _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado):
     Oracle pela chave exata. Faltou algo: nada e marcado (o retry nao regrava o que ja esta la)."""
     import re
     lotes, demandas = list(lotes), list(demandas)
+    # AJUSTE 2026-11-11 (JPC): modelo ZK -- valida os lotes das demandas no Mega antes de gravar; com aviso,
+    # para e nada e gravado (o aviso diz o que fazer, ex.: efetivar o apontamento de origem do lote)
+    avisos = validar_antes_de_gravar(con, controle, demandas)
+    if avisos:
+        resultado['erro'] = len(avisos)
+        resultado['erro_oracle'] = 'Nada foi gravado. ' + ' '.join(avisos)
+        return False, None
     try:
         con.call_timeout = GRAVACAO_TIMEOUT_MS
         lotes_gravados, resultados_demanda = _gravar_tudo_ou_nada(con, v_session, lotes, demandas)

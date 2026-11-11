@@ -194,6 +194,83 @@ def _buscar_apontamento_aberto(cur, ordem, plf):
     return _dict_linha(cur)
 
 
+def _em_blocos(valores, tamanho=1000):
+    """AJUSTE 2026-11-11 (JPC): copiado do ZK -- Oracle aceita no maximo 1000 valores num IN."""
+    valores = list(valores)
+    for i in range(0, len(valores), tamanho):
+        yield valores[i:i + tamanho]
+
+
+def _ctl_com_apontamento_efetivado(cur, d):
+    """AJUSTE 2026-11-11 (JPC): copiado do ZK (regra de 29/10 e 03/11) -- o controle ja tem apontamento
+    efetivado ('E') no Mega; vale o CTL do cabecalho ou dos lotes/demandas nao cancelados (cabecalho pode
+    estar sem CTL). So leitura."""
+    cur.execute("""SELECT COUNT(*) FROM apt_apontaordem a
+                    WHERE a.fil_in_codigo = :fil AND a.ord_in_codigo = :ord AND a.apt_ch_status = 'E'
+                      AND (a.ctl_in_codigo = :ctl
+                           OR EXISTS (SELECT 1 FROM apt_apontaordem_lote l
+                                       WHERE l.apt_in_sequencia = a.apt_in_sequencia AND l.ctl_in_codigo = :ctl
+                                         AND NVL(l.apt_ch_status, '?') <> 'C')
+                           OR EXISTS (SELECT 1 FROM apt_apontademanda_estoque e
+                                       WHERE e.apt_in_sequencia = a.apt_in_sequencia AND e.ctl_in_codigo = :ctl
+                                         AND NVL(e.dde_st_situacao, 'A') <> 'C'))""",
+                {'fil': d['fil'], 'ord': d['ord'], 'ctl': d['ctl']})
+    return cur.fetchone()[0] > 0
+
+
+def _apontamentos_abertos(cur, ordem):
+    """AJUSTE 2026-11-11 (JPC): copiado do ZK -- apontamentos 'A' da ordem, maior APT_IN_SEQUENCIA primeiro."""
+    cur.execute("""SELECT apt_in_sequencia, org_tab_in_codigo, org_pad_in_codigo, org_in_codigo,
+                          org_tau_st_codigo, ord_tab_in_codigo, ord_seq_in_codigo, ord_in_codigo,
+                          fil_in_codigo, plf_in_sqoperacao
+                     FROM apt_apontaordem
+                    WHERE fil_in_codigo = :fil AND ord_in_codigo = :ord AND apt_ch_status = 'A'
+                    ORDER BY apt_in_sequencia DESC""",
+                {'fil': ordem['fil_in_codigo'], 'ord': ordem['ord_in_codigo']})
+    colunas = [c[0].lower() for c in cur.description]
+    return [dict(zip(colunas, r)) for r in cur.fetchall()]
+
+
+# AJUSTE 2026-11-11 (JPC): copiado do ZK (decisao do usuario) -- item de um controle nao entra no apontamento
+# aberto de OUTRO controle: cria um apontamento novo para o controle (CTL_IN_CODIGO gravado). Caso ZK OP 3415:
+# efetivar um CTL levava a producao de outro junto. O Mega aceita mais de um apontamento aberto na mesma
+# ordem/operacao e efetiva por APT_IN_SEQUENCIA. (A parte de localizacao do ZK nao se aplica ao PRODUCAO.)
+def _ctls_dos_apontamentos(cur, apt_seqs):
+    """Controles de cada apontamento: CTL_IN_CODIGO da APT_APONTAORDEM e dos lotes/demandas nao cancelados.
+    So leitura. Devolve {apt_in_sequencia: set(ctl)}."""
+    ctls = {int(a): set() for a in apt_seqs}
+    for bloco in _em_blocos(sorted(ctls)):
+        binds = {f'a{i}': a for i, a in enumerate(bloco)}
+        lista = ', '.join(':' + k for k in binds)
+        cur.execute(f"""SELECT apt_in_sequencia, ctl_in_codigo FROM apt_apontaordem
+                         WHERE apt_in_sequencia IN ({lista}) AND ctl_in_codigo IS NOT NULL
+                        UNION
+                        SELECT apt_in_sequencia, ctl_in_codigo FROM apt_apontaordem_lote
+                         WHERE apt_in_sequencia IN ({lista}) AND ctl_in_codigo IS NOT NULL
+                           AND NVL(apt_ch_status, '?') <> 'C'
+                        UNION
+                        SELECT apt_in_sequencia, ctl_in_codigo FROM apt_apontademanda_estoque
+                         WHERE apt_in_sequencia IN ({lista}) AND ctl_in_codigo IS NOT NULL
+                           AND NVL(dde_st_situacao, 'A') <> 'C'""", binds)
+        for apt, ctl in cur.fetchall():
+            ctls.setdefault(int(apt), set()).add(int(ctl))
+    return ctls
+
+
+def _aberto_do_ctl(abertos, ctls, plf, ctl):
+    """Entre os abertos (maior APT_IN_SEQUENCIA primeiro), o da operacao sem outro controle; None se nao houver."""
+    return next((a for a in abertos
+                 if (plf is None or a['plf_in_sqoperacao'] == plf)
+                 and not ctls.get(int(a['apt_in_sequencia']), set()) - {int(ctl)}), None)
+
+
+def _apontamento_aberto_do_ctl(cur, ordem, plf, ctl):
+    """Apontamento aberto da ordem/operacao que pode receber item do controle; None = criar um novo."""
+    abertos = _apontamentos_abertos(cur, ordem)
+    return _aberto_do_ctl(abertos, _ctls_dos_apontamentos(cur, [a['apt_in_sequencia'] for a in abertos]),
+                          plf, ctl)
+
+
 def programacao_da_operacao(cur, apt):
     """AJUSTE 2026-11-11 (JPC): copiado do NMV -- centro (maq_*) e operacao (opr_in_codigo) da
     PROGRAMACAO DA ORDEM no Mega (pro_prog_ordem), mesmo filtro de _maquina_da_ordem. apt: chaves da
@@ -421,7 +498,9 @@ def _validar_lote(cur, d):
         apt = _buscar_apontamento_aberto(cur, ordem, d['plf'])
         if apt is None:
             raise ValueError('Ha apontamento aberto na ordem, mas nao para a operacao informada.')
-        return {'ja_integrado': False, 'precisa_criar_apontamento': False}
+        # AJUSTE 2026-11-11 (JPC): modelo ZK -- aberto so de outro controle -> o lote cria um novo
+        return {'ja_integrado': False,
+                'precisa_criar_apontamento': _apontamento_aberto_do_ctl(cur, ordem, d['plf'], d['ctl']) is None}
     return {'ja_integrado': False, 'precisa_criar_apontamento': True}
 
 
@@ -439,6 +518,9 @@ def _fluxo_lote(cur, cur_local, d):
         apt = _buscar_apontamento_aberto(cur, ordem, d['plf'])
         if apt is None:
             raise ValueError('Ha apontamento aberto na ordem, mas nao para a operacao informada.')
+        # AJUSTE 2026-11-11 (JPC): modelo ZK -- aberto so de outro controle -> apontamento novo para este
+        apt = (_apontamento_aberto_do_ctl(cur, ordem, d['plf'], d['ctl'])
+               or _criar_apontamento(cur, ordem, d, pads))
     else:
         apt = _criar_apontamento(cur, ordem, d, pads)
     _gravar_dados_lote(cur, cur_local, apt, d, pads)
@@ -718,6 +800,153 @@ def _buscar_referencia_lote(cur, lote):
     return linha[0] if linha else None
 
 
+# ---------------------------------------------------------------------------
+# AJUSTE 2026-11-11 (JPC): validacoes da demanda copiadas do ZK (Fase 2, decisao do usuario):
+# lote nao localizado com mensagem clara (de qual OP/apontamento ele veio) e saldo livre do lote.
+# ---------------------------------------------------------------------------
+
+def lotes_demanda_nao_encontrados(fil_in_codigo, ord_in_codigo, lotes, conexao):
+    """SOMENTE LEITURA -- dos lotes de demanda informados, devolve os que NAO existem no Mega, nas mesmas
+    fontes de _buscar_dados_baixa_demanda (est_movsumarizado, est_lotesmovimento e lote de fabricacao de
+    apontamento aberto da ordem). Lote '*' (sem lote) nao entra."""
+    faltando = []
+    with conexao.cursor() as cur:
+        for lote in sorted({str(l) for l in lotes if l not in (None, '', '*')}):
+            cur.execute("""
+                SELECT 1 FROM dual
+                 WHERE EXISTS (SELECT 1 FROM est_movsumarizado WHERE mvs_st_loteforne = :lote)
+                    OR EXISTS (SELECT 1 FROM est_lotesmovimento WHERE mvl_st_loteforne = :lote)
+                    OR EXISTS (SELECT 1 FROM apt_apontaordem_lote
+                                WHERE fil_in_codigo = :fil AND ord_in_codigo = :ord
+                                  AND apt_ch_status = 'A' AND orl_st_lotefabricacao = :lote)""",
+                        {'lote': lote, 'fil': fil_in_codigo, 'ord': ord_in_codigo})
+            if cur.fetchone() is None:
+                faltando.append(lote)
+    return faltando
+
+
+def origem_lote_oracle(cur, lote):
+    """SOMENTE LEITURA -- de qual apontamento do Mega o lote veio: (ord_in_codigo, apt_in_sequencia,
+    apt_ch_status), o aberto ('A') primeiro; None se nao achar ou se a consulta falhar."""
+    try:
+        cur.execute("""SELECT ord_in_codigo, apt_in_sequencia, apt_ch_status FROM apt_apontaordem_lote
+                        WHERE orl_st_lotefabricacao = :lote
+                        ORDER BY DECODE(apt_ch_status, 'A', 0, 1) FETCH FIRST 1 ROW ONLY""",
+                    {'lote': str(lote)})
+        return cur.fetchone()
+    except Exception:
+        return None
+
+
+def _msg_lote_nao_localizado(cur, d, ord_apontada=None):
+    """Texto do erro 'lote nao localizado' para o operador: diz de onde o lote veio (caso ZK OP 3462 x 3463:
+    lote de apontamento ainda aberto no Mega). Se a consulta falhar, devolve a mensagem generica."""
+    if d['lote'] == '*':
+        return (f"Demanda {d['mvd']} (sem lote): não há saldo do item no estoque do Mega para dar baixa. "
+                f"Nada foi gravado.")
+    base = f"Lote {d['lote']} (demanda {d['mvd']}) não está no estoque do Mega"
+    origem = origem_lote_oracle(cur, d['lote'])
+    if origem and origem[2] == 'A':
+        return (f"Para conseguir apontar a OP {ord_apontada or ''}, alguém precisa efetivar no Mega o "
+                f"apontamento {origem[1]} da OP {origem[0]} (o lote {d['lote']} da demanda {d['mvd']} "
+                f"ainda não está no estoque). Nada foi gravado.")
+    if origem:
+        return (f"{base} (produzido na OP {origem[0]}, apontamento {origem[1]}, situação {origem[2]} no Mega). "
+                f"Verifique o lote no Mega. Nada foi gravado.")
+    return (f"{base} nem em nenhum apontamento. Confira se a etiqueta lida está correta e se o lote "
+            f"já foi apontado. Nada foi gravado.")
+
+
+def _ler_empenhos(cur, lotes, chaves_lote):
+    """Saldo livre = saldo do Mega - empenhos. So leitura. Empenhos de cada lote: linhas 'A' (nao baixadas)
+    de APT_APONTADEMANDA_ESTOQUE de qualquer ordem (por produto + lote + referencia) e demandas 'A' do app
+    com quantidade informada (<> 9999) que ainda nao estao no Mega. chaves_lote = (fil, ord, mvd, ctl) desta
+    gravacao: ficam de fora (o que elas usam entra em pc['usado']). Demandas 'A' 9999 do app fora desta
+    gravacao entram em 'app_9999' (regra da demanda duplicada). Tambem a origem de cada empenho (mensagem)."""
+    from django.db import connection
+    mega, chaves_mega, app, app_9999 = {}, set(), {}, {}
+    origem_mega, origem_app = {}, {}
+    lotes = sorted({l for l in lotes if l and l != '*'})
+    for bloco in _em_blocos(lotes, 500):
+        binds = {f'l{i}': l for i, l in enumerate(bloco)}
+        cur.execute(f"""SELECT com_in_codigo, mvs_st_loteforne, mvs_st_referencia, apt_re_qtdeselecionada,
+                               fil_in_codigo, ord_in_codigo, mvd_in_sequencia, ctl_in_codigo
+                          FROM apt_apontademanda_estoque
+                         WHERE dde_st_situacao = 'A'
+                           AND mvs_st_loteforne IN ({', '.join(':' + k for k in binds)})""", binds)
+        for pro, lote, ref, qtd, fil, ord_, mvd, ctl in cur.fetchall():
+            chave = (pro, lote, ref)
+            mega[chave] = mega.get(chave, 0.0) + float(qtd or 0)
+            origem_mega.setdefault(chave, []).append((ord_, ctl, mvd, float(qtd or 0)))
+            if None not in (fil, ord_, mvd, ctl):
+                chaves_mega.add((int(fil), int(ord_), int(mvd), int(ctl)))
+    with connection.cursor() as cur_local:
+        for bloco in _em_blocos(lotes, 500):  # limite de parametros do SQLite
+            cur_local.execute(f"""SELECT FIL_IN_CODIGO, ORD_IN_CODIGO, MOV_IN_SEQUENCIA, CTL_IN_CODIGO,
+                                         PRO_ST_LOTE, PRO_IN_CODIGO, PRO_RE_QTDLOTE
+                                    FROM Apt_Pro_Demandas
+                                   WHERE MOV_ST_STATUS = 'A'
+                                     AND PRO_ST_LOTE IN ({', '.join(['%s'] * len(bloco))})""", bloco)
+            for fil, ord_, mvd, ctl, lote, pro, qtd in cur_local.fetchall():
+                chave = None if None in (fil, ord_, mvd, ctl) else (int(fil), int(ord_), int(mvd), int(ctl))
+                if chave in chaves_mega or chave in chaves_lote:
+                    continue  # ja contada no Mega / e desta gravacao
+                if float(qtd or 0) == 9999:
+                    if fil is not None and ord_ is not None:
+                        app_9999.setdefault((int(fil), int(ord_), lote), []).append((int(pro) if pro else None, mvd))
+                    continue  # sem quantidade: nao e empenho (so conta na regra da duplicada)
+                app.setdefault(lote, []).append((int(pro) if pro else None, float(qtd or 0)))
+                origem_app.setdefault(lote, []).append((int(pro) if pro else None, ord_, ctl, mvd, float(qtd or 0)))
+    return {'mega': mega, 'app': app, 'app_9999': app_9999, 'origem_mega': origem_mega, 'origem_app': origem_app}
+
+
+def _texto_empenhos(empenhos, item, d, chave, usado):
+    """Onde o lote esta empenhado (OP / CTL / demanda), para o operador saber em qual ordem cancelar."""
+    partes = [f'OP {o} CTL {c} demanda {m}: {q:g}' for o, c, m, q in empenhos.get('origem_mega', {}).get(chave, [])]
+    partes += [f'OP {o} CTL {c} demanda {m} (no app, ainda não no Mega): {q:g}'
+               for p, o, c, m, q in empenhos.get('origem_app', {}).get(d['lote'], []) if p in (None, item['pro'])]
+    if usado:
+        partes.append(f'nesta gravação: {usado:g}')
+    return f" ({'; '.join(partes)})" if partes else ''
+
+
+def _saldo_livre(cur, item, d, pc):
+    """Quantidade da demanda pelo saldo livre do lote (saldo do Mega - empenhos - o que esta gravacao ja usou
+    do lote). 9999 = todo o saldo livre; quantidade informada tem que caber nele. Sem saldo livre: levanta
+    excecao (tudo ou nada). A mesma ordem com 9999 em mais de uma demanda do mesmo item + lote (nesta
+    gravacao ou pendente 'A' no app) e demanda duplicada -- nada gravado.
+    pc = {'empenhos': _ler_empenhos(...) ou None, 'usado': {}}, compartilhado pelas demandas da gravacao."""
+    if pc.get('empenhos') is None:
+        pc['empenhos'] = _ler_empenhos(cur, [d['lote']], {(d['fil'], d['ord'], d['mvd'], d['ctl'])})
+    if d['qtd'] == 9999:
+        lote_todo = pc.setdefault('lote_todo', {})
+        chave_ord = (d['fil'], d['ord'], d['lote'], item['pro'])
+        outras = ([lote_todo[chave_ord]] if chave_ord in lote_todo else []) + [
+            mvd for p, mvd in pc['empenhos'].get('app_9999', {}).get((d['fil'], d['ord'], d['lote']), [])
+            if p in (None, item['pro'])]
+        if outras:
+            raise ValueError(f"Demanda duplicada na ordem {d['ord']}: item {item['pro']}, lote {d['lote']} com "
+                             f"lote todo (9999) em mais de uma demanda (seq. "
+                             f"{', '.join(str(m) for m in sorted(outras + [d['mvd']]))}). "
+                             f"Cancele a duplicada. Nada foi gravado.")
+        lote_todo[chave_ord] = d['mvd']
+    chave = (item['pro'], d['lote'], item['referencia'])
+    saldo = float(item['qtd_disponivel'] or 0)
+    empenhado = pc['empenhos']['mega'].get(chave, 0.0) + sum(
+        q for p, q in pc['empenhos']['app'].get(d['lote'], []) if p in (None, item['pro']))
+    usado = pc.setdefault('usado', {}).get(chave, 0.0)
+    livre = saldo - empenhado - usado
+    pede = livre if d['qtd'] == 9999 else d['qtd']
+    if pede <= 0 or pede > livre + 1e-6:
+        pedido = 'o lote todo' if d['qtd'] == 9999 else f"{d['qtd']:g}"
+        raise ValueError(f"Lote {d['lote']} (item {item['pro']}) sem saldo livre: saldo no Mega {saldo:g}, "
+                         f"empenhado {empenhado + usado:g}{_texto_empenhos(pc['empenhos'], item, d, chave, usado)}, "
+                         f"livre {max(livre, 0):g}; a demanda seq. {d['mvd']} "
+                         f"pede {pedido}. Nada foi gravado.")
+    pc['usado'][chave] = usado + pede
+    return pede
+
+
 def _resolver_demanda_dep(cur, apt, com_in_codigo, contador_lis):
     """Acha a linha de PRO_DEMANDA_DEP do componente (ultima operacao, dde_in_operacao=0
     como no backup); se nao existir, prepara (sem inserir ainda) uma copia da ultima
@@ -769,13 +998,15 @@ def _resolver_demanda_dep(cur, apt, com_in_codigo, contador_lis):
     return nova, nova
 
 
-def _validar_demanda(cur, apt, pads, d, contador_lis):
+def _validar_demanda(cur, apt, pads, d, contador_lis, pc=None):
     """Fase de validacao de UMA demanda (nenhum INSERT aqui). Devolve o 'plano' de
-    gravacao, ou um dict {'ja_integrada': ...} se nao ha nada a gravar."""
+    gravacao, ou um dict {'ja_integrada': ...} se nao ha nada a gravar.
+    pc: estado do saldo livre compartilhado pelas demandas da gravacao (ver _saldo_livre)."""
     item = _buscar_dados_baixa_demanda(cur, apt, d)
     if item is None:
-        raise ValueError(f"Nao foi possivel localizar produto/lote para a demanda "
-                          f"(mvd_in_sequencia={d['mvd']}, lote={d['lote']}).")
+        # AJUSTE 2026-11-11 (JPC): modelo ZK -- aviso claro (de qual OP/apontamento e o lote e se ele
+        # ainda esta aberto no Mega) no lugar de "Nao foi possivel localizar produto/lote". So SELECT.
+        raise ValueError(_msg_lote_nao_localizado(cur, d, apt.get('ord_in_codigo')))
     com_in_codigo = d['pro'] or item['pro']
     ja_integrada = _demanda_ja_integrada(cur, apt, d, com_in_codigo)
     if ja_integrada:
@@ -784,7 +1015,11 @@ def _validar_demanda(cur, apt, pads, d, contador_lis):
     # AJUSTE 2026-09-22: regra real da procedure (p_inseredemanda_lotespro) -- 9999 e' o
     # sentinela "saldo total do lote" (usa o que achou em est_movsumarizado/lote); qualquer
     # outro valor de pro_re_qtdlote e' a quantidade EXATA pedida, nao o saldo do lote.
-    if d['qtd'] == 9999:
+    # AJUSTE 2026-11-11 (JPC): modelo ZK (decisao do usuario) -- com lote, "saldo do lote" = saldo livre
+    # (saldo do Mega - empenhos); sem saldo livre para a demanda, nada e gravado (ver _saldo_livre).
+    if d['lote'] != '*':
+        qtd_selecionada = _saldo_livre(cur, item, d, pc if pc is not None else {'empenhos': None, 'usado': {}})
+    elif d['qtd'] == 9999:
         qtd_selecionada = item['qtd_disponivel']
     else:
         qtd_selecionada = d['qtd']
@@ -981,6 +1216,28 @@ _SQL_CANCELAR_LOCAL = (
     "AND CTL_IN_CODIGO = %s AND MOV_ST_STATUS = 'I'")
 
 
+def _apontamento_da_demanda(cur, ordem, d, criar=True):
+    """AJUSTE 2026-11-11 (JPC): modelo ZK (decisao do usuario) -- apontamento que recebe a demanda:
+    - o aberto da ordem/operacao que seja do proprio controle (nao entra no aberto de OUTRO controle);
+    - sem nenhum: a demanda ABRE o apontamento (antes: erro "grave o lote primeiro"), com o centro da
+      programacao da OP, na mesma transacao (erro depois = rollback de tudo);
+    - controle que ja tem apontamento efetivado no Mega nao aceita nova demanda.
+    criar=False (dry_run): so leitura -- devolve as chaves da ordem com apt_in_sequencia=None."""
+    if _tem_apontamento_aberto(cur, ordem):
+        if _buscar_apontamento_aberto(cur, ordem, d['plf']) is None:
+            raise ValueError('Ha apontamento aberto na ordem, mas nao para a operacao informada.')
+        apt = _apontamento_aberto_do_ctl(cur, ordem, d['plf'], d['ctl'])
+        if apt is not None:
+            return apt
+    if _ctl_com_apontamento_efetivado(cur, d):
+        raise ValueError(f"Controle {d['ctl']}: apontamento já efetivado no Mega -- não aceita nova demanda. "
+                         f"Nada foi gravado.")
+    if not criar:
+        return dict(_chave_ordem(ordem), apt_in_sequencia=None, fil_in_codigo=ordem['fil_in_codigo'],
+                    plf_in_sqoperacao=d['plf'])
+    return _criar_apontamento(cur, ordem, dict(d, maq=None), _buscar_padroes(cur, d['fil']))
+
+
 def _gravar_demandas(con, lista_dados, dry_run=False, auto_commit=True):
     # Import so aqui (igual ao Oracle): nao inicializa o Django DB na importacao do modulo.
     from django.db import connections
@@ -989,6 +1246,22 @@ def _gravar_demandas(con, lista_dados, dry_run=False, auto_commit=True):
         # ---- FASE 1: validar tudo, sem gravar nada (aborta a lista inteira no 1o erro) ----
         planos, canceladas, puladas_c_local = [], [], []
         contador_lis = {}
+        # AJUSTE 2026-11-11 (JPC): saldo livre (modelo ZK) -- empenhos de todos os lotes desta gravacao numa
+        # leitura so; as demandas desta gravacao ficam de fora dos empenhos (entram em pc['usado']).
+        pc = {'empenhos': None, 'usado': {}}
+        lotes_gravacao, chaves_gravacao = [], set()
+        for x in lista_dados:
+            if x.get('mov_st_status') == 'C':
+                continue
+            if x.get('pro_st_lote') not in (None, '', '*'):
+                lotes_gravacao.append(str(x.get('pro_st_lote')))
+            try:
+                chaves_gravacao.add((int(x['fil_in_codigo']), int(x['ord_in_codigo']),
+                                     int(x['mvd_in_sequencia']), int(x['ctl_in_codigo'])))
+            except (KeyError, TypeError, ValueError):
+                pass  # a falta de campo obrigatorio e acusada abaixo
+        if lotes_gravacao:
+            pc['empenhos'] = _ler_empenhos(cur, lotes_gravacao, chaves_gravacao)
         for dados in lista_dados:
             for obrigatorio in ('ctl_in_codigo', 'mvd_in_sequencia'):
                 if dados.get(obrigatorio) is None:
@@ -1011,12 +1284,8 @@ def _gravar_demandas(con, lista_dados, dry_run=False, auto_commit=True):
             if ordem is None:
                 raise ValueError(f"Ordem {d['ord']} (filial {d['fil']}) nao encontrada em PRO_ORDENS.")
             pads = _pads_demanda(cur, d['fil'])
-            if not _tem_apontamento_aberto(cur, ordem):
-                raise ValueError(f"Ordem {d['ord']} nao tem apontamento aberto -- grave o lote primeiro.")
-            apt = _buscar_apontamento_aberto(cur, ordem, d['plf'])
-            if apt is None:
-                raise ValueError('Ha apontamento aberto na ordem, mas nao para a operacao informada.')
-            planos.append({**_validar_demanda(cur, apt, pads, d, contador_lis), 'apt': apt, 'pads': pads})
+            apt = _apontamento_da_demanda(cur, ordem, d, criar=not dry_run)
+            planos.append({**_validar_demanda(cur, apt, pads, d, contador_lis, pc), 'apt': apt, 'pads': pads})
 
         if dry_run:
             # So' leitura: nao grava, nao cancela, devolve o plano pra conferencia. Rollback
