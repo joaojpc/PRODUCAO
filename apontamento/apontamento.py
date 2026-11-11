@@ -802,7 +802,8 @@ def _buscar_referencia_lote(cur, lote):
 
 # ---------------------------------------------------------------------------
 # AJUSTE 2026-11-11 (JPC): validacoes da demanda copiadas do ZK (Fase 2, decisao do usuario):
-# lote nao localizado com mensagem clara (de qual OP/apontamento ele veio) e saldo livre do lote.
+# lote nao localizado com mensagem clara (de qual OP/apontamento ele veio). Saldo livre do lote
+# (_ler_empenhos/_texto_empenhos/_saldo_livre) RESERVADO para a proxima fase: no modulo, sem ser chamado.
 # ---------------------------------------------------------------------------
 
 def lotes_demanda_nao_encontrados(fil_in_codigo, ord_in_codigo, lotes, conexao):
@@ -1015,11 +1016,9 @@ def _validar_demanda(cur, apt, pads, d, contador_lis, pc=None):
     # AJUSTE 2026-09-22: regra real da procedure (p_inseredemanda_lotespro) -- 9999 e' o
     # sentinela "saldo total do lote" (usa o que achou em est_movsumarizado/lote); qualquer
     # outro valor de pro_re_qtdlote e' a quantidade EXATA pedida, nao o saldo do lote.
-    # AJUSTE 2026-11-11 (JPC): modelo ZK (decisao do usuario) -- com lote, "saldo do lote" = saldo livre
-    # (saldo do Mega - empenhos); sem saldo livre para a demanda, nada e gravado (ver _saldo_livre).
-    if d['lote'] != '*':
-        qtd_selecionada = _saldo_livre(cur, item, d, pc if pc is not None else {'empenhos': None, 'usado': {}})
-    elif d['qtd'] == 9999:
+    # AJUSTE 2026-11-11 (JPC): saldo livre (_saldo_livre, modelo ZK) fica para a proxima fase -- decisao do
+    # usuario; a regra da quantidade continua a de antes. pc e aceito mas ainda nao e usado.
+    if d['qtd'] == 9999:
         qtd_selecionada = item['qtd_disponivel']
     else:
         qtd_selecionada = d['qtd']
@@ -1246,22 +1245,9 @@ def _gravar_demandas(con, lista_dados, dry_run=False, auto_commit=True):
         # ---- FASE 1: validar tudo, sem gravar nada (aborta a lista inteira no 1o erro) ----
         planos, canceladas, puladas_c_local = [], [], []
         contador_lis = {}
-        # AJUSTE 2026-11-11 (JPC): saldo livre (modelo ZK) -- empenhos de todos os lotes desta gravacao numa
-        # leitura so; as demandas desta gravacao ficam de fora dos empenhos (entram em pc['usado']).
-        pc = {'empenhos': None, 'usado': {}}
-        lotes_gravacao, chaves_gravacao = [], set()
-        for x in lista_dados:
-            if x.get('mov_st_status') == 'C':
-                continue
-            if x.get('pro_st_lote') not in (None, '', '*'):
-                lotes_gravacao.append(str(x.get('pro_st_lote')))
-            try:
-                chaves_gravacao.add((int(x['fil_in_codigo']), int(x['ord_in_codigo']),
-                                     int(x['mvd_in_sequencia']), int(x['ctl_in_codigo'])))
-            except (KeyError, TypeError, ValueError):
-                pass  # a falta de campo obrigatorio e acusada abaixo
-        if lotes_gravacao:
-            pc['empenhos'] = _ler_empenhos(cur, lotes_gravacao, chaves_gravacao)
+        # AJUSTE 2026-11-11 (JPC): saldo livre fica para a proxima fase (decisao do usuario) -- sem leitura de
+        # empenhos aqui; pc vai vazio para _validar_demanda.
+        pc = None
         for dados in lista_dados:
             for obrigatorio in ('ctl_in_codigo', 'mvd_in_sequencia'):
                 if dados.get(obrigatorio) is None:

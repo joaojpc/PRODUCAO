@@ -140,15 +140,22 @@ class SaldoLivreTests(SimpleTestCase):
         with self.assertRaisesRegex(ValueError, r'seq\. 1, 8'):
             ao._saldo_livre(None, ITEM, _d(9999, mvd=1), pc)
 
-    def test_validar_demanda_com_lote_usa_saldo_livre(self):
-        d = dict(_d(9999), pro=0)
+    # AJUSTE 2026-11-11: saldo livre adiado (decisao do usuario) -- _validar_demanda segue a regra anterior;
+    # os testes acima cobrem a funcao reservada para a proxima fase.
+    def _plano(self, qtd):
         with patch.object(ao, '_buscar_dados_baixa_demanda', return_value=dict(ITEM)), \
                 patch.object(ao, '_demanda_ja_integrada', return_value=None), \
                 patch.object(ao, '_resolver_demanda_dep', return_value=({}, None)), \
-                patch.object(ao, '_saldo_livre', return_value=55) as livre:
-            plano = ao._validar_demanda(MagicMock(), _aberto(20), {}, d, {}, {'empenhos': _emp(), 'usado': {}})
-        livre.assert_called_once()
-        self.assertEqual(plano['qtd_selecionada'], 55)
+                patch.object(ao, '_saldo_livre') as livre:
+            plano = ao._validar_demanda(MagicMock(), _aberto(20), {}, dict(_d(qtd), pro=0), {})
+        livre.assert_not_called()
+        return plano
+
+    def test_validar_demanda_9999_usa_o_saldo_do_lote(self):
+        self.assertEqual(self._plano(9999)['qtd_selecionada'], 100)
+
+    def test_validar_demanda_quantidade_informada_vai_como_esta(self):
+        self.assertEqual(self._plano(250)['qtd_selecionada'], 250)
 
 
 # ---------------------------------------------------------------- C: lote nao localizado
