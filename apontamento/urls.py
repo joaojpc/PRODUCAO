@@ -61,4 +61,6 @@ urlpatterns = [
     # AJUSTE 2026-10-20: Efetivar Apontamento na manutencao (1o clique grava, 2o efetiva)
     path('efetivar_apontamento_oracle/', views.efetivarApontamentoOracle, name='efetivar_apontamento_oracle'),
     path('efetivar_mega_oracle/', views.efetivarMegaOracle, name='efetivar_mega_oracle'),
+    # AJUSTE 2026-11-11 (JPC): Fase 3 -- cancelar varios selecionados (tudo ou nada, espelhado no Mega)
+    path('cancelar_selecionados/<str:tipo>/', views.CancelarSelecionados, name='cancelar_selecionados'),
 ]

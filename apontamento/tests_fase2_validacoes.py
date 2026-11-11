@@ -38,7 +38,7 @@ class AbertoDoCtlTests(SimpleTestCase):
         self.assertIsNone(ao._aberto_do_ctl([_aberto(20, plf=30)], {20: set()}, 10, 5))
 
     def test_fluxo_lote_cria_novo_quando_o_aberto_e_de_outro_ctl(self):
-        d = {'fil': 2, 'ord': 74661, 'mvp': 1, 'plf': 10, 'ctl': 5}
+        d = {'fil': 2, 'ord': 74661, 'mvp': 1, 'plf': 10, 'ctl': 5, 'lote': None}
         with patch.object(ao, '_buscar_ordem', return_value=ORDEM), \
                 patch.object(ao, '_lote_ja_integrado', return_value=False), \
                 patch.object(ao, '_buscar_padroes', return_value={}), \

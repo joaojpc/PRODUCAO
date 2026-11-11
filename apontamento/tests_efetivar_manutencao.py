@@ -343,23 +343,70 @@ class ViewsEfetivarTests(_ComOracle):
         self.assertContains(resp, 'Efetivar no Mega')
         self.assertContains(resp, '7001')
 
-    def test_clique_com_pendente_grava_e_abre_confirmacao(self):
-        # AJUSTE 2026-11-11: decisao do usuario -- um clique: gravou sem erro, ja abre a tela da data
+    # AJUSTE 2026-11-11: Fase 3 (decisao do usuario: um clique, tudo ou nada) -- o botao da Manutencao so abre a
+    # tela "Efetivar no Mega"; nela, "Gravar e efetivar no Mega" grava os pendentes e, se gravou, efetiva.
+    def test_botao_da_manutencao_so_abre_a_tela(self):
         self._sessao()
         _lote()
         resp = self.client.post(reverse('efetivar_apontamento_oracle'))
         self.assertRedirects(resp, reverse('efetivar_mega_oracle'), fetch_redirect_response=False)
-        self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'I')
-        self.mocks['efetivar'].assert_not_called()  # efetiva so no POST da data
+        self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'A')  # nada gravado no clique
+        resp = self.client.get(reverse('efetivar_mega_oracle'))
+        self.assertContains(resp, 'Gravar e efetivar no Mega')
+        self.assertContains(resp, 'name="data_apontamento"')
 
-    def test_clique_com_erro_na_gravacao_volta_sem_efetivar(self):
+    def test_um_clique_grava_e_efetiva(self):
+        self._sessao()
+        _lote()
+        _demanda()
+        resp = self.client.post(reverse('efetivar_mega_oracle'), {'data_apontamento': '2026-10-20T17:30'})
+        self.assertContains(resp, '2 lote(s)/demanda(s) gravado(s) no Mega')
+        self.assertContains(resp, 'efetivado no Mega')
+        self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'I')
+        self.mocks['efetivar'].assert_called_once()
+        self.assertEqual(self.mocks['efetivar'].call_args[0][0], 7001)
+
+    def test_erro_na_gravacao_nada_gravado_nem_efetivado(self):
         self._sessao()
         _lote()
         self.mocks['lote'].return_value = [{'mensagem': 'Erro', 'detalhe': 'ORA-1'}]
-        resp = self.client.post(reverse('efetivar_apontamento_oracle'))
-        self.assertRedirects(resp, reverse('manutencao'), fetch_redirect_response=False)
+        resp = self.client.post(reverse('efetivar_mega_oracle'), {'data_apontamento': '2026-10-20T17:30'})
+        self.assertContains(resp, 'Nada foi gravado.')
+        self.assertContains(resp, 'ORA-1')
         self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'A')
         self.mocks['efetivar'].assert_not_called()
+
+    def test_data_invalida_nada_gravado(self):
+        self._sessao()
+        _lote()
+        resp = self.client.post(reverse('efetivar_mega_oracle'), {'data_apontamento': 'xx'})
+        self.assertContains(resp, 'Data do apontamento inválida')
+        self.assertEqual(Apt_ApontaOrdem.objects.get().APT_CH_STATUS, 'A')
+        self.mocks['lote'].assert_not_called()
+
+    def test_demandas_consumidas_pedem_confirmacao_antes_de_gravar(self):
+        self._sessao()
+        _demanda()
+        consumida = [{'ctl': CTL, 'seq': 10, 'lote': 'D', 'item': 5, 'saldo': 0,
+                      'consumo': [{'ord': 800, 'ctl': 1, 'mvd': 2, 'qtd': 3}]}]
+        with patch.object(integ, 'conferir_lotes_consumidos', return_value=(consumida, None)):
+            resp = self.client.post(reverse('efetivar_mega_oracle'), {'data_apontamento': '2026-10-20T17:30'})
+        self.assertContains(resp, 'Demandas já consumidas em outras ordens')
+        self.assertContains(resp, 'OP 800 / CTL 1 / demanda 2')
+        self.assertContains(resp, 'value="2026-10-20T17:30"')  # a data segue no OK
+        self.mocks['demanda'].assert_not_called()
+        self.mocks['efetivar'].assert_not_called()
+
+    def test_ok_das_consumidas_cancela_e_segue(self):
+        self._sessao()
+        _lote()
+        with patch.object(integ, 'cancelar_demandas_consumidas',
+                          return_value={'ok': True, 'cancelados': [10], 'consumidas': [], 'erros': []}) as canc:
+            resp = self.client.post(reverse('efetivar_mega_oracle'), {'data_apontamento': '2026-10-20T17:30',
+                                                                      'cancelar_consumidas': '1', 'seq': ['10']})
+        canc.assert_called_once()
+        self.assertContains(resp, 'Demanda(s) cancelada(s) (lote já consumido em outra ordem): 10')
+        self.mocks['efetivar'].assert_called_once()
 
     def test_post_da_data_mostra_aviso_do_centro(self):
         self._sessao()
@@ -383,5 +430,7 @@ class ViewsEfetivarTests(_ComOracle):
         self._sessao()
         _lote(status='I')  # ja integrado (apontamento 7001 aberto no Mega)
         resp = self.client.post(reverse('efetivar_mega_oracle'), {'data_apontamento': '2026-10-20T17:30'})
-        self.assertRedirects(resp, reverse('manutencao'), fetch_redirect_response=False)
+        # AJUSTE 2026-11-11: o resultado aparece na propria tela (antes: volta para a Manutencao)
+        self.assertContains(resp, 'efetivado no Mega')
+        self.assertNotContains(resp, 'name="data_apontamento"')  # efetivado: sem novo botao
         self.mocks['efetivar'].assert_called_once()

@@ -1,0 +1,50 @@
+{% extends 'apontamento/base_bs5.html' %}
+{# AJUSTE 2026-11-11 (JPC): Fase 3, modelo ZK -- confirmacao do cancelamento de varios selecionados. Tudo ou nada: #}
+{# o app marca 'C' e o que ja foi integrado e cancelado tambem no Mega; qualquer problema, nada muda. - JPC - João Castro #}
+{% block title %}Confirma o cancelamento?{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card shadow-sm">
+            <div class="card-header bg-producao">
+                <h4 class="mb-0">Confirma o cancelamento?</h4>
+            </div>
+            <div class="card-body">
+                {% if erros %}
+                <div class="alert alert-danger"><ul class="mb-0">{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>
+                {% endif %}
+                {% if itens %}
+                <p>{{ itens|length }} {{ nome }}(s) selecionado(s){% if integrados %}; {{ integrados }} já integrado(s): será(ão) cancelado(s) também no Mega{% endif %}.
+                   Tudo ou nada: se algum não puder ser cancelado, nada muda.</p>
+                <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <thead class="table-light"><tr><th>Sequencial</th><th>Controle</th><th>Item</th><th>Descrição</th>
+                        <th>Lote</th><th class="text-end">Quantidade</th><th>Status</th></tr></thead>
+                    <tbody>
+                    {% for i in itens %}
+                        <tr><td>{{ i.seq }}</td><td>{{ i.ctl|default_if_none:'-' }}</td><td>{{ i.item|default_if_none:'' }}</td>
+                            <td>{{ i.descricao }}</td><td class="font-monospace">{{ i.lote|default_if_none:'' }}</td>
+                            <td class="text-end">{{ i.qtd }}</td><td>{{ i.status }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">Nenhum item selecionado.</div>
+                {% endif %}
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                    <a href="{% url 'efetivar_mega_oracle' %}" class="btn btn-outline-secondary btn-lg">Voltar</a>
+                    {% if itens %}
+                    <form method="post" class="m-0">
+                        {% csrf_token %}
+                        {% for i in itens %}<input type="hidden" name="sel" value="{{ i.seq }}">{% endfor %}
+                        <input type="hidden" name="confirmar" value="1">
+                        <button type="submit" class="btn btn-danger btn-lg">Confirmar</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

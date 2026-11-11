@@ -823,69 +823,136 @@ def sincronizarOrdensNova(request):
 
 def efetivarApontamentoOracle(request):
     """AJUSTE 2026-10-20: botao "Efetivar Apontamento" (Manutencao), fluxo do NMV reaproveitando a
-    gravacao direta do PRODUCAO (integracao_apontamento). 1o clique grava no Oracle os lotes e
-    demandas pendentes do CTL; sem nada pendente, abre a confirmacao da data (2o clique).
-    AJUSTE 2026-11-11: gravou sem erro -> ja abre a confirmacao da data (um clique)."""
-    from django.contrib import messages
+    gravacao direta do PRODUCAO (integracao_apontamento).
+    AJUSTE 2026-11-11 (JPC): Fase 3, modelo ZK (decisao do usuario: dois botoes na tela) -- o botao da
+    Manutencao so abre a tela "Efetivar no Mega"; gravar os pendentes e efetivar acontecem nela."""
     from django.urls import reverse
-    from apontamento import integracao_apontamento
     if request.method != 'POST':
         return redirect('manutencao')
-    # AJUSTE 2026-10-20: rotina unica -- atividade 1 (duas etapas), etapa 1 (grava)
-    resultado = integracao_apontamento.efetivar_apontamento(
-        carrega_sessao(request), integracao_apontamento.ATIVIDADE_DUAS_ETAPAS, 1)
-    if resultado['erro_oracle']:
-        messages.error(request, resultado['erro_oracle'])
-    elif not resultado['pendentes']:
-        # nada pendente: 2o clique -- confirmacao da data e efetivacao
-        return redirect(reverse('efetivar_mega_oracle'))
-    elif resultado['ok'] and not resultado['erro']:
-        # AJUSTE 2026-11-11 (JPC): decisao do usuario -- um clique para todas as OPs (como a OP003 do NMV):
-        # gravou sem erro, ja abre a confirmacao da data e efetiva. Com erro, para aqui e nada e efetivado.
-        messages.success(request, f"{resultado['ok']} lote(s)/demanda(s) gravado(s) no Oracle.")
-        return redirect(reverse('efetivar_mega_oracle'))
-    for erro in resultado['erros']:
-        messages.error(request, erro)
-    return redirect('manutencao')
+    return redirect(reverse('efetivar_mega_oracle'))
+
+
+def _contexto_aviso_consumidas(consumidas, erros=(), data_apontamento=''):
+    """AJUSTE 2026-11-11 (JPC): contexto da tela aviso_lotes_consumidos.html (modelo ZK). OK posta na propria tela
+    do Efetivar (cancelar_consumidas=1, com a data informada) e segue o "Gravar e efetivar"; Cancelar volta para
+    ela sem gravar nada."""
+    from django.urls import reverse
+    return {'consumidas': consumidas, 'erros': list(erros), 'form_action': reverse('efetivar_mega_oracle'),
+            'voltar_url': reverse('efetivar_mega_oracle'), 'data_apontamento': data_apontamento}
+
 
 def efetivarMegaOracle(request):
-    """AJUSTE 2026-10-20: 2o clique do "Efetivar Apontamento". GET = confirmacao com a data do
-    apontamento (editavel, padrao agora); POST = efetiva (p_efetivaapontamento). Nao encerra o CTL."""
+    """AJUSTE 2026-10-20: tela "Efetivar no Mega" (data do apontamento + p_efetivaapontamento). Nao encerra o CTL.
+    AJUSTE 2026-11-11 (JPC): Fase 3 -- a mesma tela recebe as consistencias do ZK (decisao do usuario):
+      - abas Apontamentos/Demandas do CTL com status e totalizador; avisos por cor na propria tela;
+      - um botao so, "Gravar e efetivar no Mega" (tudo ou nada, ver o POST abaixo), com a data;
+      - antes de gravar, demandas com lote ja consumido no Mega vao para a tela de confirmacao (OK cancela e segue);
+      - controle vazio: situacao da OP no Mega."""
     from django.contrib import messages
-    from apontamento import integracao_apontamento
+    from apontamento import integracao_apontamento as integ
+    from app.models import Apt_ApontaOrdem, Apt_Pro_Demandas
     v_session = carrega_sessao(request)
-    if not integracao_apontamento.atividade_ligada(integracao_apontamento.ATIVIDADE_DUAS_ETAPAS):
+    if not integ.atividade_ligada(integ.ATIVIDADE_DUAS_ETAPAS):
         messages.error(request, 'Efetivar Apontamento desligado (BOTAO_EFETIVAR_TODAS_OPS). Nada foi efetivado.')
         return redirect('manutencao')
-    if request.method == 'GET':
-        # a tela da data so aparece sem pendencia no app e com apontamento aberto no Mega
-        conferencia = integracao_apontamento.conferir_controle(v_session)
-        if conferencia['erro']:
-            messages.error(request, conferencia['erro'])
-            return redirect('manutencao')
-        return render(request, 'apontamento/confirma_efetivar_mega.html', {
-            'apt_in_sequencia': conferencia['apt_in_sequencia'],
-            'ctl_in_codigo': v_session.get('ctl_in_codigo'), 'ord_in_codigo': v_session.get('ord_in_codigo'),
-            'data_padrao': timezone.localtime().strftime('%Y-%m-%dT%H:%M')})
-    try:
-        data_apontamento = datetime.strptime(request.POST.get('data_apontamento', ''), '%Y-%m-%dT%H:%M')
-    except ValueError:
-        messages.error(request, 'Data do apontamento inválida.')
+    ctl = v_session.get('ctl_in_codigo')
+    fil, ord_ = v_session.get('fil_in_codigo'), v_session.get('ord_in_codigo')
+    if not ctl:
+        messages.error(request, integ.MSG_SEM_CONTROLE)
+        return redirect('manutencao')
+    contexto = {'ctl_in_codigo': ctl, 'ord_in_codigo': ord_, 'fil_in_codigo': fil,
+                'data_padrao': timezone.localtime().strftime('%Y-%m-%dT%H:%M')}
+    if request.method == 'POST':
+        # AJUSTE 2026-11-11 (JPC): decisao do usuario -- UM CLIQUE, TUDO OU NADA: "Gravar e efetivar no Mega" confere
+        # as demandas com lote consumido, grava os pendentes (tudo ou nada) e, so se gravou sem erro, efetiva com a
+        # data da tela. Erro na gravacao: nada gravado nem efetivado. (A procedure de efetivar commita sozinha: se ela
+        # falhar depois da gravacao, o gravado fica no Mega e o proximo clique so efetiva.)
+        contexto['data_informada'] = request.POST.get('data_apontamento') or ''
+        try:
+            data_apontamento = datetime.strptime(contexto['data_informada'], '%Y-%m-%dT%H:%M')
+        except ValueError:
+            data_apontamento = None
+            contexto['efetivacao'] = {'erro_oracle': 'Data do apontamento inválida. Nada foi gravado nem efetivado.'}
+        if data_apontamento is not None:
+            if request.POST.get('cancelar_consumidas') == '1':
+                res = integ.cancelar_demandas_consumidas(ctl, fil, ord_, request.POST.getlist('seq'))
+                if not res['ok']:
+                    return render(request, 'apontamento/aviso_lotes_consumidos.html',
+                                  _contexto_aviso_consumidas(res['consumidas'], res['erros'],
+                                                             contexto['data_informada']))
+                contexto['consumidas_canceladas'] = res['cancelados']
+            else:
+                consumidas, _erro = integ.conferir_lotes_consumidos(ctl)  # falha no Mega nao trava: segue
+                if consumidas:
+                    return render(request, 'apontamento/aviso_lotes_consumidos.html',
+                                  _contexto_aviso_consumidas(consumidas, (), contexto['data_informada']))
+            gravacao = integ.efetivar_apontamento(v_session, integ.ATIVIDADE_DUAS_ETAPAS, 1)
+            if gravacao['pendentes']:
+                contexto['resultado'] = gravacao
+            if not (gravacao['erro_oracle'] or gravacao['erro']):
+                contexto['efetivacao'] = integ.efetivar_apontamento(v_session, integ.ATIVIDADE_DUAS_ETAPAS, 2,
+                                                                    data_apontamento)
+    lotes = list(Apt_ApontaOrdem.objects.filter(CTL_IN_CODIGO=ctl).order_by('APT_IN_SEQUENCIA'))
+    demandas = list(Apt_Pro_Demandas.objects.filter(CTL_IN_CODIGO=ctl).order_by('MOV_IN_SEQUENCIA'))
+    contexto.update({
+        'lotes': lotes, 'demandas': demandas,
+        'pend_lotes': sum(1 for l in lotes if l.APT_CH_STATUS == 'A'),
+        'pend_demandas': sum(1 for d in demandas if d.MOV_ST_STATUS == 'A'),
+        'totais': integ.totais_efetivar(lotes, demandas),
+        'ctl_vazio': not lotes and not demandas})
+    efetivou = bool((contexto.get('efetivacao') or {}).get('efetivado_oracle'))
+    if contexto['ctl_vazio']:
+        contexto['situacao_mega'], contexto['erro_situacao_mega'] = integ.situacao_op_no_mega(fil, ord_)
+    elif not (contexto['pend_lotes'] or contexto['pend_demandas']) and not efetivou:
+        # sem pendencia: confere o CTL inteiro (app x Mega) -- a data e o "Efetivar no Mega" so aparecem conferidos
+        conferencia = integ.conferir_controle(v_session)
+        contexto['apt_in_sequencia'] = conferencia['apt_in_sequencia']
+        contexto['erro_conferencia'] = conferencia['erro']
+    # botao "Gravar e efetivar no Mega": com pendencia, ou sem pendencia com o CTL conferido; nunca depois de efetivar
+    contexto['mostrar_botao'] = not efetivou and bool(contexto['pend_lotes'] or contexto['pend_demandas']
+                                                      or contexto.get('apt_in_sequencia'))
+    return render(request, 'apontamento/confirma_efetivar_mega.html', contexto)
+
+
+@ctl_aberto_required
+def CancelarSelecionados(request, tipo):
+    """AJUSTE 2026-11-11 (JPC): Fase 3, modelo ZK -- cancelar varios lotes/demandas marcados (checkbox) na tela
+    Efetivar no Mega, TUDO OU NADA, espelhado no Mega (integracao_apontamento.cancelar_selecionados). POST da
+    lista = tela de confirmacao; POST com confirmar=1 = cancela; deu certo volta para a tela, senao mostra o
+    motivo (e nada foi cancelado)."""
+    from django.contrib import messages
+    from apontamento import integracao_apontamento as integ
+    if tipo not in ('lote', 'demanda'):
+        raise Http404('tipo inválido')
+    if 'ord_in_codigo' not in request.session:
+        return redirect('demos_sessions')
+    if request.method != 'POST':
         return redirect('efetivar_mega_oracle')
-    # AJUSTE 2026-10-20: rotina unica -- atividade 1 (duas etapas), etapa 2 (efetiva com a data da tela)
-    resultado = integracao_apontamento.efetivar_apontamento(
-        v_session, integracao_apontamento.ATIVIDADE_DUAS_ETAPAS, 2, data_apontamento)
-    if resultado.get('aviso_centro'):
-        # AJUSTE 2026-11-11 (JPC): centro/maquina corrigidos pela programacao da OP antes de efetivar
-        messages.warning(request, resultado['aviso_centro'])
-    if resultado['erro_oracle']:
-        messages.error(request, resultado['erro_oracle'])
-    elif resultado['efetivado_oracle']:
-        messages.success(request, f"Apontamento {resultado.get('apt_in_sequencia')} efetivado no Mega."
-                                  + (f" {resultado['msg_efetivar']}" if resultado['msg_efetivar'] else ''))
+    fil_in = request.session.get('fil_in_codigo')
+    ord_in = request.session.get('ord_in_codigo')
+    pks = request.POST.getlist('sel')
+    contexto = {'tipo': tipo, 'nome': 'lote' if tipo == 'lote' else 'demanda', 'erros': []}
+    if request.POST.get('confirmar') == '1':
+        res = integ.cancelar_selecionados(tipo, pks, fil_in, ord_in)
+        if res['ok']:
+            messages.success(request, f"{len(res['cancelados'])} {contexto['nome']}(s) cancelado(s)"
+                                      + (' também no Mega.' if res['no_mega'] else '.'))
+            return redirect('efetivar_mega_oracle')
+        contexto['erros'] = res['erros']
+    try:
+        regs = integ.itens_selecionados(tipo, pks, fil_in, ord_in)
+    except (TypeError, ValueError):
+        regs = []
+    if tipo == 'lote':
+        itens = [{'seq': r.APT_IN_SEQUENCIA, 'ctl': r.CTL_IN_CODIGO, 'item': r.PRO_IN_CODIGO,
+                  'descricao': r.PRO_ST_DESCRICAO or '', 'lote': r.PRO_ST_LOTE,
+                  'qtd': r.PRO_RE_QTDCONV if r.PRO_RE_QTDCONV else r.ORL_RE_QTDLOTE, 'status': r.APT_CH_STATUS}
+                 for r in regs]
     else:
-        messages.error(request, f"Apontamento não efetivado: {resultado.get('msg_efetivar')}")
-    return redirect('manutencao')
+        itens = [{'seq': r.MOV_IN_SEQUENCIA, 'ctl': r.CTL_IN_CODIGO, 'item': r.PRO_IN_CODIGO, 'descricao': '',
+                  'lote': r.PRO_ST_LOTE, 'qtd': r.PRO_RE_QTDLOTE, 'status': r.MOV_ST_STATUS} for r in regs]
+    contexto.update({'itens': itens, 'integrados': sum(1 for i in itens if i['status'] == 'I')})
+    return render(request, 'apontamento/confirma_cancelar_selecionados.html', contexto)
 
 def grafico(request):
     template = "apontamento/highcharts/charts.html"
@@ -1354,6 +1421,21 @@ def lotesInventario(request):
             return render(request, template, {'form': form,'saldoitem': dados})
     return render(request, template, {'form': form})
 
+def _cancelar_e_avisar(request, tipo, pk):
+    """AJUSTE 2026-11-11 (JPC): cancelamento individual pela mesma rotina dos selecionados (tudo ou nada, app e
+    Mega espelhados). Deu certo: aviso verde; senao: o motivo em vermelho e nada muda nos dois lados."""
+    from django.contrib import messages as _messages
+    from apontamento import integracao_apontamento as integ
+    res = integ.cancelar_selecionados(tipo, [pk], request.session.get('fil_in_codigo'),
+                                      request.session.get('ord_in_codigo'))
+    nome = 'Lote' if tipo == 'lote' else 'Demanda'
+    if res['ok']:
+        _messages.success(request, f'{nome} {pk} cancelado(a)' + (' também no Mega.' if res['no_mega'] else '.'))
+    for erro in res['erros']:
+        _messages.error(request, erro)
+    return res
+
+
 @ctl_aberto_required
 def ExcluirApontamento(request,pk):
     template = "apontamento/confirma_delete.html"
@@ -1366,7 +1448,9 @@ def ExcluirApontamento(request,pk):
         for itn in lote:
             v_lote = itn
         if request.method == "POST":
-            ini_prod.delete_producao()
+            # AJUSTE 2026-11-11 (JPC): Fase 3, modelo ZK -- nada se apaga: cancela ('C') espelhado no Mega
+            # (tudo ou nada; antes: DELETE so no app, o lote integrado ficava no Mega)
+            _cancelar_e_avisar(request, 'lote', pk)
             return redirect('incluir_lote')
         return render(request, template, {'item':v_lote})
     except :
@@ -1385,7 +1469,8 @@ def ExcluirDemanda(request,pk):
         for itn in lote:
             v_lote = itn
         if request.method == "POST":
-            ini_prod.delete_demanda()
+            # AJUSTE 2026-11-11 (JPC): Fase 3, modelo ZK -- nada se apaga: cancela ('C') espelhado no Mega
+            _cancelar_e_avisar(request, 'demanda', pk)
             return redirect('insDemandaslocal')
         return render(request, template, {'item':v_lote})
     except :

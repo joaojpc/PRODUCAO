@@ -1971,26 +1971,19 @@ def controle_encerrado(ctl_in_codigo, fil_in_codigo, ord_in_codigo, consultar_me
         return None
     if not consultar_mega or not fil_in_codigo or not ord_in_codigo:
         return None
-    con = None
     try:
         from apontamento.integracao_apontamento import abrir_conexao_oracle_testada
         from apontamento.apontamento import _ctl_com_apontamento_efetivado
         con, erro = abrir_conexao_oracle_testada()
         if erro or not con:
             return None
-        with con.cursor() as cur:
+        with con, con.cursor() as cur:  # AJUSTE 2026-11-11: toda conexao com with (decisao do usuario)
             if _ctl_com_apontamento_efetivado(cur, {'fil': int(fil_in_codigo), 'ord': int(ord_in_codigo),
                                                     'ctl': int(ctl_in_codigo)}):
                 return MSG_CONTROLE_ENCERRADO.format(ctl=ctl_in_codigo, onde=' no Mega')
     except Exception:
         import traceback
         print('ERRO CONFERIR CONTROLE ENCERRADO (MEGA):', traceback.format_exc())
-    finally:
-        if con:
-            try:
-                con.close()
-            except Exception:
-                pass
     return None
 
 
@@ -2011,25 +2004,18 @@ def logout_controle_encerrado(ctl_in_codigo):
 def ordem_encerrada_mega(fil_in_codigo, ord_in_codigo):
     """OP encerrada no Mega ('EN' na apt_intprod2.f_valida_sitordem, a mesma do cron que encerra os CTLs). So
     leitura. Falha no Oracle nao bloqueia (False)."""
-    con = None
     try:
         from apontamento.integracao_apontamento import abrir_conexao_oracle_testada
         con, erro = abrir_conexao_oracle_testada()
         if erro or not con:
             return False
-        with con.cursor() as cur:
+        with con, con.cursor() as cur:  # AJUSTE 2026-11-11: toda conexao com with (decisao do usuario)
             return cur.callfunc('apt_intprod2.f_valida_sitordem', str,
                                 [int(fil_in_codigo), int(ord_in_codigo)]) == 'EN'
     except Exception:
         import traceback
         print('ERRO CONFERIR SITUACAO DA OP (MEGA):', traceback.format_exc())
         return False
-    finally:
-        if con:
-            try:
-                con.close()
-            except Exception:
-                pass
 
 
 def abrir_novo_controle(ordem, usuario, cliente):
@@ -2059,10 +2045,15 @@ def tratar_controle_encerrado(ctl_in_codigo, fil_in_codigo, ord_in_codigo, ordem
     aviso = controle_encerrado(ctl_in_codigo, fil_in_codigo, ord_in_codigo, consultar_mega=consultar_mega)
     if not aviso:
         return None
+    from apontamento.integracao_apontamento import registrar_evento  # AJUSTE 2026-11-11: log da integracao
     logout_controle_encerrado(ctl_in_codigo)
     if ordem_encerrada_mega(fil_in_codigo, ord_in_codigo):
+        registrar_evento('ctl_encerrado', erro='OP encerrada no Mega: novo login', ctl=ctl_in_codigo,
+                         op=ord_in_codigo, operador=usuario)
         return {'novo_ctl': None, 'aviso': aviso + MSG_OP_ENCERRADA.format(op=ord_in_codigo)}
     novo = abrir_novo_controle(ordem, usuario, cliente)
+    registrar_evento('ctl_novo', erro=None if novo else 'falha ao abrir CTL novo: novo login', ctl=ctl_in_codigo,
+                     novo_ctl=novo, op=ord_in_codigo, operador=usuario, motivo=aviso)
     if not novo:
         return {'novo_ctl': None, 'aviso': aviso}
     return {'novo_ctl': novo, 'aviso': MSG_NOVO_CONTROLE.format(ctl=ctl_in_codigo, novo=novo, op=ord_in_codigo)

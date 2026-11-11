@@ -134,8 +134,9 @@ def processa_controle(cur, d_ctl: Dict, ordens: List, demandas: List):
 def bulk_update_status_tudo(ctl_ids: List[int]):
     if not ctl_ids: return
     sql_sqlite_ctl = "UPDATE Apt_Controle SET CTL_ST_STATUS =? WHERE CTL_IN_CODIGO =?"
-    sql_sqlite_ordem = "UPDATE Apt_ApontaOrdem SET APT_CH_STATUS =? WHERE CTL_IN_CODIGO =?"
-    sql_sqlite_demanda = "UPDATE Apt_Pro_Demandas SET MOV_ST_STATUS =? WHERE CTL_IN_CODIGO =?"
+    # AJUSTE 2026-11-11 (JPC): cancelado ('C') nunca volta a 'I' (cancelar passou a marcar 'C' em vez de apagar)
+    sql_sqlite_ordem = "UPDATE Apt_ApontaOrdem SET APT_CH_STATUS =? WHERE CTL_IN_CODIGO =? AND APT_CH_STATUS <> 'C'"
+    sql_sqlite_demanda = "UPDATE Apt_Pro_Demandas SET MOV_ST_STATUS =? WHERE CTL_IN_CODIGO =? AND MOV_ST_STATUS <> 'C'"
     with sqlite_con() as scon:
         scon.executemany(sql_sqlite_ctl, [('I', i) for i in ctl_ids])
         scon.executemany(sql_sqlite_ordem, [('I', i) for i in ctl_ids])

@@ -18,6 +18,8 @@ o cron: lote/demanda ja gravados pela procedure sao reconhecidos (f_valida_*) e 
 """
 from __future__ import unicode_literals
 
+import os
+from contextlib import ExitStack, contextmanager, nullcontext
 from datetime import datetime as _dt
 
 from app.models import Apt_ApontaOrdem, Apt_Pro_Demandas
@@ -228,13 +230,94 @@ def validar_antes_de_gravar(con, controle, demandas):
         return []
 
 
-def _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado):
+import tempfile
+TRAVA_CTL = os.path.join(tempfile.gettempdir(), 'producao_ctl_{ctl}.lock')  # /tmp no servidor
+MSG_EM_INTEGRACAO = ('O controle {ctl} já está sendo gravado no Mega por outro processo (outro clique ou a '
+                     'integração automática). Nada foi feito agora -- aguarde alguns segundos e tente novamente.')
+
+
+@contextmanager
+def _trava_ctl(ctl_in_codigo):
+    """AJUSTE 2026-11-11 (JPC): copiado do ZK/NMV (7c035b0, OP 562: duplo clique criou apontamento duplicado) --
+    trava por CTL entre processos (gunicorn = botao, cron = api_producao). Sem esperar: se outro processo esta
+    gravando o mesmo CTL, devolve False e quem chamou desiste com aviso. O arquivo e aberto so para leitura (flock
+    funciona assim), entao a permissao de quem o criou nao atrapalha o outro usuario; O_CREAT so quando nao
+    existe (fs.protected_regular no /tmp). Sem fcntl (Windows, desenvolvimento) nao trava."""
+    try:
+        import fcntl
+    except ImportError:
+        yield True
+        return
+    caminho = TRAVA_CTL.format(ctl=int(ctl_in_codigo))
+    try:
+        try:
+            fd = os.open(caminho, os.O_RDONLY)
+        except FileNotFoundError:
+            fd = os.open(caminho, os.O_RDONLY | os.O_CREAT, 0o644)
+    except OSError:
+        # a trava nunca pode travar o fluxo por falha dela mesma (decisao do usuario): segue sem trava, com log
+        import traceback
+        print('AVISO TRAVA CTL indisponivel (segue sem trava):', caminho, traceback.format_exc())
+        yield True
+        return
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            yield False
+            return
+        try:
+            yield True
+        finally:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
+def operador_sem_permissao(con, v_session, controle):
+    """AJUSTE 2026-11-11 (JPC): igual ao MP (8c07346, ordem 69205) -- falta de permissao do operador aparece ANTES
+    de gravar (antes: gravava e so no efetivar acusava 'usuario nao encontrado'). Mesmo operador/filial que o
+    efetivar usa (quem esta na sessao; senao quem abriu o CTL). So leitura. Devolve a mensagem ou None."""
+    if not controle:
+        return None
+    from apontamento.apontamento import operador_tem_permissao
+    usuario = v_session.get('usuario') or controle.CTL_ST_USUARIO
+    if operador_tem_permissao(con, usuario, controle.FIL_IN_CODIGO):
+        return None
+    return (f'Operador {usuario} sem permissão no Mega para efetivar apontamento (filial '
+            f'{controle.FIL_IN_CODIGO}): não tem grupo de usuário cadastrado. Nada foi gravado -- '
+            f'solicite a liberação e tente novamente.')
+
+
+def _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado, conferir_operador=False):
     """Itens 1 e 2 do fluxo do MP: grava tudo ou nada e marca 'I'. Devolve (gravou, apt_in_sequencia).
     AJUSTE 2026-10-20: separado do _gravar_e_efetivar_controle para o botao Efetivar Apontamento.
     AJUSTE 2026-10-20 (protecoes do NMV): gravacao com limite de tempo; 'I' so depois de reler no
-    Oracle pela chave exata. Faltou algo: nada e marcado (o retry nao regrava o que ja esta la)."""
+    Oracle pela chave exata. Faltou algo: nada e marcado (o retry nao regrava o que ja esta la).
+    AJUSTE 2026-11-11 (JPC): protecoes do MP/NMV/ZK -- trava por CTL (outro processo gravando o mesmo CTL: nada e
+    feito), permissao do operador antes de gravar (conferir_operador: botao e fechamento, que efetivam; o cron
+    nao efetiva) e reserva sem espera das linhas da ordem no Mega (bloqueada: aviso na hora, nada gravado)."""
+    ctl = getattr(controle, 'CTL_IN_CODIGO', None) or v_session.get('ctl_in_codigo')
+    if not ctl:
+        return _gravar_pendentes_sem_trava(con, v_session, controle, lotes, demandas, resultado, conferir_operador)
+    with _trava_ctl(ctl) as livre:
+        if not livre:
+            resultado['erro'] = 1
+            resultado['erro_oracle'] = MSG_EM_INTEGRACAO.format(ctl=ctl)
+            return False, None
+        return _gravar_pendentes_sem_trava(con, v_session, controle, lotes, demandas, resultado, conferir_operador)
+
+
+def _gravar_pendentes_sem_trava(con, v_session, controle, lotes, demandas, resultado, conferir_operador):
     import re
+    from apontamento.apontamento import TabelaBloqueada, reservar_para_gravacao
     lotes, demandas = list(lotes), list(demandas)
+    if conferir_operador:
+        erro_operador = operador_sem_permissao(con, v_session, controle)
+        if erro_operador:
+            resultado['erro'] = 1
+            resultado['erro_oracle'] = erro_operador
+            return False, None
     # AJUSTE 2026-11-11 (JPC): modelo ZK -- valida os lotes das demandas no Mega antes de gravar; com aviso,
     # para e nada e gravado (o aviso diz o que fazer, ex.: efetivar o apontamento de origem do lote)
     avisos = validar_antes_de_gravar(con, controle, demandas)
@@ -244,8 +327,19 @@ def _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado):
         return False, None
     try:
         con.call_timeout = GRAVACAO_TIMEOUT_MS
+        if controle and (lotes or demandas):
+            reservar_para_gravacao(con, controle.FIL_IN_CODIGO, controle.ORD_IN_CODIGO)
         lotes_gravados, resultados_demanda = _gravar_tudo_ou_nada(con, v_session, lotes, demandas)
         con.call_timeout = 0
+    except TabelaBloqueada as e:
+        try:
+            con.rollback()
+        except Exception:
+            pass
+        con.call_timeout = 0
+        resultado['erro'] = 1
+        resultado['erro_oracle'] = str(e)
+        return False, None
     except Exception as e:
         try:
             con.rollback()
@@ -401,7 +495,8 @@ def _gravar_e_efetivar_controle(v_session, data_apontamento, resultado):
         return resultado
     with con:
         if lotes or demandas:
-            gravou, _apt = _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado)
+            gravou, _apt = _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado,
+                                             conferir_operador=True)  # AJUSTE 2026-11-11: fechamento efetiva
             if not gravou:
                 return resultado
         # Sempre confere e tenta efetivar (cobre o retry depois de um efetivar que falhou)
@@ -462,7 +557,69 @@ def _novo_resultado(ctl_in_codigo, atividade=None, etapa=None):
             'atividade': atividade, 'etapa': etapa}
 
 
+# ---------------------------------------------------------------------------
+# AJUSTE 2026-11-11 (JPC): decisao do usuario -- LOG PROPRIO DA INTEGRACAO para monitorar erros: logs/integracao.log
+# (rotacionado: 5 MB x 10), uma linha por evento (gravar/efetivar pela rotina unica -- botao, fechamento e cron --,
+# cancelar, centro corrigido, CTL novo aberto), com data, CTL, OP, operador, resultado e erro. Nunca levanta excecao:
+# falha no log nao interrompe nada.
+# ---------------------------------------------------------------------------
+LOG_INTEGRACAO_MAX_BYTES = 5 * 1024 * 1024
+LOG_INTEGRACAO_ARQUIVOS = 10
+
+
+def _logger_integracao():
+    import logging
+    logger = logging.getLogger('producao.integracao')
+    if not logger.handlers:
+        from logging.handlers import RotatingFileHandler
+        from django.conf import settings
+        pasta = os.path.join(str(settings.BASE_DIR), 'logs')
+        os.makedirs(pasta, exist_ok=True)
+        handler = RotatingFileHandler(os.path.join(pasta, 'integracao.log'), maxBytes=LOG_INTEGRACAO_MAX_BYTES,
+                                      backupCount=LOG_INTEGRACAO_ARQUIVOS, encoding='utf-8')
+        handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s pid=%(process)d %(message)s'))
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        logger.propagate = False
+    return logger
+
+
+def registrar_evento(evento, erro=None, **campos):
+    """Uma linha no log da integracao: evento=... campo=valor ... [erro=...]. Com erro, nivel ERROR."""
+    try:
+        partes = [f'evento={evento}'] + [f'{k}={v}' for k, v in campos.items() if v not in (None, '', [])]
+        if erro:
+            partes.append(f'erro={" | ".join(erro) if isinstance(erro, (list, tuple)) else erro}')
+        texto = ' '.join(str(p).replace('\n', ' ') for p in partes)
+        logger = _logger_integracao()
+        (logger.error if erro else logger.info)(texto)
+    except Exception:
+        pass
+
+
+def _registrar_resultado(v_session, atividade, etapa, resultado):
+    erro = resultado.get('erro_oracle') or (resultado.get('erros') if resultado.get('erro') else None)
+    if not erro and resultado.get('msg_efetivar') and not resultado.get('efetivado_oracle') and etapa == 2:
+        erro = resultado.get('msg_efetivar')
+    if not erro and not resultado.get('pendentes') and not resultado.get('ok') and atividade == ATIVIDADE_CRON:
+        return  # cron sem nada a gravar: nao polui o log
+    registrar_evento('integracao', erro=erro, atividade=atividade, etapa=etapa,
+                     ctl=resultado.get('ctl_in_codigo'), op=v_session.get('ordem'),
+                     operador=v_session.get('usuario'), pendentes=resultado.get('pendentes'),
+                     gravados=resultado.get('ok'), apt=resultado.get('apt_in_sequencia'),
+                     efetivado=resultado.get('efetivado_oracle') or None,
+                     centro=resultado.get('aviso_centro'),
+                     avisos=None if resultado.get('erro') else resultado.get('erros'))
+
+
 def efetivar_apontamento(v_session, atividade, etapa=1, data_apontamento=None):
+    """AJUSTE 2026-11-11 (JPC): casca da rotina unica -- todo resultado vai para o log da integracao."""
+    resultado = _efetivar_apontamento_rotina(v_session, atividade, etapa, data_apontamento)
+    _registrar_resultado(v_session, atividade, etapa, resultado)
+    return resultado
+
+
+def _efetivar_apontamento_rotina(v_session, atividade, etapa=1, data_apontamento=None):
     """Rotina unica do Efetivar Apontamento. atividade/etapa conforme ATIVIDADES. Nunca levanta
     excecao: erro do Oracle vira resultado['erro_oracle'] (o controle continua aberto pra tentar de
     novo). Devolve o dict de resultado (com 'atividade' e 'etapa')."""
@@ -482,7 +639,8 @@ def efetivar_apontamento(v_session, atividade, etapa=1, data_apontamento=None):
         elif not ctl_in_codigo:
             resultado['erro_oracle'] = MSG_SEM_CONTROLE
         elif atividade == ATIVIDADE_CRON or etapa == 1:
-            _etapa_gravar(v_session, ctl_in_codigo, resultado)
+            _etapa_gravar(v_session, ctl_in_codigo, resultado,
+                          conferir_operador=atividade != ATIVIDADE_CRON)  # AJUSTE 2026-11-11: cron nao efetiva
         else:
             _etapa_efetivar(v_session, ctl_in_codigo, data_apontamento, resultado)
     except Exception as e:
@@ -492,7 +650,7 @@ def efetivar_apontamento(v_session, atividade, etapa=1, data_apontamento=None):
     return resultado
 
 
-def _etapa_gravar(v_session, ctl_in_codigo, resultado):
+def _etapa_gravar(v_session, ctl_in_codigo, resultado, conferir_operador=False):
     """Atividade 1, etapa 1: grava no Oracle o que estiver pendente ('A') no controle. Nao efetiva.
     resultado['pendentes'] = 0 quando nao havia nada a gravar (proximo passo: etapa 2)."""
     from apontamento.models import Apt_Controle
@@ -507,7 +665,7 @@ def _etapa_gravar(v_session, ctl_in_codigo, resultado):
         resultado['erro_oracle'] = erro
         return
     with con:
-        _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado)
+        _gravar_pendentes(con, v_session, controle, lotes, demandas, resultado, conferir_operador)
 
 
 def _etapa_efetivar(v_session, ctl_in_codigo, data_apontamento, resultado):
@@ -568,3 +726,270 @@ def gravar_controle(v_session):
 
 def efetivar_controle(v_session, data_apontamento):
     return efetivar_apontamento(v_session, ATIVIDADE_DUAS_ETAPAS, 2, data_apontamento)
+
+
+# ---------------------------------------------------------------------------
+# AJUSTE 2026-11-11 (JPC): Fase 3 -- cancelamento no modelo ZK (decisoes do usuario): NADA SE APAGA, cancela; os
+# registros do app e do Mega ficam ESPELHADOS (mesma informacao): cancelar marca 'C' no app e, se o item ja foi
+# integrado ('I'), 'C' no Mega na mesma operacao -- TUDO OU NADA (Mega sem conexao, item ja efetivado ou nao
+# localizado: nada muda nos dois lados e a mensagem diz o que fazer). So registros do app (chave exata: filial,
+# OP, seq. do app e CTL); o que foi incluido direto no Mega fica so no Mega. Lote cancelado apaga a sub do lote
+# (PRO_ORDEMLOTESUB) e demanda cancelada recalcula o empenho (APT_APONTADEMANDA), como no ZK.
+# ---------------------------------------------------------------------------
+_TAB_LOCAL_CANC = {'lote': (Apt_ApontaOrdem, 'APT_IN_SEQUENCIA', 'APT_CH_STATUS'),
+                   'demanda': (Apt_Pro_Demandas, 'MOV_IN_SEQUENCIA', 'MOV_ST_STATUS')}
+_NOME_TIPO = {'lote': 'Lote', 'demanda': 'Demanda'}
+MSG_CANC_SEM_CONEXAO = 'Sem conexão com o Mega. Nada foi cancelado. Tente novamente em instantes.'
+MSG_CANC_NAO_LOCALIZADO = ('{tipo} {seq} não localizado(a) no Mega (CTL {ctl}). Nada foi cancelado '
+                           '-- conferir no Mega.')
+MSG_CANC_NAO_ABERTO = ('{tipo} {seq} não está aberto(a) no Mega (status {situacao}). Nada foi '
+                       'cancelado: cancele o apontamento no Mega e depois refaça o cancelamento aqui.')
+MSG_CANC_VARIOS_FORA = '{tipo} {seq} não pertence a esta ordem/filial.'
+MSG_CANC_VARIOS_STATUS = '{tipo} {seq} está com status {status} (só A ou I podem ser cancelados).'
+MSG_CANC_VARIOS_NADA = 'Nada foi cancelado (nem no Mega, nem no app).'
+MSG_CANC_VARIOS_APP_FALHOU = ('Cancelado no Mega, mas falhou ao marcar no app ({erro}). Refaça o cancelamento '
+                              '(no Mega já constam cancelados) para acertar o app.')
+
+
+def itens_selecionados(tipo, pks, fil_in_codigo, ord_in_codigo):
+    """Registros do app pelos sequenciais escolhidos, so da OP/filial informada, ordenados pelo sequencial."""
+    modelo, col_seq, _col_status = _TAB_LOCAL_CANC[tipo]
+    pks = sorted({int(p) for p in pks})
+    if not pks:
+        return []
+    return list(modelo.objects.filter(FIL_IN_CODIGO=fil_in_codigo, ORD_IN_CODIGO=ord_in_codigo,
+                                      **{f'{col_seq}__in': pks}).order_by(col_seq))
+
+
+def _cancelar_selecionados(tipo, pks, fil_in_codigo, ord_in_codigo, conexao=None):
+    """Cancela um ou varios lotes/demandas, TUDO OU NADA. Nunca levanta excecao. Ordem: confere no app -> Mega
+    (FOR UPDATE + cancela, sem commit) -> app (um UPDATE para 'C', numa transacao) com o commit do Mega dentro
+    dela: falha no app desfaz o Mega; falha no Mega desfaz o app.
+    Devolve {'ok': bool, 'cancelados': [seq], 'no_mega': [seq], 'erros': [texto]}."""
+    import re
+    from django.db import transaction
+    from apontamento.apontamento import cancelar_varios_cur
+    modelo, col_seq, col_status = _TAB_LOCAL_CANC[tipo]
+    nome = _NOME_TIPO[tipo]
+    resultado = {'ok': False, 'cancelados': [], 'no_mega': [], 'erros': []}
+    try:
+        pks = sorted({int(p) for p in pks})
+    except (TypeError, ValueError):
+        resultado['erros'] = ['Seleção inválida.', MSG_CANC_VARIOS_NADA]
+        return resultado
+    if not pks:
+        resultado['erros'] = ['Nenhum item selecionado.']
+        return resultado
+    try:
+        regs = {int(getattr(r, col_seq)): r for r in itens_selecionados(tipo, pks, fil_in_codigo, ord_in_codigo)}
+    except Exception as e:
+        import traceback
+        print('ERRO CANCELAR SELECIONADOS:', tipo, pks, traceback.format_exc())
+        resultado['erros'] = [f'Erro ao cancelar ({e}).', MSG_CANC_VARIOS_NADA]
+        return resultado
+    erros = [MSG_CANC_VARIOS_FORA.format(tipo=nome, seq=p) for p in pks if p not in regs]
+    erros += [MSG_CANC_VARIOS_STATUS.format(tipo=nome, seq=p, status=getattr(r, col_status))
+              for p, r in regs.items() if getattr(r, col_status) not in ('A', 'I')]
+    integrados = [r for p, r in sorted(regs.items()) if getattr(r, col_status) == 'I']
+    erros += [MSG_CANC_NAO_LOCALIZADO.format(tipo=nome, seq=getattr(r, col_seq), ctl=None)
+              for r in integrados if r.CTL_IN_CODIGO is None]
+    if erros:
+        resultado['erros'] = erros + [MSG_CANC_VARIOS_NADA]
+        return resultado
+    # AJUSTE 2026-11-11 (JPC): trava por CTL (como o ZK) -- nao cancela enquanto o mesmo CTL esta sendo gravado
+    ctls = sorted({int(r.CTL_IN_CODIGO) for r in regs.values() if r.CTL_IN_CODIGO is not None})
+    with ExitStack() as travas:
+        ocupados = [c for c in ctls if not travas.enter_context(_trava_ctl(c))]
+        if ocupados:
+            resultado['erros'] = [MSG_EM_INTEGRACAO.format(ctl=c) for c in ocupados] + [MSG_CANC_VARIOS_NADA]
+            return resultado
+        if not integrados:
+            return _marcar_cancelados_app(modelo, col_seq, col_status, pks, fil_in_codigo, ord_in_codigo,
+                                          None, resultado)
+        # AJUSTE 2026-11-11 (JPC): toda conexao com with (decisao do usuario); conexao de fora nao e fechada aqui
+        if conexao is None:
+            conexao_aberta, erro = abrir_conexao_oracle_testada()
+            if erro:
+                resultado['erros'] = [MSG_CANC_SEM_CONEXAO]
+                return resultado
+            contexto = conexao_aberta
+        else:
+            contexto = nullcontext(conexao)
+        with contexto as con:
+            try:
+                con.call_timeout = ORACLE_TESTE_TIMEOUT_S * 1000
+                with con.cursor() as cur:
+                    res = cancelar_varios_cur(cur, tipo, fil_in_codigo, ord_in_codigo,
+                                              [(getattr(r, col_seq), r.CTL_IN_CODIGO) for r in integrados])
+            except Exception as e:
+                import traceback
+                print('ERRO CANCELAR SELECIONADOS (MEGA):', tipo, pks, traceback.format_exc())
+                try:
+                    con.rollback()
+                except Exception:
+                    pass
+                resultado['erros'] = ([MSG_ORACLE_BLOQUEADO.replace('gravado', 'cancelado')]
+                                      if re.search(_ERRO_TEMPO, str(e)) else
+                                      [f'Erro ao cancelar ({e}).', MSG_CANC_VARIOS_NADA])
+                return resultado
+            for (seq, ctl), (acao, sits) in sorted(res['problemas'].items()):
+                textos = {'tipo': nome, 'seq': seq, 'ctl': ctl}
+                erros.append(MSG_CANC_NAO_LOCALIZADO.format(**textos) if acao == 'nao_localizado'
+                             else MSG_CANC_NAO_ABERTO.format(situacao=', '.join(sits), **textos))
+            if erros:
+                con.rollback()
+                resultado['erros'] = erros + [MSG_CANC_VARIOS_NADA]
+                return resultado
+            resultado['no_mega'] = res['cancelados']
+            return _marcar_cancelados_app(modelo, col_seq, col_status, pks, fil_in_codigo, ord_in_codigo,
+                                          con, resultado)
+
+
+def cancelar_selecionados(tipo, pks, fil_in_codigo, ord_in_codigo, conexao=None):
+    """AJUSTE 2026-11-11 (JPC): casca -- todo cancelamento vai para o log da integracao."""
+    resultado = _cancelar_selecionados(tipo, pks, fil_in_codigo, ord_in_codigo, conexao)
+    registrar_evento('cancelar', erro=None if resultado['ok'] else resultado['erros'], tipo=tipo,
+                     filial=fil_in_codigo, op=ord_in_codigo, seqs=pks, cancelados=resultado['cancelados'],
+                     no_mega=resultado['no_mega'])
+    return resultado
+
+
+def _marcar_cancelados_app(modelo, col_seq, col_status, pks, fil_in_codigo, ord_in_codigo, con, resultado):
+    """Marca 'C' no app num UPDATE so (transacao); com con (itens integrados), o commit do Mega vai DENTRO da
+    transacao do app: falha no app desfaz o Mega; falha no commit do Mega desfaz o app."""
+    import re
+    from django.db import transaction
+    mega_commitado = False
+    try:
+        with transaction.atomic():
+            alterados = modelo.objects.filter(FIL_IN_CODIGO=fil_in_codigo, ORD_IN_CODIGO=ord_in_codigo,
+                                              **{f'{col_seq}__in': pks, f'{col_status}__in': ('A', 'I')}
+                                              ).update(**{col_status: 'C'})
+            if alterados != len(pks):
+                raise RuntimeError('status mudou durante o cancelamento (outro usuário/processo)')
+            if con is not None:
+                con.commit()
+                mega_commitado = True
+        resultado.update({'ok': True, 'cancelados': pks})
+    except Exception as e:
+        import traceback
+        print('ERRO CANCELAR SELECIONADOS (APP):', pks, traceback.format_exc())
+        if con is not None and not mega_commitado:
+            try:
+                con.rollback()
+            except Exception:
+                pass
+        if mega_commitado:
+            resultado['erros'] = [MSG_CANC_VARIOS_APP_FALHOU.format(erro=e)]
+        else:
+            resultado['no_mega'] = []
+            resultado['erros'] = ([MSG_ORACLE_BLOQUEADO.replace('gravado', 'cancelado')]
+                                  if re.search(_ERRO_TEMPO, str(e)) else
+                                  [f'Erro ao cancelar ({e}).', MSG_CANC_VARIOS_NADA])
+    return resultado
+
+
+# ---------------------------------------------------------------------------
+# AJUSTE 2026-11-11 (JPC): Fase 3 -- demandas com lote ja consumido no Mega (modelo ZK, caso OP 3500 / CTL 3196):
+# antes de gravar, a tela lista essas demandas; OK confere de novo e cancela (cancelar_selecionados, tudo ou nada).
+# ---------------------------------------------------------------------------
+MSG_CONSUMIDAS_MUDOU = 'A lista de demandas mudou desde a tela anterior: nada foi cancelado. Confira de novo.'
+MSG_CONSUMIDAS_SEM_MEGA = 'Não foi possível conferir as demandas no Mega ({erro}). Nada foi cancelado nem gravado.'
+
+
+def demandas_lote_consumido(ctl_in_codigo, conexao):
+    """SOMENTE LEITURA: demandas pendentes ('A') do CTL cujo lote ja foi todo consumido no Mega. Conexao aberta por
+    quem chama. Devolve [{'ctl', 'seq', 'lote', 'item', 'saldo', 'consumo': [{'ord', 'ctl', 'mvd', 'qtd'}]}].
+    Levanta excecao em falha (quem chama decide)."""
+    from apontamento.apontamento import lotes_consumidos_cur
+    demandas = [d for d in Apt_Pro_Demandas.objects.filter(CTL_IN_CODIGO=ctl_in_codigo, MOV_ST_STATUS='A')
+                .order_by('MOV_IN_SEQUENCIA') if d.PRO_ST_LOTE not in (None, '', '*')]
+    if not demandas:
+        return []
+    with conexao.cursor() as cur:
+        consumidos = lotes_consumidos_cur(cur, [d.PRO_ST_LOTE for d in demandas])
+    return [{'ctl': d.CTL_IN_CODIGO, 'seq': d.MOV_IN_SEQUENCIA, 'lote': d.PRO_ST_LOTE,
+             'item': d.PRO_IN_CODIGO or consumidos[str(d.PRO_ST_LOTE)]['pro'],
+             'saldo': consumidos[str(d.PRO_ST_LOTE)]['saldo'],
+             'consumo': [{'ord': o, 'ctl': c, 'mvd': m, 'qtd': q}
+                         for o, c, m, q in consumidos[str(d.PRO_ST_LOTE)]['consumo']]}
+            for d in demandas if str(d.PRO_ST_LOTE) in consumidos]
+
+
+def conferir_lotes_consumidos(ctl_in_codigo):
+    """SOMENTE LEITURA. Devolve (lista, erro). Falha (ex.: Oracle fora): ([], texto) -- a gravacao segue como antes
+    (continua tudo ou nada), nada trava."""
+    try:
+        con, erro = abrir_conexao_oracle_testada()
+        if erro:
+            return [], erro
+        with con:
+            return demandas_lote_consumido(ctl_in_codigo, con), None
+    except Exception as e:
+        import traceback
+        print('ERRO CONFERIR LOTES CONSUMIDOS CTL', ctl_in_codigo, traceback.format_exc())
+        return [], str(e)
+
+
+def cancelar_demandas_consumidas(ctl_in_codigo, fil_in_codigo, ord_in_codigo, seqs):
+    """OK da tela de aviso: confere de novo no Mega; se a lista mudou (ou nao deu para conferir), nada e cancelado.
+    Senao cancela essas demandas (cancelar_selecionados, tudo ou nada).
+    Devolve {'ok': bool, 'cancelados': [seq], 'consumidas': lista atual, 'erros': [texto]}."""
+    try:
+        confirmadas = {int(s) for s in seqs}
+    except (TypeError, ValueError):
+        confirmadas = None
+    atual, erro = conferir_lotes_consumidos(ctl_in_codigo)
+    if erro:
+        return {'ok': False, 'cancelados': [], 'consumidas': atual,
+                'erros': [MSG_CONSUMIDAS_SEM_MEGA.format(erro=erro)]}
+    if confirmadas != {int(d['seq']) for d in atual}:
+        return {'ok': False, 'cancelados': [], 'consumidas': atual, 'erros': [MSG_CONSUMIDAS_MUDOU]}
+    if not atual:
+        return {'ok': True, 'cancelados': [], 'consumidas': [], 'erros': []}
+    res = cancelar_selecionados('demanda', sorted(confirmadas), fil_in_codigo, ord_in_codigo)
+    return {'ok': res['ok'], 'cancelados': res['cancelados'], 'consumidas': atual, 'erros': res['erros']}
+
+
+# ---------------------------------------------------------------------------
+# AJUSTE 2026-11-11 (JPC): Fase 3 -- dados da tela "Efetivar no Mega" com as consistencias do ZK.
+# ---------------------------------------------------------------------------
+def totais_efetivar(lotes, demandas):
+    """Totalizador para conferencia (modelo ZK): apontamentos por item + total (PRO_RE_QTDCONV, senao
+    ORL_RE_QTDLOTE) e demandas. Cancelados ('C') ficam fora; demanda em 9999 tambem (contada a parte)."""
+    from decimal import Decimal
+
+    def _dec(valor):
+        return Decimal(str(valor)) if valor not in (None, '') else Decimal('0')
+    itens = {}
+    for l in lotes:
+        if l.APT_CH_STATUS == 'C':
+            continue
+        qtd = _dec(l.PRO_RE_QTDCONV) if l.PRO_RE_QTDCONV else _dec(l.ORL_RE_QTDLOTE)
+        item = itens.setdefault(l.PRO_IN_CODIGO, {'item': l.PRO_IN_CODIGO, 'descricao': l.PRO_ST_DESCRICAO or '',
+                                                  'qtd_lotes': 0, 'quantidade': Decimal('0')})
+        item['qtd_lotes'] += 1
+        item['quantidade'] += qtd
+    validas = [_dec(d.PRO_RE_QTDLOTE) for d in demandas if d.MOV_ST_STATUS != 'C']
+    somadas = [q for q in validas if q != 9999]
+    return {'itens': list(itens.values()),
+            'lotes': sum(i['qtd_lotes'] for i in itens.values()),
+            'lotes_qtd': sum((i['quantidade'] for i in itens.values()), Decimal('0')),
+            'demandas': len(somadas), 'demandas_qtd': sum(somadas, Decimal('0')),
+            'demandas_9999': len(validas) - len(somadas)}
+
+
+def situacao_op_no_mega(fil_in_codigo, ord_in_codigo):
+    """Situacao da OP no Mega para o controle vazio. Nunca levanta excecao. Devolve (lista, erro ou None)."""
+    try:
+        from apontamento.apontamento import situacao_op_no_mega as _situacao
+        con, erro = abrir_conexao_oracle_testada()
+        if erro:
+            return [], erro
+        with con:
+            with con.cursor() as cur:
+                return _situacao(cur, fil_in_codigo, ord_in_codigo), None
+    except Exception as e:
+        import traceback
+        print('ERRO SITUACAO OP NO MEGA:', traceback.format_exc())
+        return [], str(e)

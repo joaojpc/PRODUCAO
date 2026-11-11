@@ -494,6 +494,9 @@ def _validar_lote(cur, d):
         raise ValueError(f"Ordem {d['ord']} (filial {d['fil']}) nao encontrada em PRO_ORDENS.")
     if _lote_ja_integrado(cur, ordem, d['mvp']):
         return {'ja_integrado': True, 'precisa_criar_apontamento': False}
+    if _lote_no_estoque(cur, d['lote']):  # AJUSTE 2026-11-11 (JPC): igual ao MP (be55c91)
+        raise ValueError(f"Lote {d['lote']} ja foi apontado (ja existe no estoque, est_movsumarizado) -- "
+                         f"nada foi gravado, conferir no Mega.")
     if _tem_apontamento_aberto(cur, ordem):
         apt = _buscar_apontamento_aberto(cur, ordem, d['plf'])
         if apt is None:
@@ -513,6 +516,10 @@ def _fluxo_lote(cur, cur_local, d):
     # lote ja integrado => nao grava nem cria nada.
     if _lote_ja_integrado(cur, ordem, d['mvp']):
         return _apontamento_do_lote_integrado(cur, ordem, d)
+    # AJUSTE 2026-11-11 (JPC): igual ao MP (be55c91) -- lote de producao que ja esta no estoque nao e gravado de novo
+    if _lote_no_estoque(cur, d['lote']):
+        raise ValueError(f"Lote {d['lote']} ja foi apontado (ja existe no estoque, est_movsumarizado) -- "
+                         f"nada foi gravado, conferir no Mega.")
     pads = _buscar_padroes(cur, d['fil'])
     if _tem_apontamento_aberto(cur, ordem):
         apt = _buscar_apontamento_aberto(cur, ordem, d['plf'])
@@ -1215,6 +1222,138 @@ _SQL_CANCELAR_LOCAL = (
     "AND CTL_IN_CODIGO = %s AND MOV_ST_STATUS = 'I'")
 
 
+# AJUSTE 2026-11-11 (JPC): copiado do MP (8c07346) -- linhas da _ESTOQUE que precisam de APT_APONTADEMANDA (mesma
+# chave que p_RecalculaDemandaEmpenho usa no efetivar). Fica de fora a demanda cancelada ('C') e a linha sem
+# almoxarifado nem saldo (lote nao encontrado no Mega, que por regra nao tem APT_APONTADEMANDA).
+_FILTRO_ESTOQUE_COM_DEMANDA = """e.apt_in_sequencia = :apt AND e.com_in_codigo IS NOT NULL
+                                 AND NVL(e.dde_st_situacao, 'A') <> 'C'
+                                 AND NOT (e.alm_in_codigo IS NULL AND e.saldo_estoque IS NULL)"""
+
+
+def componentes_sem_apontademanda(cur, apt_in_sequencia):
+    """SOMENTE LEITURA -- componentes gravados na APT_APONTADEMANDA_ESTOQUE do apontamento sem a linha
+    correspondente em APT_APONTADEMANDA (com_tab + com_pad + com + apt). Lista vazia = tudo certo."""
+    cur.execute(f"""SELECT DISTINCT e.com_in_codigo FROM apt_apontademanda_estoque e
+                     WHERE {_FILTRO_ESTOQUE_COM_DEMANDA}
+                       AND NOT EXISTS (SELECT 1 FROM apt_apontademanda d
+                                        WHERE d.apt_in_sequencia = e.apt_in_sequencia
+                                          AND d.com_tab_in_codigo = e.com_tab_in_codigo
+                                          AND d.com_pad_in_codigo = e.com_pad_in_codigo
+                                          AND d.com_in_codigo = e.com_in_codigo)
+                     ORDER BY 1""", {'apt': apt_in_sequencia})
+    return [int(r[0]) for r in cur.fetchall()]
+
+
+def _criar_apontademanda_faltante(cur, apt_in_sequencia, componentes):
+    """Cria APT_APONTADEMANDA dos componentes que ficaram sem ela, agregando a _ESTOQUE do apontamento -- mesma
+    regra de p_cria_demanda (soma de apt_re_qtdeselecionada; tipo de baixa 'M', atende 'S', reservado 'N') e
+    mesmas colunas que _linha_apontademanda grava (UN2/FMT em branco). Nao commita."""
+    for com in componentes:
+        cur.execute(f"""INSERT INTO apt_apontademanda
+                          (org_tab_in_codigo, org_pad_in_codigo, org_in_codigo, org_tau_st_codigo,
+                           ord_tab_in_codigo, ord_seq_in_codigo, ord_in_codigo, apt_in_sequencia,
+                           com_tab_in_codigo, com_pad_in_codigo, com_in_codigo, dde_in_operacao,
+                           dde_dt_necessidade, plf_in_sqoperacao, dde_re_qtde_padrao,
+                           dde_re_qtde_disponivel, dde_re_qtde_padrao_mov, pro_st_tipobaixa,
+                           dde_bo_atende, dde_bo_reservado, un2_st_unidade, fmt_st_codigo,
+                           fmt_tab_in_codigo, fmt_pad_in_codigo)
+                        SELECT e.org_tab_in_codigo, e.org_pad_in_codigo, e.org_in_codigo, e.org_tau_st_codigo,
+                               e.ord_tab_in_codigo, e.ord_seq_in_codigo, e.ord_in_codigo, e.apt_in_sequencia,
+                               e.com_tab_in_codigo, e.com_pad_in_codigo, e.com_in_codigo, e.dde_in_operacao,
+                               e.dde_dt_necessidade, MAX(e.plf_in_sqoperacao), SUM(e.apt_re_qtdeselecionada),
+                               SUM(e.apt_re_qtdeselecionada), SUM(e.apt_re_qtdeselecionada), 'M',
+                               'S', 'N', NULL, NULL, NULL, NULL
+                          FROM apt_apontademanda_estoque e
+                         WHERE {_FILTRO_ESTOQUE_COM_DEMANDA} AND e.com_in_codigo = :com
+                         GROUP BY e.org_tab_in_codigo, e.org_pad_in_codigo, e.org_in_codigo, e.org_tau_st_codigo,
+                                  e.ord_tab_in_codigo, e.ord_seq_in_codigo, e.ord_in_codigo, e.apt_in_sequencia,
+                                  e.com_tab_in_codigo, e.com_pad_in_codigo, e.com_in_codigo, e.dde_in_operacao,
+                                  e.dde_dt_necessidade""",
+                    {'apt': apt_in_sequencia, 'com': com})
+
+
+def _soma_estoque_componente(cur, valores):
+    """Soma da _ESTOQUE do componente no apontamento (mesmo filtro de p_RecalculaDemandaEmpenho: com_tab + com_pad +
+    com + apt, sem as canceladas). Le tambem o que acabou de ser inserido nesta transacao. None se nao achar."""
+    cur.execute("""SELECT SUM(apt_re_qtdeselecionada) FROM apt_apontademanda_estoque
+                    WHERE apt_in_sequencia = :apt AND com_tab_in_codigo = :tab
+                      AND com_pad_in_codigo = :pad AND com_in_codigo = :com
+                      AND NVL(dde_st_situacao, 'A') <> 'C'""",
+                {'apt': valores['apt_in_sequencia'], 'tab': valores['com_tab_in_codigo'],
+                 'pad': valores['com_pad_in_codigo'], 'com': valores['com_in_codigo']})
+    linha = cur.fetchone()
+    return linha[0] if linha else None
+
+
+def _lote_no_estoque(cur, lote):
+    """So leitura. AJUSTE 2026-11-11 (JPC): igual ao MP (be55c91) -- lote de producao ja apontado nao pode ser
+    duplicado: se o lote ja existe na est_movsumarizado, ja entrou no estoque e nao pode ser gravado de novo."""
+    if not lote or lote == '*':
+        return False
+    cur.execute("SELECT 1 FROM est_movsumarizado WHERE mvs_st_loteforne = :lote FETCH FIRST 1 ROW ONLY",
+                {'lote': str(lote)})
+    return cur.fetchone() is not None
+
+
+def operador_tem_permissao(con, usuario, fil_in_codigo):
+    """SOMENTE LEITURA. AJUSTE 2026-11-11 (JPC): igual ao MP (8c07346, ordem 69205) -- o operador tem grupo de
+    usuario no Mega (mesma consulta do efetivar)? Usada ANTES de gravar: sem permissao nada e gravado."""
+    with con.cursor() as cur:
+        return _buscar_gru_in_codigo(cur, usuario, fil_in_codigo) is not None
+
+
+class TabelaBloqueada(Exception):
+    """AJUSTE 2026-11-11 (JPC): igual ao MP -- linha que a gravacao precisa esta bloqueada por outra sessao
+    (normalmente o Mega). Mensagem ja pronta para o operador."""
+
+
+# AJUSTE 2026-11-11 (JPC): igual ao MP (8c07346, CTL 131) -- antes de gravar, reserva (sem esperar) as linhas da
+# ordem que a gravacao/efetivar usam; bloqueada por outra sessao, avisa o operador em vez de esperar o tempo limite.
+_SQL_RESERVA_GRAVACAO = (
+    ('APT_APONTAORDEM', """SELECT apt_in_sequencia FROM apt_apontaordem
+                            WHERE fil_in_codigo = :fil AND ord_in_codigo = :ord AND apt_ch_status = 'A'
+                              FOR UPDATE NOWAIT"""),
+    ('PRO_DEMANDA_DEP', """SELECT d.com_in_codigo FROM pro_demanda_dep d
+                            WHERE (d.org_in_codigo, d.ord_seq_in_codigo, d.ord_in_codigo) IN
+                                  (SELECT o.org_in_codigo, o.ord_seq_in_codigo, o.ord_in_codigo FROM pro_ordens o
+                                    WHERE o.ord_in_codigo = :ord AND o.fil_in_codigo = :fil)
+                              FOR UPDATE OF d.dde_st_situacao NOWAIT"""),
+)
+
+
+def _quem_bloqueia(cur, tabela):
+    """So leitura: sessoes (fora a nossa) com lock na tabela -- texto para o aviso."""
+    try:
+        cur.execute("""SELECT DISTINCT NVL(s.osuser, '?'), NVL(s.machine, '?'), NVL(s.program, '?')
+                         FROM v$locked_object l
+                         JOIN all_objects o ON o.object_id = l.object_id
+                         JOIN v$session s ON s.sid = l.session_id
+                        WHERE o.owner = 'IDP' AND o.object_name = :tab
+                          AND s.sid <> SYS_CONTEXT('USERENV', 'SID')""", {'tab': tabela})
+        return '; '.join(f'usuário {u}, máquina {m}, programa {p}' for u, m, p in cur.fetchall())
+    except Exception:
+        return ''
+
+
+def reservar_para_gravacao(con, fil_in_codigo, ord_in_codigo):
+    """Reserva (SELECT ... FOR UPDATE NOWAIT) as linhas da ordem na transacao atual da conexao -- quem chama
+    commita/desfaz (libera a reserva). Levanta TabelaBloqueada (ORA-00054) com a mensagem para o operador."""
+    binds = {'fil': int(fil_in_codigo), 'ord': int(ord_in_codigo)}
+    with con.cursor() as cur:
+        for tabela, sql in _SQL_RESERVA_GRAVACAO:
+            try:
+                cur.execute(sql, binds)
+                cur.fetchall()
+            except Exception as e:
+                if 'ORA-00054' not in str(e):
+                    raise
+                quem = _quem_bloqueia(cur, tabela)
+                raise TabelaBloqueada(
+                    f'A tabela {tabela} está bloqueada no Mega para gravação (ordem {ord_in_codigo})'
+                    + (f' -- {quem}' if quem else '')
+                    + '. Nada foi gravado. Aguarde a liberação no Mega e tente novamente.') from e
+
+
 def _apontamento_da_demanda(cur, ordem, d, criar=True):
     """AJUSTE 2026-11-11 (JPC): modelo ZK (decisao do usuario) -- apontamento que recebe a demanda:
     - o aberto da ordem/operacao que seja do proprio controle (nao entra no aberto de OUTRO controle);
@@ -1310,8 +1449,10 @@ def _gravar_demandas(con, lista_dados, dry_run=False, auto_commit=True):
             mvs = _proximo_mvs(cur, plano['apt'], contador_mvs)
             valores, nulos_estoque = _linha_estoque(cur, plano['apt'], plano['pads'], plano, mvs)
             linhas_estoque.append(valores)
-            chave_agr = (plano['apt']['org_in_codigo'], plano['apt']['ord_in_codigo'],
-                         plano['com_in_codigo'], 0)
+            # AJUSTE 2026-11-11 (JPC): igual ao MP (8c07346) -- apt_in_sequencia na chave: APT_APONTADEMANDA e por
+            # apontamento (com o CTL separado da Fase 2, a mesma OP pode ter mais de um apontamento aberto).
+            chave_agr = (plano['apt']['apt_in_sequencia'], plano['apt']['org_in_codigo'],
+                         plano['apt']['ord_in_codigo'], plano['com_in_codigo'], 0)
             agregados.setdefault(chave_agr, {'apt': plano['apt'], 'plano': plano, 'soma': 0.0})
             agregados[chave_agr]['soma'] += plano['qtd_selecionada']
             # AJUSTE 2026-09-23: 'mvd' sempre presente e sempre = MOV_IN_SEQUENCIA local
@@ -1340,6 +1481,13 @@ def _gravar_demandas(con, lista_dados, dry_run=False, auto_commit=True):
             # no modulo (podem servir noutro contexto) mas nao sao mais chamadas aqui.
             valores, nulos_apontademanda = _linha_apontademanda(
                 info['apt'], info['plano'], info['soma'], None, None, None)
+            # AJUSTE 2026-11-11 (JPC): igual ao MP (8c07346) -- quantidade = soma de TODAS as linhas do componente no
+            # apontamento (inclusive de gravacao anterior, ex.: o cron grava aos poucos), mesma regra de
+            # p_RecalculaDemandaEmpenho. Antes ficava so a soma desta gravacao (empenho menor que as baixas no Mega).
+            total = _soma_estoque_componente(cur, valores)
+            if total is not None:
+                for campo in ('dde_re_qtde_padrao', 'dde_re_qtde_disponivel', 'dde_re_qtde_padrao_mov'):
+                    valores[campo] = total
             # AJUSTE 2026-09-22: oracledb (execute com dict) da' ORA-01036 se o dict tiver
             # chave que NAO aparece no SQL como bind -- so' passa as chaves usadas aqui,
             # nao o 'valores' inteiro (que tem colunas so' do INSERT/_insert).
@@ -1359,6 +1507,18 @@ def _gravar_demandas(con, lista_dados, dry_run=False, auto_commit=True):
                         {k: valores[k] for k in _chaves_update})
             if cur.rowcount == 0:
                 _insert(cur, 'APT_APONTADEMANDA', valores, nulos_apontademanda)
+        # AJUSTE 2026-11-11 (JPC): igual ao MP (8c07346, ordens 69205/69084) -- APT_APONTADEMANDA tem que existir para
+        # todo componente da _ESTOQUE do apontamento (sem ela a demanda nao e baixada no efetivar). Ainda nesta
+        # transacao: o que faltar (inclusive de gravacao anterior) e criado pela _ESTOQUE; se ainda faltar, levanta
+        # e o chamador desfaz tudo.
+        for apt_seq in sorted({p['apt']['apt_in_sequencia'] for p in planos if not p['ja_integrada']}):
+            faltando = componentes_sem_apontademanda(cur, apt_seq)
+            if faltando:
+                _criar_apontademanda_faltante(cur, apt_seq, faltando)
+                faltando = componentes_sem_apontademanda(cur, apt_seq)
+            if faltando:
+                raise ValueError(f'APT_APONTADEMANDA nao foi criada no apontamento {apt_seq} para o(s) '
+                                 f'componente(s) {faltando}. Nada foi gravado.')
         # AJUSTE 2026-09-23: auto_commit=False -- usado quando o chamador quer gravar
         # lote(s) + demanda(s) na MESMA transacao (ver gravar_e_encerrar_controle em
         # integracao_apontamento.py), commitando so' no final se TUDO der certo. Sem
@@ -1496,9 +1656,10 @@ def itens_do_ctl_no_oracle(con, fil_in_codigo, ord_in_codigo, ctl_in_codigo):
     cancelada no Oracle fica de fora."""
     binds = {'fil': int(fil_in_codigo), 'ord': int(ord_in_codigo), 'ctl': int(ctl_in_codigo)}
     with con.cursor() as cur:
+        # AJUSTE 2026-11-11 (JPC): igual ao NMV (a66c375) -- lote cancelado no Mega ('C') nao conta, como a demanda
         cur.execute("""SELECT mvp_in_sequencia, apt_in_sequencia FROM apt_apontaordem_lote
                         WHERE fil_in_codigo = :fil AND ord_in_codigo = :ord AND ctl_in_codigo = :ctl
-                          AND mvp_in_sequencia IS NOT NULL""", binds)
+                          AND mvp_in_sequencia IS NOT NULL AND NVL(apt_ch_status, '?') <> 'C'""", binds)
         lotes = {int(s): a for s, a in cur.fetchall()}
         cur.execute("""SELECT mvd_in_sequencia, apt_in_sequencia FROM apt_apontademanda_estoque
                         WHERE fil_in_codigo = :fil AND ord_in_codigo = :ord AND ctl_in_codigo = :ctl
@@ -1612,6 +1773,155 @@ def cancelar_demanda_oracle(fil_in_codigo, ord_in_codigo, mvd_in_sequencia, ctl_
         with _abrir_conexao() as con:
             return _cancelar_demanda(con, fil_in_codigo, ord_in_codigo, mvd_in_sequencia, ctl_in_codigo)
     return _cancelar_demanda(conexao, fil_in_codigo, ord_in_codigo, mvd_in_sequencia, ctl_in_codigo)
+
+
+# ---------------------------------------------------------------------------
+# AJUSTE 2026-11-11 (JPC): Fase 3 -- cancelamento no Mega copiado do ZK (regras de 16/10, 19/10 e 29/10 de la):
+# chave exata (fil, ord, seq, ctl), FOR UPDATE, so 'A'/'C'; lote cancelado apaga a PRO_ORDEMLOTESUB (se nenhum
+# outro lote ativo usa a chave) e demanda cancelada recalcula o empenho (APT_APONTADEMANDA). No PRODUCAO e
+# chamado ANTES do cancelamento de sempre no app (que continua apagando o registro -- decisao do usuario: nada
+# muda para o operador) e e uma tentativa: falha nunca impede o cancelamento no app (integracao_apontamento).
+# ---------------------------------------------------------------------------
+_TAB_CANCELAR = {'lote': ('APT_APONTAORDEM_LOTE', 'MVP_IN_SEQUENCIA', 'APT_CH_STATUS'),
+                 'demanda': ('APT_APONTADEMANDA_ESTOQUE', 'MVD_IN_SEQUENCIA', 'DDE_ST_SITUACAO')}
+_CHAVE_ORDEMLOTESUB = ('org_tab_in_codigo', 'org_pad_in_codigo', 'org_in_codigo', 'org_tau_st_codigo',
+                       'ord_tab_in_codigo', 'ord_seq_in_codigo', 'ord_in_codigo',
+                       'orl_st_lotefabricacao', 'orl_st_slotefabricacao')
+_ABERTAS_DO_COMPONENTE = """FROM APT_APONTADEMANDA_ESTOQUE dem
+                        WHERE dem.apt_in_sequencia = dde.apt_in_sequencia
+                          AND dem.com_tab_in_codigo = dde.com_tab_in_codigo
+                          AND dem.com_pad_in_codigo = dde.com_pad_in_codigo
+                          AND dem.com_in_codigo = dde.com_in_codigo
+                          AND dem.dde_st_situacao <> 'C'"""
+
+
+def cancelar_varios_cur(cur, tipo, fil, ord_, chaves):
+    """Cancelamento no Mega de um ou varios lotes/demandas, SQL em bloco, TUDO OU NADA, SEM commit/rollback
+    (quem chama decide). Por chave exata (fil, ord, seq, ctl): trava as linhas (FOR UPDATE) e confere; se alguma
+    chave nao estiver no Mega ou tiver linha fora de 'A'/'C', devolve os problemas SEM alterar nada. Senao: 'A' ->
+    'C'; lote apaga a PRO_ORDEMLOTESUB; demanda recalcula o empenho (APT_APONTADEMANDA) dos apontamentos.
+    chaves = [(seq, ctl)] da mesma fil/ord. Devolve {'problemas': {(seq, ctl): (acao, [situacoes])},
+    'cancelados': [seq com linha 'A' cancelada]}."""
+    tabela, col_seq, col_status = _TAB_CANCELAR[tipo]
+    chaves = sorted({(int(s), int(c)) for s, c in chaves})
+    base = {'fil': int(fil), 'ord': int(ord_)}
+    situacoes = {}
+
+    def _filtro(bloco, alias=''):
+        binds = dict(base)
+        pares = []
+        for i, (s, c) in enumerate(bloco):
+            binds[f's{i}'], binds[f'c{i}'] = s, c
+            pares.append(f'(:s{i}, :c{i})')
+        return (f'{alias}fil_in_codigo = :fil AND {alias}ord_in_codigo = :ord AND '
+                f'({alias}{col_seq}, {alias}ctl_in_codigo) IN ({", ".join(pares)})'), binds
+
+    for bloco in _em_blocos(chaves, 500):
+        filtro, binds = _filtro(bloco)
+        cur.execute(f"SELECT {col_seq}, ctl_in_codigo, NVL({col_status}, '?') FROM {tabela} "
+                    f"WHERE {filtro} FOR UPDATE", binds)
+        for s, c, st in cur.fetchall():
+            situacoes.setdefault((int(s), int(c)), set()).add(st)
+    problemas = {}
+    for chave in chaves:
+        sits = situacoes.get(chave)
+        if not sits:
+            problemas[chave] = ('nao_localizado', [])
+        elif sits - {'A', 'C'}:
+            problemas[chave] = ('nao_aberto', sorted(sits))
+    if problemas:
+        return {'problemas': problemas, 'cancelados': []}
+    cancelados = sorted(s for (s, c), sits in situacoes.items() if 'A' in sits)
+    for bloco in _em_blocos(chaves, 500):
+        filtro, binds = _filtro(bloco)
+        cur.execute(f"UPDATE {tabela} SET {col_status} = 'C' WHERE {filtro} AND {col_status} = 'A'", binds)
+        if tipo == 'lote':
+            filtro_l, binds_l = _filtro(bloco, 'l.')
+            iguais = ' AND '.join(f'o.{c} = s.{c}' for c in _CHAVE_ORDEMLOTESUB)
+            cur.execute(f"""DELETE FROM PRO_ORDEMLOTESUB s
+                             WHERE ({', '.join('s.' + c for c in _CHAVE_ORDEMLOTESUB)}) IN (
+                                   SELECT {', '.join('l.' + c for c in _CHAVE_ORDEMLOTESUB)}
+                                     FROM APT_APONTAORDEM_LOTE l WHERE {filtro_l})
+                               AND NOT EXISTS (SELECT 1 FROM APT_APONTAORDEM_LOTE o
+                                                WHERE {iguais} AND NVL(o.apt_ch_status, '?') <> 'C')""", binds_l)
+    if tipo == 'demanda':
+        apts = set()
+        for bloco in _em_blocos(chaves, 500):
+            filtro, binds = _filtro(bloco)
+            cur.execute(f'SELECT DISTINCT apt_in_sequencia FROM {tabela} WHERE {filtro}', binds)
+            apts |= {r[0] for r in cur.fetchall() if r[0] is not None}
+        for bloco in _em_blocos(sorted(apts), 500):
+            binds = {f'a{i}': a for i, a in enumerate(bloco)}
+            lista = ', '.join(':' + k for k in binds)
+            cur.execute(f"""UPDATE APT_APONTADEMANDA dde
+                               SET (dde_re_qtde_padrao_mov, dde_re_qtde_padrao, dde_re_qtde_disponivel) =
+                                   (SELECT SUM(dem.apt_re_qtdeselecionada), SUM(dem.apt_re_qtdeselecionada),
+                                           SUM(dem.apt_re_qtdeselecionada) {_ABERTAS_DO_COMPONENTE})
+                             WHERE dde.apt_in_sequencia IN ({lista})
+                               AND EXISTS (SELECT 1 {_ABERTAS_DO_COMPONENTE})""", binds)
+            cur.execute(f"""DELETE FROM APT_APONTADEMANDA dde
+                             WHERE dde.apt_in_sequencia IN ({lista})
+                               AND NOT EXISTS (SELECT 1 {_ABERTAS_DO_COMPONENTE})""", binds)
+    return {'problemas': {}, 'cancelados': cancelados}
+
+
+def lotes_consumidos_cur(cur, lotes):
+    """AJUSTE 2026-11-11 (JPC): copiado do ZK (caso OP 3500 / CTL 3196) -- SOMENTE LEITURA: dos lotes informados,
+    os que estao no Mega com saldo <= 0 (est_movsumarizado, linha de maior saldo; sem linha la, o ultimo saldo de
+    est_lotesmovimento). Lote de apontamento aberto no Mega ou que nao esta no Mega fica de fora (aviso proprio).
+    Devolve {lote: {'pro': item, 'saldo': x, 'consumo': [(ord, ctl, mvd, qtd)]}} (consumo = baixas 'B' no Mega)."""
+    lotes = sorted({str(l) for l in lotes if l not in (None, '', '*')})
+    saldos, abertos = {}, set()
+    for bloco in _em_blocos(lotes, 500):
+        binds = {f'l{i}': l for i, l in enumerate(bloco)}
+        marcas = ', '.join(':' + k for k in binds)
+        cur.execute(f"""SELECT mvs_st_loteforne, pro_in_codigo, SUM(mvs_re_quantidade)
+                          FROM est_movsumarizado WHERE mvs_st_loteforne IN ({marcas})
+                         GROUP BY mvs_st_loteforne, pro_in_codigo, alm_in_codigo, loc_in_codigo""", binds)
+        for lote, pro, qtd in cur.fetchall():
+            if lote not in saldos or float(qtd or 0) > saldos[lote][1]:
+                saldos[lote] = (pro, float(qtd or 0))
+        sem_movsum = {k: l for k, l in binds.items() if l not in saldos}
+        if sem_movsum:
+            cur.execute(f"""SELECT mvl_st_loteforne, pro_in_codigo, mvl_re_saldo FROM (
+                                SELECT mvl_st_loteforne, pro_in_codigo, mvl_re_saldo,
+                                       ROW_NUMBER() OVER (PARTITION BY mvl_st_loteforne ORDER BY mvt_in_lancam DESC) rn
+                                  FROM est_lotesmovimento
+                                 WHERE mvl_st_loteforne IN ({', '.join(':' + k for k in sem_movsum)}))
+                             WHERE rn = 1""", sem_movsum)
+            for lote, pro, qtd in cur.fetchall():
+                saldos[lote] = (pro, float(qtd or 0))
+        cur.execute(f"""SELECT DISTINCT orl_st_lotefabricacao FROM apt_apontaordem_lote
+                         WHERE apt_ch_status = 'A' AND orl_st_lotefabricacao IN ({marcas})""", binds)
+        abertos.update(l for (l,) in cur.fetchall())
+    consumidos = {l: {'pro': pro, 'saldo': qtd, 'consumo': []} for l, (pro, qtd) in saldos.items()
+                  if qtd <= 1e-9 and l not in abertos}
+    for bloco in _em_blocos(sorted(consumidos), 500):
+        binds = {f'l{i}': l for i, l in enumerate(bloco)}
+        cur.execute(f"""SELECT mvs_st_loteforne, ord_in_codigo, ctl_in_codigo, mvd_in_sequencia, apt_re_qtdeselecionada
+                          FROM apt_apontademanda_estoque
+                         WHERE dde_st_situacao = 'B' AND mvs_st_loteforne IN ({', '.join(':' + k for k in binds)})
+                         ORDER BY mvs_st_loteforne, ord_in_codigo, mvd_in_sequencia""", binds)
+        for lote, ord_, ctl, mvd, qtd in cur.fetchall():
+            consumidos[lote]['consumo'].append((ord_, ctl, mvd, float(qtd or 0)))
+    return consumidos
+
+
+def situacao_op_no_mega(cur, fil_in_codigo, ord_in_codigo):
+    """AJUSTE 2026-11-11 (JPC): modelo ZK (caso OP 3412) -- SOMENTE LEITURA: apontamentos da OP no Mega com a
+    situacao e os CTLs (cabecalho, lotes e demandas nao cancelados), mais recente primeiro. Para a tela do
+    Efetivar com o controle vazio. Devolve [{'apt', 'data', 'situacao', 'efetivado', 'controles'}]."""
+    cur.execute("""SELECT a.apt_in_sequencia, a.apt_dt_apontamento, a.apt_ch_status
+                     FROM apt_apontaordem a
+                    WHERE a.fil_in_codigo = :fil AND a.ord_in_codigo = :ord
+                    ORDER BY a.apt_in_sequencia DESC FETCH FIRST 20 ROWS ONLY""",
+                {'fil': int(fil_in_codigo), 'ord': int(ord_in_codigo)})
+    linhas = cur.fetchall()
+    ctls = _ctls_dos_apontamentos(cur, [r[0] for r in linhas]) if linhas else {}
+    nomes = {'A': 'aberto', 'E': 'efetivado', 'C': 'cancelado'}
+    return [{'apt': int(a), 'data': dt.strftime('%d/%m/%Y') if hasattr(dt, 'strftime') else dt,
+             'situacao': nomes.get(st, st or '-'), 'efetivado': st == 'E',
+             'controles': sorted(ctls.get(int(a), set()))} for a, dt, st in linhas]
 
 
 def _demandas_canceladas_no_oracle(cur, fil_in_codigo, ord_in_codigo, mvds):

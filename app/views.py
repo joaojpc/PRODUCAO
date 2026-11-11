@@ -13,6 +13,8 @@ import json
 
 from rest_framework import status
 # Create your views here.
+# AJUSTE 2026-11-11 (JPC): Fase 3 -- cancelar marca 'C' (nao apaga mais); para o operador nada muda:
+# cancelado ('C') fica fora das listas e totais por ordem/CTL, como quando o registro era apagado.
 class ApontaDemandaListView(APIView):
     serializer_class = ApontaDemandaSerializer
     def get(self, request, format=None):
@@ -28,20 +30,20 @@ class ApontaDemandaListView(APIView):
             serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(MOV_IN_SEQUENCIA = pk), many=True)
         #ordem, filial e lote;
         elif v_total == 'S':
-            total = Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO=v_ordem, FIL_IN_CODIGO=v_filial).aggregate(total=Sum('PRO_RE_QTDLOTE'))['total']
+            total = Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO=v_ordem, FIL_IN_CODIGO=v_filial).exclude(MOV_ST_STATUS='C').aggregate(total=Sum('PRO_RE_QTDLOTE'))['total']
             return Response({'total_lote': total,'ordem': v_ordem,'filial': v_filial})
         elif v_ordem is not None and v_filial is not None and v_lote is not None:
-            serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO = v_ordem,FIL_IN_CODIGO = v_filial, PRO_ST_LOTE = v_lote), many=True)
+            serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO = v_ordem,FIL_IN_CODIGO = v_filial, PRO_ST_LOTE = v_lote).exclude(MOV_ST_STATUS='C'), many=True)
         elif v_ordem is not None and v_filial is not None:
-            serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO = v_ordem,FIL_IN_CODIGO = v_filial), many=True)
+            serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO = v_ordem,FIL_IN_CODIGO = v_filial).exclude(MOV_ST_STATUS='C'), many=True)
         elif v_status is not None:
             serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial, CTL_IN_CODIGO = v_transacao, MOV_ST_STATUS = v_status).order_by('MOV_IN_SEQUENCIA'), many=True)
         elif v_ordem == None:
             serializer = self.serializer_class(Apt_Pro_Demandas.objects.all(), many=True)
         elif v_lote is not None:
-            serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(PRO_ST_LOTE = v_lote,PRO_RE_QTDLOTE = 9999), many=True)
+            serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(PRO_ST_LOTE = v_lote,PRO_RE_QTDLOTE = 9999).exclude(MOV_ST_STATUS='C'), many=True)
         else:
-            serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO = v_ordem,FIL_IN_CODIGO = v_filial), many=True)
+            serializer = self.serializer_class(Apt_Pro_Demandas.objects.filter(ORD_IN_CODIGO = v_ordem,FIL_IN_CODIGO = v_filial).exclude(MOV_ST_STATUS='C'), many=True)
         return Response(serializer.data)
     def post(self, request, format=None):
         serializer = self.serializer_class(data=request.data)
@@ -91,27 +93,27 @@ class ApontaOrdemListView(APIView):
         if v_pk is not None:
             serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(APT_IN_SEQUENCIA = v_pk), many=True)
         elif v_agrupa is not None:
-            serializer = Apt_ApontaOrdem.objects.values('ORD_IN_CODIGO', 'PRO_IN_CODIGO','PRO_ST_DESCRICAO','PRO_ST_ID','ORD_ST_ID').annotate(TOTAL_PROD=Sum('PRO_RE_QTDCONV')).filter(ORD_IN_CODIGO=v_ordem, RES_ST_STATUS = 'N').order_by('PRO_IN_CODIGO')
+            serializer = Apt_ApontaOrdem.objects.values('ORD_IN_CODIGO', 'PRO_IN_CODIGO','PRO_ST_DESCRICAO','PRO_ST_ID','ORD_ST_ID').annotate(TOTAL_PROD=Sum('PRO_RE_QTDCONV')).filter(ORD_IN_CODIGO=v_ordem, RES_ST_STATUS = 'N').exclude(APT_CH_STATUS='C').order_by('PRO_IN_CODIGO')
             return Response(serializer)
         elif v_resumo is not None:   
             serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial, APT_CH_STATUS = v_status, RES_ST_STATUS = v_resumo).order_by('APT_IN_SEQUENCIA'), many=True)
         elif v_total == 'S':
-            total = Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO=v_ordem, FIL_IN_CODIGO=v_filial).aggregate(total=Sum('PRO_RE_QTDCONV'))['total']
+            total = Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO=v_ordem, FIL_IN_CODIGO=v_filial).exclude(APT_CH_STATUS='C').aggregate(total=Sum('PRO_RE_QTDCONV'))['total']
             return Response({'total_ordem': total,'ordem': v_ordem})
         elif (v_status is not None) and (v_transacao is None):
             serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial, APT_CH_STATUS = v_status).order_by('APT_IN_SEQUENCIA'), many=True)
         elif (v_transacao is not None) and (v_status is None):
-            serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial, CTL_IN_CODIGO = v_transacao).order_by('APT_IN_SEQUENCIA'), many=True)
+            serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial, CTL_IN_CODIGO = v_transacao).exclude(APT_CH_STATUS='C').order_by('APT_IN_SEQUENCIA'), many=True)
         elif (v_transacao is not None) and (v_status is not None):
             serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial, CTL_IN_CODIGO = v_transacao, APT_CH_STATUS = v_status).order_by('APT_IN_SEQUENCIA'), many=True)        
         elif (v_filial is not None) and (v_ordem is not None) and (v_seqLote is not None):
             serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial, APT_IN_SEQUENCIA = v_seqLote).order_by('APT_IN_SEQUENCIA'), many=True)
         elif (v_filial is not None) and (v_ordem is not None):
-            serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial).order_by('APT_IN_SEQUENCIA'), many=True)
+            serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial).exclude(APT_CH_STATUS='C').order_by('APT_IN_SEQUENCIA'), many=True)
         elif v_ordem is None:        
             serializer = self.serializer_class(Apt_ApontaOrdem.objects.all(), many=True)            
         elif v_seqLote == None:
-            serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial).order_by('APT_IN_SEQUENCIA'), many=True)
+            serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial).exclude(APT_CH_STATUS='C').order_by('APT_IN_SEQUENCIA'), many=True)
         else:
             serializer = self.serializer_class(Apt_ApontaOrdem.objects.filter(ORD_IN_CODIGO = v_ordem, FIL_IN_CODIGO = v_filial, APT_IN_SEQUENCIA = v_seqLote).order_by('APT_IN_SEQUENCIA'), many=True)
         return Response(serializer.data)           

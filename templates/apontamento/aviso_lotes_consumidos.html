@@ -1,0 +1,48 @@
+{% extends 'apontamento/base_bs5.html' %}
+{# AJUSTE 2026-11-11 (JPC): Fase 3, modelo ZK (caso OP 3500 / CTL 3196) -- antes de gravar no Mega, demandas com lote #}
+{# ja consumido em outra ordem: OK confere de novo e cancela essas demandas (tudo ou nada, espelhado no Mega) e segue #}
+{# a gravacao; Cancelar volta para a tela Efetivar no Mega sem gravar nada. - JPC - João Castro #}
+{% block title %}Demandas já consumidas{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-warning-subtle fw-semibold">
+                Demandas já consumidas em outras ordens, essas demandas serão canceladas, confirma?
+            </div>
+            <div class="card-body">
+                {% if erros %}
+                <div class="alert alert-danger"><ul class="mb-0">{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div>
+                {% endif %}
+                {% if consumidas %}
+                <div class="table-responsive">
+                <table class="table table-sm table-striped table-hover align-middle">
+                    <thead class="table-light"><tr><th>Controle</th><th>Demanda</th><th>Lote</th><th>Item</th>
+                        <th class="text-end">Saldo no Mega</th><th>Consumida em</th></tr></thead>
+                    <tbody>
+                    {% for d in consumidas %}
+                        <tr><td>{{ d.ctl }}</td><td>{{ d.seq }}</td><td class="font-monospace">{{ d.lote }}</td>
+                            <td>{{ d.item|default_if_none:'' }}</td><td class="text-end">{{ d.saldo|floatformat:"-3" }}</td>
+                            <td>{% for c in d.consumo %}OP {{ c.ord }} / CTL {{ c.ctl|default_if_none:'-' }} / demanda {{ c.mvd|default_if_none:'-' }} ({{ c.qtd|floatformat:"-3" }}){% if not forloop.last %}<br>{% endif %}{% empty %}saída no Mega sem demanda do app{% endfor %}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+                {% endif %}
+                <div class="d-flex flex-wrap justify-content-end gap-2 mt-3">
+                    <a class="btn btn-outline-secondary btn-lg px-4" href="{{ voltar_url }}">Cancelar</a>
+                    {% if consumidas %}
+                    <form method="post" action="{{ form_action }}" class="m-0">
+                        {% csrf_token %}
+                        {% for d in consumidas %}<input type="hidden" name="seq" value="{{ d.seq }}">{% endfor %}
+                        <input type="hidden" name="data_apontamento" value="{{ data_apontamento }}">
+                        <input type="hidden" name="cancelar_consumidas" value="1">
+                        <button type="submit" class="btn btn-producao btn-lg px-4">OK</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

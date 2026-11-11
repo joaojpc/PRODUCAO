@@ -1,9 +1,12 @@
 {% extends 'apontamento/base_bs5.html' %}
 {# AJUSTE 2026-10-20: 2o clique do Efetivar Apontamento (manutencao) -- copiado do NMV, tela nova em BS5 - JPC - João Castro #}
+{# AJUSTE 2026-11-11: Fase 3 -- a mesma tela recebe as consistencias do ZK: abas Apontamentos/Demandas com totalizador, #}
+{# avisos por cor, dois botoes (Gravar pendentes / Efetivar no Mega), controle vazio com a situacao da OP no Mega e #}
+{# cancelar selecionados. - JPC - João Castro #}
 {% block title %}Efetivar no Mega{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
+    <div class="col-lg-10">
         <div class="card shadow-sm">
             <div class="card-header bg-producao">
                 <h4 class="mb-0">Efetivar no Mega</h4>
@@ -16,23 +19,186 @@
                         {% if apt_in_sequencia %}<tr><th class="table-light">Apontamento no Mega</th><td>{{ apt_in_sequencia|stringformat:"d" }}</td></tr>{% endif %}
                     </tbody>
                 </table>
+
+                {% if consumidas_canceladas %}
+                <div class="alert alert-info">Demanda(s) cancelada(s) (lote já consumido em outra ordem): {{ consumidas_canceladas|join:", " }}.</div>
+                {% endif %}
+
+                {% if resultado %}
+                    {% if resultado.erro_oracle %}
+                    <div class="alert alert-danger"><strong>Nada foi gravado.</strong> {{ resultado.erro_oracle }}</div>
+                    {% elif resultado.ok %}
+                    <div class="alert alert-success">{{ resultado.ok }} lote(s)/demanda(s) gravado(s) no Mega e marcado(s) no app.</div>
+                    {% if resultado.erros %}<div class="alert alert-warning"><strong>Avisos</strong>
+                        <ul class="mb-0">{% for e in resultado.erros %}<li>{{ e }}</li>{% endfor %}</ul></div>{% endif %}
+                    {% elif resultado.erro %}
+                    <div class="alert alert-danger"><strong>Nada foi gravado.</strong>
+                        <ul class="mb-0">{% for e in resultado.erros %}<li>{{ e }}</li>{% endfor %}</ul></div>
+                    {% else %}
+                    <div class="alert alert-info">Nenhum lote ou demanda pendente para gravar.</div>
+                    {% endif %}
+                {% endif %}
+
+                {% if efetivacao %}
+                    {% if efetivacao.aviso_centro %}<div class="alert alert-warning">{{ efetivacao.aviso_centro }}</div>{% endif %}
+                    {% if efetivacao.erro_oracle %}
+                    <div class="alert alert-danger">{{ efetivacao.erro_oracle }}</div>
+                    {% elif efetivacao.efetivado_oracle %}
+                    <div class="alert alert-success">Apontamento {{ efetivacao.apt_in_sequencia|stringformat:"d" }} efetivado no Mega.
+                        {% if efetivacao.msg_efetivar %}{{ efetivacao.msg_efetivar }}{% endif %}</div>
+                    {% else %}
+                    <div class="alert alert-danger">Apontamento não efetivado: {{ efetivacao.msg_efetivar }}</div>
+                    {% endif %}
+                {% endif %}
+
+                {% if erro_conferencia %}
+                <div class="alert alert-warning">{{ erro_conferencia }}</div>
+                {% endif %}
+
+                <ul class="nav nav-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#aba-apontamentos" type="button" role="tab">
+                            Apontamentos ({{ lotes|length }}{% if pend_lotes %}, {{ pend_lotes }} pendente(s){% endif %})</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#aba-demandas" type="button" role="tab">
+                            Demandas ({{ demandas|length }}{% if pend_demandas %}, {{ pend_demandas }} pendente(s){% endif %})</button>
+                    </li>
+                </ul>
+                <div class="tab-content border border-top-0 p-2 mb-3">
+                    <div class="tab-pane fade show active" id="aba-apontamentos" role="tabpanel">
+                        <form method="post" id="form-cancelar-lotes" action="{% url 'cancelar_selecionados' 'lote' %}" class="my-2">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-danger btn-sm" disabled>Cancelar selecionados (<span class="qtd-sel">0</span>)</button>
+                        </form>
+                        <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle" id="tabela-lotes-efetivar">
+                            <thead class="table-light"><tr><th><input type="checkbox" class="sel-todos" title="Marcar todos"></th><th>Sequencial</th><th>Item</th><th>Descrição</th><th class="text-end">Quantidade</th><th>Lote</th><th>Status</th></tr></thead>
+                            <tbody>
+                            {% for l in lotes %}
+                                <tr class="{% if l.APT_CH_STATUS == 'C' %}text-muted{% endif %}">
+                                    <td>{% if l.APT_CH_STATUS == 'A' or l.APT_CH_STATUS == 'I' %}<input type="checkbox" class="sel-cancelar" value="{{ l.APT_IN_SEQUENCIA }}">{% endif %}</td>
+                                    <td>{{ l.APT_IN_SEQUENCIA }}</td><td>{{ l.PRO_IN_CODIGO }}</td><td>{{ l.PRO_ST_DESCRICAO|default:"" }}</td>
+                                    <td class="text-end">{% if l.PRO_RE_QTDCONV %}{{ l.PRO_RE_QTDCONV }}{% else %}{{ l.ORL_RE_QTDLOTE }}{% endif %}</td>
+                                    <td class="font-monospace">{{ l.PRO_ST_LOTE|default:"" }}</td><td>{{ l.APT_CH_STATUS }}</td></tr>
+                            {% empty %}
+                                <tr><td colspan="7" class="text-muted">Nenhum apontamento neste controle.</td></tr>
+                            {% endfor %}
+                            </tbody>
+                            {% if totais.lotes %}
+                            <tfoot>
+                            {% for i in totais.itens %}
+                                <tr class="table-light"><td></td><td>{{ i.qtd_lotes }} lote{{ i.qtd_lotes|pluralize }}</td><td>{{ i.item }}</td>
+                                    <td>Subtotal {{ i.descricao }}</td><td class="text-end"><strong>{{ i.quantidade|floatformat:3 }}</strong></td><td colspan="2"></td></tr>
+                            {% endfor %}
+                                <tr class="table-info"><td></td><td><strong>{{ totais.lotes }} lote{{ totais.lotes|pluralize }}</strong></td><td colspan="2"><strong>Total</strong></td>
+                                    <td class="text-end"><strong>{{ totais.lotes_qtd|floatformat:3 }}</strong></td><td colspan="2"><small class="text-muted">sem cancelados</small></td></tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="aba-demandas" role="tabpanel">
+                        <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead class="table-light"><tr><th>Sequencial</th><th>Lote</th><th>Inclusão</th><th class="text-end">Quantidade</th><th>Status</th></tr></thead>
+                            <tbody>
+                            {% for d in demandas %}
+                                <tr class="{% if d.MOV_ST_STATUS == 'C' %}text-muted{% endif %}">
+                                    <td>{{ d.MOV_IN_SEQUENCIA }}</td><td class="font-monospace">{{ d.PRO_ST_LOTE }}</td><td>{{ d.MOV_DT_INCLUSAO|date:"d/m/Y" }}</td>
+                                    <td class="text-end">{{ d.PRO_RE_QTDLOTE }}</td><td>{{ d.MOV_ST_STATUS }}</td></tr>
+                            {% empty %}
+                                <tr><td colspan="5" class="text-muted">Nenhuma demanda neste controle.</td></tr>
+                            {% endfor %}
+                            </tbody>
+                            {% if totais.demandas or totais.demandas_9999 %}
+                            <tfoot>
+                                <tr class="table-info"><td><strong>{{ totais.demandas }} demanda{{ totais.demandas|pluralize }}</strong></td><td colspan="2"><strong>Total</strong></td>
+                                    <td class="text-end"><strong>{{ totais.demandas_qtd|floatformat:3 }}</strong></td>
+                                    <td><small class="text-muted">sem cancelados{% if totais.demandas_9999 %}; {{ totais.demandas_9999 }} em 9999 fora do total{% endif %}</small></td></tr>
+                            </tfoot>
+                            {% endif %}
+                        </table>
+                        </div>
+                    </div>
+                </div>
+
+                {% if ctl_vazio %}
+                <div class="alert alert-info">
+                    O controle {{ ctl_in_codigo }} não tem apontamentos: nada a gravar nem a efetivar.
+                    {% if situacao_mega %}
+                    Situação da OP {{ ord_in_codigo }} no Mega:
+                    <ul class="mb-0">{% for s in situacao_mega %}
+                        <li>apontamento {{ s.apt }} ({{ s.data }}{% if s.controles %}, CTL {{ s.controles|join:", " }}{% endif %}):
+                            <strong>{{ s.situacao }}</strong></li>
+                    {% endfor %}</ul>
+                    {% elif erro_situacao_mega %}
+                    Não foi possível consultar a OP {{ ord_in_codigo }} no Mega: {{ erro_situacao_mega }}
+                    {% else %}
+                    A OP {{ ord_in_codigo }} não tem apontamento no Mega.
+                    {% endif %}
+                </div>
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                    <a href="{% url 'manutencao' %}" class="btn btn-outline-secondary btn-lg">Voltar</a>
+                </div>
+                {% elif mostrar_botao %}
+                {# AJUSTE 2026-11-11: um clique, tudo ou nada -- grava os pendentes e, so se gravou sem erro, efetiva #}
                 <div class="alert alert-warning">
-                    Nada pendente no app: efetiva o apontamento inteiro no Mega (gera os movimentos de
-                    produção). O controle não é encerrado aqui.
+                    {% if pend_lotes or pend_demandas %}Grava no Mega os pendentes deste controle e, se tudo for gravado,
+                    efetiva o apontamento{% else %}Nada pendente no app: efetiva o apontamento inteiro no Mega{% endif %}
+                    (gera os movimentos de produção). Com erro na gravação, nada é gravado nem efetivado.
+                    O controle não é encerrado aqui.
                 </div>
                 <form method="post">
                     {% csrf_token %}
                     <label for="data_apontamento" class="form-label fw-bold">Data de encerramento (data do apontamento das movimentações no Mega)</label>
                     <input type="datetime-local" class="form-control form-control-lg" id="data_apontamento"
-                           name="data_apontamento" value="{{ data_padrao }}" required>
+                           name="data_apontamento" value="{{ data_informada|default:data_padrao }}" required>
                     <div class="d-flex justify-content-end gap-2 mt-4">
                         <a href="{% url 'manutencao' %}" class="btn btn-outline-secondary btn-lg">Voltar</a>
                         <button type="submit" class="btn btn-producao btn-lg"
-                                onclick="return confirm('Efetivar o apontamento no Mega?');">Efetivar no Mega</button>
+                                onclick="return confirm('Gravar e efetivar o apontamento no Mega?');">Gravar e efetivar no Mega</button>
                     </div>
                 </form>
+                {% else %}
+                <div class="d-flex justify-content-end gap-2 mt-3">
+                    <a href="{% url 'manutencao' %}" class="btn btn-outline-secondary btn-lg">Voltar</a>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block js %}
+<script>
+// AJUSTE 2026-11-11 (JPC): cancelar selecionados (modelo ZK) -- marca/desmarca e leva os sequenciais no POST
+(function () {
+    var tabela = document.getElementById('tabela-lotes-efetivar');
+    var form = document.getElementById('form-cancelar-lotes');
+    if (!tabela || !form) { return; }
+    var botao = form.querySelector('button[type=submit]');
+    function marcados() { return tabela.querySelectorAll('.sel-cancelar:checked'); }
+    function atualizar() {
+        var n = marcados().length;
+        form.querySelector('.qtd-sel').textContent = n;
+        botao.disabled = n === 0;
+    }
+    tabela.addEventListener('change', function (e) {
+        if (e.target.classList.contains('sel-todos')) {
+            tabela.querySelectorAll('.sel-cancelar').forEach(function (c) { c.checked = e.target.checked; });
+        }
+        atualizar();
+    });
+    form.addEventListener('submit', function () {
+        form.querySelectorAll('input[name=sel]').forEach(function (i) { i.remove(); });
+        marcados().forEach(function (c) {
+            var i = document.createElement('input');
+            i.type = 'hidden'; i.name = 'sel'; i.value = c.value;
+            form.appendChild(i);
+        });
+    });
+})();
+</script>
 {% endblock %}
