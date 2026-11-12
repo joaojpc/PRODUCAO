@@ -1,0 +1,2 @@
+# AJUSTE 2026-11-11 (JPC): scripts antigos (Jython/rascunhos) movidos sem alteracao de apontamento/ -- nao sao testes
+# do Django e nunca rodaram (imports java.sql, HTTP fixo). Pasta SEM __init__.py: o manage.py test nao entra aqui.

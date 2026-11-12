@@ -567,20 +567,46 @@ LOG_INTEGRACAO_MAX_BYTES = 5 * 1024 * 1024
 LOG_INTEGRACAO_ARQUIVOS = 10
 
 
+def _rodando_testes():
+    """manage.py test: o log real nao recebe eventos de teste (validacao de 11/11 no servidor: a bateria escreveu
+    52 linhas de teste no logs/integracao.log de producao)."""
+    import sys
+    return len(sys.argv) > 1 and sys.argv[1] == 'test'
+
+
 def _logger_integracao():
     import logging
     logger = logging.getLogger('producao.integracao')
     if not logger.handlers:
+        logger.propagate = False
+        logger.setLevel(logging.INFO)
+        if _rodando_testes():
+            logger.addHandler(logging.NullHandler())
+            return logger
         from logging.handlers import RotatingFileHandler
         from django.conf import settings
+
+        class _HandlerCompartilhado(RotatingFileHandler):
+            """O cron (api_producao) roda como root e o gunicorn como suporte: todo arquivo do log (inclusive o
+            novo, depois do rodizio) fica 666 para os dois gravarem. chmod de arquivo de outro dono falha calado."""
+            def _open(self):
+                stream = super()._open()
+                try:
+                    os.chmod(self.baseFilename, 0o666)
+                except OSError:
+                    pass
+                return stream
+
         pasta = os.path.join(str(settings.BASE_DIR), 'logs')
         os.makedirs(pasta, exist_ok=True)
-        handler = RotatingFileHandler(os.path.join(pasta, 'integracao.log'), maxBytes=LOG_INTEGRACAO_MAX_BYTES,
-                                      backupCount=LOG_INTEGRACAO_ARQUIVOS, encoding='utf-8')
+        try:
+            os.chmod(pasta, 0o777)
+        except OSError:
+            pass
+        handler = _HandlerCompartilhado(os.path.join(pasta, 'integracao.log'), maxBytes=LOG_INTEGRACAO_MAX_BYTES,
+                                        backupCount=LOG_INTEGRACAO_ARQUIVOS, encoding='utf-8')
         handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s pid=%(process)d %(message)s'))
         logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
-        logger.propagate = False
     return logger
 
 

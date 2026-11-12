@@ -380,6 +380,43 @@ class LogIntegracaoTests(SimpleTestCase):
         texto = logger.error.call_args[0][0]
         self.assertEqual(texto, 'evento=cancelar ctl=7 erro=a | b')
 
+    def test_testes_nao_escrevem_no_log_real(self):
+        import logging
+        logger = logging.getLogger('producao.integracao')
+        antigos = list(logger.handlers)
+        for h in antigos:
+            logger.removeHandler(h)
+        try:
+            with patch('sys.argv', ['manage.py', 'test']):
+                integ._logger_integracao()
+            self.assertTrue(logger.handlers)
+            self.assertTrue(all(isinstance(h, logging.NullHandler) for h in logger.handlers))
+        finally:
+            for h in list(logger.handlers):
+                logger.removeHandler(h)
+            for h in antigos:
+                logger.addHandler(h)
+
+    def test_arquivo_do_log_fica_compartilhado_root_e_suporte(self):
+        import logging
+        import tempfile
+        logger = logging.getLogger('producao.integracao')
+        antigos = list(logger.handlers)
+        for h in antigos:
+            logger.removeHandler(h)
+        pasta = tempfile.mkdtemp()
+        try:
+            with patch('sys.argv', ['manage.py', 'runserver']), \
+                    patch('django.conf.settings.BASE_DIR', pasta), patch('os.chmod') as chmod:
+                integ._logger_integracao()
+            self.assertTrue(any(c.args[1] == 0o666 for c in chmod.call_args_list))
+        finally:
+            for h in list(logger.handlers):
+                h.close()
+                logger.removeHandler(h)
+            for h in antigos:
+                logger.addHandler(h)
+
     def test_cron_sem_nada_nao_polui_o_log(self):
         with patch.object(integ, 'registrar_evento') as reg:
             integ._registrar_resultado({}, integ.ATIVIDADE_CRON, 1, {'pendentes': 0, 'ok': 0})
