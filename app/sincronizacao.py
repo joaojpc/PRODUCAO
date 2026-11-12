@@ -538,7 +538,10 @@ def sincronizar_ordem_login(fil_in_codigo, ord_in_codigo):
                 'maquinas_novas': 0, 'tempo_ms': 0,
                 'erro_conexao': 'Sem conexão com o Oracle (Mega). Não foi possível baixar a OP.'}
     with con:  # AJUSTE 2026-11-11 (JPC): toda conexao com with (decisao do usuario)
-        resumo = sincronizar_ordens(org_da_filial(fil_in_codigo), fil_in_codigo, ord_in_codigo, 'N', conexao=con)
+        # AJUSTE 2026-11-11 (JPC): login leve -- so a OP do operador; o tipo de todas as caracteristicas e a
+        # normalizacao do app inteiro ficam com o botao "Baixar Ordens" e o script atualizar_ordens_mega
+        resumo = sincronizar_ordens(org_da_filial(fil_in_codigo), fil_in_codigo, ord_in_codigo, 'N', conexao=con,
+                                    normalizar=False, tipos=False)
     print('SINCRONIZAR OP LOGIN', fil_in_codigo, ord_in_codigo, '->', resumo.get('ordens'),
           resumo.get('erros'), resumo.get('erro_conexao'), f"{resumo.get('tempo_ms')} ms")
     return resumo

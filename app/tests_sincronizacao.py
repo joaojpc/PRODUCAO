@@ -464,7 +464,8 @@ class PadraoTests(TestCase):
         with patch.object(sync, 'conexao_oracle_testada', return_value=con), \
                 patch.object(sync, 'sincronizar_ordens', return_value={'ordens': []}) as s:
             sync.sincronizar_ordem_login(3, 900)
-        s.assert_called_once_with(2, 3, 900, 'N', conexao=con)
+        # AJUSTE 2026-11-11: login leve (sem reler o tipo de todas as caracteristicas nem normalizar o app inteiro)
+        s.assert_called_once_with(2, 3, 900, 'N', conexao=con, normalizar=False, tipos=False)
         con.__exit__.assert_called_once()  # AJUSTE 2026-11-11: conexao fechada pelo with
 
     def test_conexao_testada_usa_timeout_curto(self):
