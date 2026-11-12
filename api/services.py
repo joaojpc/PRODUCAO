@@ -153,7 +153,19 @@ def sync_referencias_item(con, fil_in_codigo, pro_in_codigo):
 
 
 def sync_caracteristicas_referencia(con, fil_in_codigo, rfc_in_codigo):
-    """= GetDadosProducao.get_ref_atributos (sem rat_ch_tipoconteudo, como no PRODUCAO)."""
+    """= GetDadosProducao.get_ref_atributos.
+    AJUSTE 2026-11-11 (JPC): do ZK -- tambem ar.rat_ch_tipoconteudo ('N' = numerico). Erro cercado: se o Mega
+    daqui nao tiver a coluna (ORA-00904), le sem ela e o tipo fica vazio (texto), como antes."""
+    try:
+        return _caracteristicas_referencia(con, fil_in_codigo, rfc_in_codigo, ', ar.rat_ch_tipoconteudo')
+    except Exception as e:
+        if 'ORA-00904' not in str(e):
+            raise
+        print('AVISO: est_atributoreferencia sem rat_ch_tipoconteudo -- tipo fica vazio:', e)
+        return _caracteristicas_referencia(con, fil_in_codigo, rfc_in_codigo, '')
+
+
+def _caracteristicas_referencia(con, fil_in_codigo, rfc_in_codigo, coluna_tipo):
     sql = """select lpad(cr.rat_tab_in_codigo,3,'0')||lpad(cr.rat_pad_in_codigo,3,'0')||lpad(cr.rat_in_codigo,7,'0')||
                     lpad(cr.rfc_tab_in_codigo,3,'0')||lpad(cr.rfc_pad_in_codigo,3,'0')||lpad(cr.rfc_in_codigo,7,'0') as car_st_id,
                     lpad(cr.rat_tab_in_codigo,3,'0')||lpad(cr.rat_pad_in_codigo,3,'0')||lpad(cr.rat_in_codigo,7,'0') as rat_st_id,
@@ -163,7 +175,7 @@ def sync_caracteristicas_referencia(con, fil_in_codigo, rfc_in_codigo):
                          else lpad(ar.rat_in_codigo,7,'0')||'=' end as rat_value,
                     ar.rat_ch_tipo, cr.car_in_prioridade, cr.rfc_in_codigo,
                     case when ar.pai_rat_in_codigo = ar.rat_in_codigo then 'S' else 'N' end as rat_bo_grupo_new,
-                    ar.rat_bo_grupo, cr.car_bo_obrigatorio, pai.rat_st_descricao as pai_st_descricao
+                    ar.rat_bo_grupo, cr.car_bo_obrigatorio, pai.rat_st_descricao as pai_st_descricao""" + coluna_tipo + """
                from est_atributoreferencia ar, est_caracatributoreferencia cr, est_atributoreferencia pai
               where ar.rat_tab_in_codigo = cr.rat_tab_in_codigo
                 and ar.rat_pad_in_codigo = cr.rat_pad_in_codigo

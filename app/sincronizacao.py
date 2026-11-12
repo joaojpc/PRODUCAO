@@ -9,8 +9,12 @@ do NMV. Recebe as chamadas das views. Mesmo comportamento do "Baixar Ordens" de 
   - cache por produto/referencia dentro da rodada; erro de uma OP nao derruba as outras.
 Regras da rotina antiga do PRODUCAO mantidas de proposito (documentadas onde aparecem). O "Baixar
 Ordens" continua intacto. Nada aqui grava no Oracle.
-Diferencas do NMV: itens com chaves minusculas (apt_intprod2), rfc_in_codigo = 0 nao busca
-atributos/caracteristicas (a rotina antiga daqui le a chave certa) e sem troca de PK.
+Diferencas do NMV: itens com chaves minusculas (apt_intprod2) e rfc_in_codigo = 0 nao busca
+atributos/caracteristicas (a rotina antiga daqui le a chave certa).
+AJUSTE 2026-11-11 (JPC): decisao do usuario -- do NMV/ZK: troca de PK (ordens = ORD_ST_ID, itens =
+PRO_ST_ID; busca direto pela PK), tipo das caracteristicas vindo do Mega (RAT_CH_TIPOCONTEUDO, de todas as
+caracteristicas do app), normalizacao dos itens com JSON no padrao antigo e atualizacao da caracteristica
+que ja existe (atualizar_caracteristica_existente, usada pelo "Baixar Ordens").
 """
 import time
 from datetime import date, datetime
@@ -32,7 +36,8 @@ TAMANHOS_ITEM = {'PRO_ST_DESCRICAO': 70, 'UNI_ST_UNIDADE': 8, 'PRO_ST_ID': 13}
 OBRIGATORIOS_ITEM = ['PRO_TAB_IN_CODIGO', 'PRO_PAD_IN_CODIGO', 'PRO_IN_CODIGO', 'PRO_ST_DESCRICAO',
                      'UNI_ST_UNIDADE', 'RFC_IN_CODIGO']
 TAMANHOS_CAR = {'CAR_ST_ID': 26, 'RAT_ST_ID': 13, 'RFC_ST_ID': 13, 'RAT_ST_DESCRICAO': 70, 'RAT_VALUE': 100,
-                'RAT_CH_TIPO': 1, 'RAT_BO_GRUPO': 1, 'CAR_BO_OBRIGATORIO': 1, 'PAI_ST_DESCRICAO': 70}
+                'RAT_CH_TIPO': 1, 'RAT_BO_GRUPO': 1, 'CAR_BO_OBRIGATORIO': 1, 'PAI_ST_DESCRICAO': 70,
+                'RAT_CH_TIPOCONTEUDO': 1}
 OBRIGATORIOS_CAR = ['CAR_ST_ID', 'PAI_RAT_IN_CODIGO', 'RAT_IN_CODIGO', 'RFC_IN_CODIGO']
 
 
@@ -85,10 +90,12 @@ def _monta_pro_st_id(pro_tab, pro_pad, pro_in):
     return monta_produto([pro_tab, pro_pad, pro_in])
 
 
-def montar_plano(con, org_in_codigo, fil_in_codigo=None, ord_in_codigo=None, param=None):
-    """Le no Oracle e monta exatamente o que a rotina antiga gravaria. So leitura."""
+def montar_plano(con, org_in_codigo, fil_in_codigo=None, ord_in_codigo=None, param=None, tipos=True):
+    """Le no Oracle e monta exatamente o que a rotina antiga gravaria. So leitura.
+    tipos=False: nao le o tipo de todas as caracteristicas (o script de atualizacao em massa le uma vez so)."""
     from api import services as oracle
-    plano = {'ordens': [], 'itens': {}, 'caracteristicas': {}, 'maquinas': [], 'operadores': [], 'erros': []}
+    plano = {'ordens': [], 'itens': {}, 'caracteristicas': {}, 'maquinas': [], 'operadores': [], 'erros': [],
+             'tipos': {}}
     memo_conv, memo_atr, memo_ref, memo_car = {}, {}, {}, {}
     for pend in oracle.sync_ordens_pendentes(con, org_in_codigo, fil_in_codigo, ord_in_codigo, param):
         try:
@@ -127,10 +134,8 @@ def montar_plano(con, org_in_codigo, fil_in_codigo=None, ord_in_codigo=None, par
                         ref = _cache(memo_ref, (fil, pro), lambda: oracle.sync_referencias_item(con, fil, pro))
                         for car in _cache(memo_car, (fil, rfc), lambda: _jsonavel(
                                 oracle.sync_caracteristicas_referencia(con, fil, rfc))):
-                            linha_car = {c: car.get(c) for c in local.COLUNAS_CARACTERISTICA}
-                            if linha_car['CAR_BO_OBRIGATORIO'] is None:
-                                linha_car['CAR_BO_OBRIGATORIO'] = 'S'  # default do modelo (antiga)
-                            if not _invalido(linha_car, OBRIGATORIOS_CAR, TAMANHOS_CAR):
+                            linha_car = linha_caracteristica(car)  # AJUSTE 2026-11-11: mesma montagem
+                            if linha_car is not None:
                                 plano['caracteristicas'].setdefault(linha_car['CAR_ST_ID'], linha_car)
                                 entrada['cars'].append(linha_car['CAR_ST_ID'])
                     else:
@@ -178,6 +183,16 @@ def montar_plano(con, org_in_codigo, fil_in_codigo=None, ord_in_codigo=None, par
                     plano['operadores'].append(op)
         except Exception as e:
             plano['erros'].append(f'Operadores: {e}')
+    # AJUSTE 2026-11-11 (JPC): do ZK -- tipo do conteudo (RAT_CH_TIPOCONTEUDO: 'N' numerico; 'S'/nulo texto) de
+    # TODAS as caracteristicas do app, nao so as da OP -- lido no Mega por referencia (cache da rodada)
+    if fil_in_codigo is not None and tipos:
+        for rfc in local.referencias_locais():
+            try:
+                for car in _cache(memo_car, (fil_in_codigo, rfc), lambda: _jsonavel(
+                        oracle.sync_caracteristicas_referencia(con, fil_in_codigo, rfc))):
+                    plano['tipos'][car.get('CAR_ST_ID')] = car.get('RAT_CH_TIPOCONTEUDO')
+            except Exception as e:
+                plano['erros'].append(f'Tipo das características (referência {rfc}): {e}')
     return plano
 
 
@@ -200,7 +215,9 @@ def _diferencas(nova, atual, colunas, colunas_json):
     difs = []
     for c in colunas:
         valor = local.ler_json(atual.get(c)) if c in colunas_json else atual.get(c)
-        if not _igual(nova.get(c), valor):
+        # AJUSTE 2026-11-11 (JPC): do ZK -- JSON gravado no padrao antigo (texto dentro de texto) tambem conta
+        # como diferente: a 1a rodada regrava normalizado; depois so o que mudar de conteudo
+        if not _igual(nova.get(c), valor) or (c in colunas_json and local.json_aninhado(atual.get(c), nova.get(c))):
             difs.append(c)
     return difs
 
@@ -222,22 +239,15 @@ def _agrupar(linhas, chave):
     return grupos
 
 
-def _chave_item(linha):
-    """PRO_ST_ID da linha local; vazio (item antigo) = montado com PRO_TAB/PAD/IN (AJUSTE 2026-10-20)."""
-    if (linha.get('PRO_ST_ID') or '').strip():
-        return linha['PRO_ST_ID']
-    return _monta_pro_st_id(linha.get('PRO_TAB_IN_CODIGO'), linha.get('PRO_PAD_IN_CODIGO'), linha.get('PRO_IN_CODIGO'))
-
-
 def _decisoes_itens(plano, ids):
-    pros = sorted({plano['itens'][i]['PRO_IN_CODIGO'] for i in ids})
-    locais = _agrupar(local.itens_locais(ids, pros), _chave_item)
+    """AJUSTE 2026-11-11 (JPC): PK = PRO_ST_ID (antes tambem agrupava item antigo sem ID)."""
+    locais = _agrupar(local.itens_locais(ids), lambda l: l['PRO_ST_ID'])
     return {i: locais.get(i, []) for i in ids}
 
 
 def _ordem_local(o):
-    """Linhas locais da OP do plano (ORD_ST_ID ou, sem ID, org + seq + ordem)."""
-    return local.ordem_local(o['linha']['ORD_ST_ID'], o['org'], o['seq'], o['ord'])
+    """AJUSTE 2026-11-11 (JPC): pela PK ORD_ST_ID (antes tambem org + seq + ordem para linha sem ID)."""
+    return local.ordem_local(o['linha']['ORD_ST_ID'])
 
 
 def _decisoes_caracteristicas(plano, ids):
@@ -350,31 +360,135 @@ def gravar(plano):
     return gravadas, erros
 
 
-def sincronizar_ordens(org_in_codigo, fil_in_codigo=None, ord_in_codigo=None, param='N', conexao=None):
-    """Chamada pela view. Nunca levanta excecao. Devolve o resumo da rodada."""
+def _tipos_diferentes(plano):
+    """AJUSTE 2026-11-11 (JPC): do ZK -- {CAR_ST_ID: tipo do Mega} das caracteristicas ja gravadas no app cujo
+    tipo esta diferente (texto maior que a coluna fica de fora, como o serializer da rotina antiga)."""
+    atuais = local.tipos_locais()
+    return {c: t for c, t in plano.get('tipos', {}).items()
+            if c in atuais and atuais[c] != t and (t is None or len(str(t)) <= TAMANHOS_CAR['RAT_CH_TIPOCONTEUDO'])}
+
+
+def linha_caracteristica(car):
+    """Linha da caracteristica como o montar_plano monta (default de CAR_BO_OBRIGATORIO); None se invalida."""
+    linha = {c: car.get(c) for c in local.COLUNAS_CARACTERISTICA}
+    if linha['CAR_BO_OBRIGATORIO'] is None:
+        linha['CAR_BO_OBRIGATORIO'] = 'S'  # default do modelo (antiga)
+    return None if _invalido(linha, OBRIGATORIOS_CAR, TAMANHOS_CAR) else linha
+
+
+def atualizar_caracteristica_existente(car):
+    """AJUSTE 2026-11-11 (JPC): do ZK (cb27d34) -- o "Baixar Ordens" aplica a regra da sincronizacao nova na
+    caracteristica que ja existe no app (antes era ignorada): UPDATE so das colunas diferentes do Mega (car =
+    linha do get_referencia), com a mesma comparacao do _decidir. Linha invalida fica como esta.
+    Devolve as colunas atualizadas."""
+    from django.db import connection, transaction
+    linha = linha_caracteristica(car)
+    if linha is None:
+        return []
+    # PRODUCAO: a API get_referencia daqui nao devolve RAT_CH_TIPOCONTEUDO -- sem ele na linha, o tipo fica fora
+    # da comparacao (senao apagaria o tipo gravado pela sincronizacao nova)
+    colunas = [c for c in local.COLUNAS_CARACTERISTICA
+               if c != 'RAT_CH_TIPOCONTEUDO' or 'RAT_CH_TIPOCONTEUDO' in car]
+    d = _decidir(linha, local.caracteristicas_locais([linha['CAR_ST_ID']]), colunas, set(), local.PK_CARACTERISTICA)
+    if d['situacao'] != 'diferente':
+        return []
+    with transaction.atomic(), connection.cursor() as cur:
+        local.atualizar(cur, 'Car_AtributosReferencia', d['campos'], set(), linha, local.PK_CARACTERISTICA, d['pk'])
+    return d['campos']
+
+
+def gravar_tipos_caracteristicas(plano):
+    """AJUSTE 2026-11-11 (JPC): do ZK -- UPDATE so do RAT_CH_TIPOCONTEUDO das caracteristicas existentes com
+    tipo diferente do Mega (na pratica 1 vez). Uma transacao: erro = nada gravado. Devolve (atualizadas, erros)."""
+    from django.db import connection, transaction
+    try:
+        difs = _tipos_diferentes(plano)
+        with transaction.atomic(), connection.cursor() as cur:
+            for car_st_id, tipo in difs.items():
+                local.atualizar(cur, 'Car_AtributosReferencia', ['RAT_CH_TIPOCONTEUDO'], set(),
+                                {'RAT_CH_TIPOCONTEUDO': tipo}, local.PK_CARACTERISTICA, car_st_id)
+        return len(difs), []
+    except Exception as e:
+        return 0, [f'Tipo das características: {e}']
+
+
+def atualizar_tipos_caracteristicas(con, fil_in_codigo, gravar=True):
+    """AJUSTE 2026-11-11 (JPC): tipo (RAT_CH_TIPOCONTEUDO) de TODAS as caracteristicas do app igual ao do Mega, numa
+    leitura so (usado pelo script atualizar_ordens_mega). Erro de uma referencia nao derruba as outras.
+    Devolve (atualizadas ou diferentes, erros)."""
+    from api import services as oracle
+    plano, erros = {'tipos': {}}, []
+    for rfc in local.referencias_locais():
+        try:
+            for car in _jsonavel(oracle.sync_caracteristicas_referencia(con, fil_in_codigo, rfc)):
+                plano['tipos'][car.get('CAR_ST_ID')] = car.get('RAT_CH_TIPOCONTEUDO')
+        except Exception as e:
+            erros.append(f'Tipo das características (referência {rfc}): {e}')
+    if not gravar:
+        return len(_tipos_diferentes(plano)), erros
+    atualizadas, erros_grav = gravar_tipos_caracteristicas(plano)
+    return atualizadas, erros + erros_grav
+
+
+def normalizar_itens_existentes():
+    """AJUSTE 2026-11-11 (JPC): do ZK -- regrava no padrao novo (JSON normalizado) os campos dos itens que ainda
+    estao no formato antigo -- so o formato muda. Uma transacao: erro = nada gravado.
+    Devolve (itens normalizados, erros)."""
+    from django.db import connection, transaction
+    try:
+        pendentes = local.itens_json_antigo()
+        with transaction.atomic(), connection.cursor() as cur:
+            for pro_st_id, novos in pendentes:
+                local.atualizar(cur, 'apt_itens_ordens', list(novos), local.JSON_ITEM, novos, local.PK_ITEM,
+                                pro_st_id)
+        return len(pendentes), []
+    except Exception as e:
+        return 0, [f'Normalização dos itens: {e}']
+
+
+gravar_plano = gravar  # AJUSTE 2026-11-11: usado dentro de sincronizar_ordens
+
+
+def sincronizar_ordens(org_in_codigo, fil_in_codigo=None, ord_in_codigo=None, param='N', conexao=None,
+                       gravar=None, normalizar=True, tipos=True):
+    """Chamada pela view. Nunca levanta excecao. Devolve o resumo da rodada.
+    AJUSTE 2026-11-11 (JPC): conexao propria com with (decisao do usuario: toda conexao com with).
+    gravar=None segue SYNC_ORDENS_GRAVA (False = so compara); normalizar/tipos=False pulam os passos que valem
+    para o app inteiro (o script atualizar_ordens_mega faz cada um uma vez so)."""
+    gravar = SYNC_ORDENS_GRAVA if gravar is None else gravar
+    from contextlib import nullcontext
     inicio = time.perf_counter()
     resumo = {'gravado': False, 'erros': [], 'ordens': [], 'itens': {}, 'caracteristicas_novas': 0,
               'maquinas_novas': 0, 'tempo_ms': 0, 'erro_conexao': None}
-    fechar = conexao is None
     try:
-        if fechar:
+        if conexao is None:
             from oracle_connection import getOracleConnection
             conexao = getOracleConnection()
             if not conexao:
                 resumo['erro_conexao'] = 'Sem conexão com o Oracle (Mega). Nada foi lido.'
                 return resumo
-        try:
-            plano = montar_plano(conexao, org_in_codigo, fil_in_codigo, ord_in_codigo, param)
-        finally:
-            if fechar:
-                conexao.close()
+            contexto = conexao
+        else:
+            contexto = nullcontext(conexao)
+        with contexto as con:
+            plano = montar_plano(con, org_in_codigo, fil_in_codigo, ord_in_codigo, param, tipos=tipos)
+        # AJUSTE 2026-11-11 (JPC): do ZK -- antes de comparar, itens ainda no padrao antigo de JSON sao regravados
+        # normalizados (na pratica 1 vez; depois so se o "Baixar Ordens" antigo gravar no formato velho)
+        erros_norm = []
+        if gravar and normalizar:
+            resumo['itens_normalizados'], erros_norm = normalizar_itens_existentes()
         resumo.update(comparar(plano))
-        resumo['erros'] = list(plano['erros'])
-        if SYNC_ORDENS_GRAVA:
-            gravadas, erros = gravar(plano)
+        resumo['erros'] = list(plano['erros']) + erros_norm
+        if gravar:
+            gravadas, erros = gravar_plano(plano)
             resumo.update({'gravado': True, 'ops_gravadas': gravadas})
             resumo['erros'] += erros
-        if SYNC_OPERADORES_GRAVA:
+            # AJUSTE 2026-11-11 (JPC): do ZK -- tipo de todas as caracteristicas existentes igual ao do Mega
+            resumo['caracteristicas_tipo'], erros = gravar_tipos_caracteristicas(plano)
+            resumo['erros'] += erros
+        else:
+            resumo['caracteristicas_tipo'] = len(_tipos_diferentes(plano))  # so compara
+        if SYNC_OPERADORES_GRAVA and gravar:
             gravados, erros = gravar_operadores(plano)
             resumo['operadores_gravados'] = gravados
             resumo['erros'] += erros
@@ -423,13 +537,8 @@ def sincronizar_ordem_login(fil_in_codigo, ord_in_codigo):
         return {'gravado': False, 'erros': [], 'ordens': [], 'itens': {}, 'caracteristicas_novas': 0,
                 'maquinas_novas': 0, 'tempo_ms': 0,
                 'erro_conexao': 'Sem conexão com o Oracle (Mega). Não foi possível baixar a OP.'}
-    try:
+    with con:  # AJUSTE 2026-11-11 (JPC): toda conexao com with (decisao do usuario)
         resumo = sincronizar_ordens(org_da_filial(fil_in_codigo), fil_in_codigo, ord_in_codigo, 'N', conexao=con)
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
     print('SINCRONIZAR OP LOGIN', fil_in_codigo, ord_in_codigo, '->', resumo.get('ordens'),
           resumo.get('erros'), resumo.get('erro_conexao'), f"{resumo.get('tempo_ms')} ms")
     return resumo

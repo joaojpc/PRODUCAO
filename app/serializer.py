@@ -38,29 +38,57 @@ class ManProOrdensSerializer(serializers.ModelSerializer):
                   'PRO_PAD_IN_CODIGO','PRO_IN_CODIGO','ORD_RE_QTDE_ORDEM','FIL_IN_CODIGO',
                   'TPO_ST_CODIGO', 'PRO_ST_ITENS','PRO_ST_DEMANDAS','PRO_ST_INFOADIC',
                   'PRO_ST_ID','ORD_ST_ID','TPO_ST_ID']
+        # AJUSTE 2026-11-11 (JPC): ORD_ST_ID e a PK (igual ao NMV/ZK) -- vazio/nulo e aceito e montado em validate()
+        extra_kwargs = {'ORD_ST_ID': {'required': False, 'allow_null': True, 'allow_blank': True}}
+
+    def validate(self, attrs):
+        # AJUSTE 2026-11-11 (JPC): nunca gravar ORD_ST_ID nulo (monta com as 7 colunas da chave)
+        if not attrs.get('ORD_ST_ID'):
+            from app.models import monta_ord_st_id
+            attrs['ORD_ST_ID'] = monta_ord_st_id(*(attrs.get(c) for c in (
+                'ORG_TAB_IN_CODIGO', 'ORG_PAD_IN_CODIGO', 'ORG_IN_CODIGO', 'ORG_TAU_ST_CODIGO',
+                'ORD_TAB_IN_CODIGO', 'ORD_SEQ_IN_CODIGO', 'ORD_IN_CODIGO')))
+        return attrs
+
+
+class JSONOuTexto(serializers.JSONField):
+    """AJUSTE 2026-11-11 (JPC): do ZK -- POST em formulario: texto JSON valido entra decodificado (gravacao
+    normalizada); texto que nao e JSON ('Indefinido', '0000730=732;', repr) entra como texto, como antes
+    (o JSONField puro recusaria e o item da rotina antiga nao seria gravado)."""
+    def to_internal_value(self, data):
+        try:
+            return super().to_internal_value(data)
+        except serializers.ValidationError:
+            if isinstance(data, str):
+                return str(data)
+            raise
+
 
 class ManItensOrdensSerializer(serializers.ModelSerializer):
+    # AJUSTE 2026-11-11 (JPC): do ZK -- JSONField fora do Meta (dentro do Meta o DRF ignorava e tratava como texto:
+    # GET devolvia o repr Python "{'a': 1}"; o to_representation de 20/10 so corrigia a saida). Agora entra e sai
+    # JSON de verdade, aceitando o texto do formato antigo.
+    PRO_ST_ATRIBUTOS = JSONOuTexto()
+    PRO_ST_REFERENCIA = JSONOuTexto()
+    PRO_ST_MEDIDAS = JSONOuTexto()
+    PRO_ST_CONVERSOR = JSONOuTexto()
+    MVS_ST_REFERENCIA = JSONOuTexto(required=False, allow_null=True)
+
     class Meta:
-        PRO_ST_ATRIBUTOS = serializers.JSONField()
-        PRO_ST_REFERENCIA = serializers.JSONField()
-        PRO_ST_MEDIDAS = serializers.JSONField()
-        PRO_ST_CONVERSOR = serializers.JSONField()
         model = apt_itens_ordens
-        fields = ['TAB_IN_SEQUENCIA','PRO_TAB_IN_CODIGO','PRO_PAD_IN_CODIGO','PRO_IN_CODIGO',
+        # AJUSTE 2026-11-11 (JPC): TAB_IN_SEQUENCIA removida (PK = PRO_ST_ID)
+        fields = ['PRO_TAB_IN_CODIGO','PRO_PAD_IN_CODIGO','PRO_IN_CODIGO',
                   'PRO_ST_DESCRICAO','UNI_ST_UNIDADE','RFC_IN_CODIGO','PRO_ST_ATRIBUTOS','PRO_ST_REFERENCIA','PRO_ST_MEDIDAS',
                   'MVS_ST_REFERENCIA','PRO_ST_ID','PRO_ST_CONVERSOR']
+        extra_kwargs = {'PRO_ST_ID': {'required': False, 'allow_null': True, 'allow_blank': True}}
 
-    # AJUSTE 2026-10-20: os JSONField acima estao dentro do Meta (ignorados) e as colunas saem como
-    # texto: str(valor). Item gravado pela Sincronizar Ordens (nova), JSON normalizado, virava
-    # "[{'FMT_ST_NOME': ...}]" (repr do Python, nao e JSON). So na saida: lista/dict sai como JSON;
-    # texto (formato antigo) sai igual a antes. A entrada (POST do Baixar Ordens) nao muda.
-    def to_representation(self, instance):
-        dados = super().to_representation(instance)
-        for campo in ('PRO_ST_ATRIBUTOS', 'PRO_ST_REFERENCIA', 'PRO_ST_MEDIDAS', 'PRO_ST_CONVERSOR'):
-            valor = getattr(instance, campo, None)
-            if isinstance(valor, (list, dict)):
-                dados[campo] = valor
-        return dados
+    def validate(self, attrs):
+        # AJUSTE 2026-11-11 (JPC): nunca gravar PRO_ST_ID nulo (monta com PRO_TAB/PAD/IN)
+        if not attrs.get('PRO_ST_ID'):
+            from app.models import monta_pro_st_id
+            attrs['PRO_ST_ID'] = monta_pro_st_id(attrs.get('PRO_TAB_IN_CODIGO'), attrs.get('PRO_PAD_IN_CODIGO'),
+                                                 attrs.get('PRO_IN_CODIGO'))
+        return attrs
 
 class ManProAtividadeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -99,6 +127,6 @@ class CarAtributosReferenciaSerializer(serializers.ModelSerializer):
         model  = Car_AtributosReferencia
         fields = ['CAR_ST_ID','RAT_ST_ID','RFC_ST_ID','PAI_RAT_IN_CODIGO','RAT_IN_CODIGO','RAT_ST_DESCRICAO',
                   'RAT_VALUE','RAT_CH_TIPO','CAR_IN_PRIORIDADE','RFC_IN_CODIGO','RAT_BO_GRUPO','CAR_BO_OBRIGATORIO',
-                  'PAI_ST_DESCRICAO']
+                  'PAI_ST_DESCRICAO','RAT_CH_TIPOCONTEUDO']  # AJUSTE 2026-11-11: tipo do Mega (do ZK)
 
         

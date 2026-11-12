@@ -28,6 +28,18 @@ def trata_data_sqlite(pDATA):
         date = str_date
     return date
 
+def _atualizar_caracteristica(rs):
+    """AJUSTE 2026-11-11 (JPC): do ZK (cb27d34) -- "Baixar Ordens"/login: a caracteristica que ja existe no app e
+    atualizada com o que mudou no Mega (regra da sincronizacao nova). Erro cercado: falha so vai para o log e a
+    baixa segue como antes."""
+    try:
+        from app.sincronizacao import atualizar_caracteristica_existente
+        atualizar_caracteristica_existente(rs)
+    except Exception:
+        import traceback
+        print('ERRO ATUALIZAR CARACTERISTICA EXISTENTE:', rs.get('CAR_ST_ID'), traceback.format_exc())
+
+
 def monta_produto(pparams):
     v_tab = str(pparams[0])
     v_pad = str(pparams[1])
@@ -445,7 +457,7 @@ class IntAPI:
                 payload = {'car_st_id': self.car_st_id}
                 vget = requests.get(self.uri, params=payload).json()
                 if vget:
-                    pass
+                    _atualizar_caracteristica(rs)  # AJUSTE 2026-11-11: ja existe -- atualiza (do ZK cb27d34)
                 else:
                     requests.post(self.uri, data=rs)
         return vRes_json
@@ -613,7 +625,8 @@ class IntOrdens:
                                                     payload = {'car_st_id': car_st_id}
                                                     vget = requests.get(uri, params=payload).json()
                                                     if vget:
-                                                        pass
+                                                        # AJUSTE 2026-11-11: ja existe -- atualiza (do ZK cb27d34)
+                                                        _atualizar_caracteristica(rs)
                                                     else:
                                                         requests.post(uri, data=rs)
                                         else:
@@ -831,12 +844,15 @@ class prep_producao:
                    'fil_in_codigo': v_lista[1]}
         c_appitens = requests.get(app_itens, params=payload).json()
         for r_appitens in c_appitens:
-            d2 = r_appitens['PRO_ST_ITENS']
+            # AJUSTE 2026-11-11 (JPC): do ZK -- JSON no padrao antigo (texto dentro de texto) ou novo -> sempre
+            # lista/dict (ler_json devolve como esta o que nao for JSON: erro cercado)
+            from app.services import ler_json
+            d2 = ler_json(r_appitens['PRO_ST_ITENS'])
             v_lista.append(r_appitens['PRO_PAD_IN_CODIGO'])
             v_lista.append(r_appitens['TPO_ST_CODIGO'])
-            v_lista.append(r_appitens['PRO_IN_CODIGO'])            
+            v_lista.append(r_appitens['PRO_IN_CODIGO'])
             v_ord_st_id = r_appitens['ORD_ST_ID']
-            v_infoadic = r_appitens['PRO_ST_INFOADIC']
+            v_infoadic = ler_json(r_appitens['PRO_ST_INFOADIC'])
         pay_tot = {'ordem': v_lista[0],'filial': v_lista[1],'total': 'S'}
         v_totais = self.total_apontamento(pay_tot)            
         v_ordem = {'ord_in_codigo': v_lista[0],'fil_in_codigo': v_lista[1],'ctl_in_codigo': v_lista[2],'cliente': v_lista[3],'pro_pad_in_codigo': v_lista[4],'tpo_st_codigo':v_lista[5],'pro_in_codigo': v_lista[6],'ord_st_id':v_ord_st_id,
@@ -1293,7 +1309,8 @@ class IntAPI_sqlite:
         c_appitens = requests.get(self.uri, params=payload).json()
         if c_appitens:
             for r_appitens in c_appitens:
-                d_tens = r_appitens['PRO_ST_ITENS']
+                from app.services import ler_json  # AJUSTE 2026-11-11: padrao antigo e novo (do ZK)
+                d_tens = ler_json(r_appitens['PRO_ST_ITENS'])
                 json_Itens = json.dumps(d_tens)
         #print(json_Itens)
         return json_Itens

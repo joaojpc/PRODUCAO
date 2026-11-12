@@ -63,7 +63,8 @@ class Apt_Ocorrencia(models.Model):
         db_table = u'Apt_Ocorrencia'
 
 class apt_pro_ordens(models.Model):
-    TAB_IN_SEQUENCIA  = models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')
+    # AJUSTE 2026-11-11 (JPC): PK = ORD_ST_ID, igual ao NMV/ZK (TAB_IN_SEQUENCIA removida, migracao 0047).
+    # ORD_ST_ID nunca nulo: vazio e montado com apontamento.api_view.monta_ordem.
     ORG_TAB_IN_CODIGO = models.IntegerField( null=False, blank=False)
     ORG_PAD_IN_CODIGO = models.IntegerField(null=False, blank=False)
     ORG_IN_CODIGO     = models.IntegerField(null=False, blank=False)
@@ -81,13 +82,29 @@ class apt_pro_ordens(models.Model):
     PRO_ST_DEMANDAS   = JSONField(null=True, blank=True)
     PRO_ST_INFOADIC   = JSONField(null=True, blank=True)
     PRO_ST_ID         = models.CharField(max_length=13,null=True, blank=True,verbose_name='ITEM')
-    ORD_ST_ID         = models.CharField(max_length=44,null=True, blank=True,verbose_name='ORDEM')
+    ORD_ST_ID         = models.CharField(max_length=44, primary_key=True, serialize=False, verbose_name='ORDEM')
     TPO_ST_ID         = models.CharField(max_length=12,null=True, blank=True,verbose_name='ID_TPO')
     class Meta:
         db_table = u'apt_pro_ordens'
 
+    def save(self, *args, **kwargs):
+        # AJUSTE 2026-11-11 (JPC): nunca gravar ORD_ST_ID nulo
+        if not self.ORD_ST_ID:
+            self.ORD_ST_ID = monta_ord_st_id(self.ORG_TAB_IN_CODIGO, self.ORG_PAD_IN_CODIGO, self.ORG_IN_CODIGO,
+                                             self.ORG_TAU_ST_CODIGO, self.ORD_TAB_IN_CODIGO,
+                                             self.ORD_SEQ_IN_CODIGO, self.ORD_IN_CODIGO)
+        super().save(*args, **kwargs)
+
+
+def monta_ord_st_id(org_tab, org_pad, org_in, org_tau, ord_tab, ord_seq, ord_in):
+    """AJUSTE 2026-11-11 (JPC): mesmo formato de apontamento.api_view.monta_ordem (e do lpad do Oracle)."""
+    from apontamento.api_view import monta_ordem
+    return monta_ordem([org_tab, org_pad, org_in, str(org_tau), ord_tab, ord_seq, ord_in])
+
+
 class apt_itens_ordens(models.Model):
-    TAB_IN_SEQUENCIA   = models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')
+    # AJUSTE 2026-11-11 (JPC): PK = PRO_ST_ID, igual ao NMV/ZK (TAB_IN_SEQUENCIA removida, migracao 0048).
+    # PRO_ST_ID nunca nulo: vazio e montado com apontamento.api_view.monta_produto.
     PRO_TAB_IN_CODIGO  = models.IntegerField(null=False, blank=False)
     PRO_PAD_IN_CODIGO  = models.IntegerField(null=False, blank=False)
     PRO_IN_CODIGO      = models.IntegerField(null=False, blank=False)
@@ -97,11 +114,25 @@ class apt_itens_ordens(models.Model):
     PRO_ST_ATRIBUTOS   = JSONField()
     PRO_ST_REFERENCIA  = JSONField()
     PRO_ST_MEDIDAS     = JSONField()
-    MVS_ST_REFERENCIA  = models.CharField(max_length=100,null=True, blank=True)
-    PRO_ST_ID          = models.CharField(max_length=13,null=True, blank=True,verbose_name='ITEM')
+    # AJUSTE 2026-11-11 (JPC): JSON como no NMV/ZK ({"MVS_ST_REFERENCIA", "PRO_RE_CE", "PRO_RE_APROV"}, migracao
+    # 0046); texto cru antigo continua legivel -- ler com app.services.referencia_padrao
+    MVS_ST_REFERENCIA  = JSONField(null=True, blank=True)
+    PRO_ST_ID          = models.CharField(max_length=13, primary_key=True, serialize=False, verbose_name='ITEM')
     PRO_ST_CONVERSOR   = JSONField()
     class Meta:
         db_table = u'apt_itens_ordens'
+
+    def save(self, *args, **kwargs):
+        # AJUSTE 2026-11-11 (JPC): nunca gravar PRO_ST_ID nulo
+        if not self.PRO_ST_ID:
+            self.PRO_ST_ID = monta_pro_st_id(self.PRO_TAB_IN_CODIGO, self.PRO_PAD_IN_CODIGO, self.PRO_IN_CODIGO)
+        super().save(*args, **kwargs)
+
+
+def monta_pro_st_id(pro_tab, pro_pad, pro_in):
+    """AJUSTE 2026-11-11 (JPC): mesmo formato de apontamento.api_view.monta_produto (3+3+7)."""
+    from apontamento.api_view import monta_produto
+    return monta_produto([pro_tab, pro_pad, pro_in])
 
 class apt_pro_atividade(models.Model):
     TAB_IN_SEQUENCIA   = models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')
@@ -184,5 +215,7 @@ class Car_AtributosReferencia(models.Model):
     RAT_BO_GRUPO = models.CharField(max_length=1,null=True, blank=True,verbose_name='Grupo')
     CAR_BO_OBRIGATORIO = models.CharField(max_length=1,null=True, blank=True,verbose_name='Obrigatorio',default='S')
     PAI_ST_DESCRICAO = models.CharField(max_length=70,null=True, blank=True,verbose_name='Nome_Pai')
+    # AJUSTE 2026-11-11 (JPC): tipo do conteudo vindo do Mega (est_atributoreferencia); 'N' = numerico (do ZK)
+    RAT_CH_TIPOCONTEUDO = models.CharField(max_length=1,null=True, blank=True,verbose_name='Tipo_Conteudo')
     class Meta:
         db_table = u'Car_AtributosReferencia'

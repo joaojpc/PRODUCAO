@@ -6,11 +6,11 @@ ORM. Campos JSON gravados NORMALIZADOS: json.dumps uma vez, ensure_ascii=False (
 nem texto JSON dentro de texto). Grava so o que mudou (INSERT do novo, UPDATE das colunas
 diferentes, DELETE das linhas duplicadas). Quem chama: app/sincronizacao.py; ler_json e
 referencia_padrao tambem sao usados pelos leitores (antigo e novo formato).
-Diferenca do NMV: aqui nao houve troca de PK (decisao do usuario) -- apt_pro_ordens e
-apt_itens_ordens seguem com PK TAB_IN_SEQUENCIA; a chave natural da comparacao e ORD_ST_ID /
-PRO_ST_ID e, havendo duplicadas, fica a MAIS NOVA (maior TAB_IN_SEQUENCIA, como a migracao 0044).
-AJUSTE 2026-10-20: linha antiga gravada SEM o ID entra pela chave da rotina antiga (OP: org + seq
-+ ordem; item: produto) e e atualizada (recebe o ID) -- antes virava uma linha nova duplicada.
+AJUSTE 2026-11-11 (JPC): decisao do usuario -- troca de PK igual ao NMV/ZK: apt_pro_ordens com PK
+ORD_ST_ID e apt_itens_ordens com PK PRO_ST_ID (migracoes 0047/0048, depois da 0044 que preenche os IDs
+vazios e deixa a linha mais nova). Sem TAB_IN_SEQUENCIA, a busca e direto pela PK (nao ha mais linha sem
+ID nem duplicada). Do ZK tambem: RAT_CH_TIPOCONTEUDO das caracteristicas, MVS_ST_REFERENCIA em JSON e
+normalizacao dos itens gravados no padrao antigo (itens_json_antigo).
 """
 import json
 
@@ -25,14 +25,13 @@ JSON_ORDEM = {'PRO_ST_ITENS', 'PRO_ST_DEMANDAS', 'PRO_ST_INFOADIC'}
 COLUNAS_ITEM = ['PRO_TAB_IN_CODIGO', 'PRO_PAD_IN_CODIGO', 'PRO_IN_CODIGO', 'PRO_ST_DESCRICAO', 'UNI_ST_UNIDADE',
                 'RFC_IN_CODIGO', 'PRO_ST_ATRIBUTOS', 'PRO_ST_REFERENCIA', 'PRO_ST_MEDIDAS', 'MVS_ST_REFERENCIA',
                 'PRO_ST_ID', 'PRO_ST_CONVERSOR']
-# MVS_ST_REFERENCIA: decisao do usuario -- JSON padrao igual ao NMV; aqui a coluna segue CharField
-# (sem migracao), guardando o JSON como texto.
+# MVS_ST_REFERENCIA: JSON padrao igual ao NMV/ZK (AJUSTE 2026-11-11: coluna JSONField, migracao 0046).
 JSON_ITEM = {'PRO_ST_ATRIBUTOS', 'PRO_ST_REFERENCIA', 'PRO_ST_MEDIDAS', 'MVS_ST_REFERENCIA', 'PRO_ST_CONVERSOR'}
 
-# Sem RAT_CH_TIPOCONTEUDO (nao existe no PRODUCAO)
+# AJUSTE 2026-11-11 (JPC): RAT_CH_TIPOCONTEUDO do Mega ('N' = numerico), como no ZK (migracao 0045)
 COLUNAS_CARACTERISTICA = ['CAR_ST_ID', 'RAT_ST_ID', 'RFC_ST_ID', 'PAI_RAT_IN_CODIGO', 'RAT_IN_CODIGO',
                           'RAT_ST_DESCRICAO', 'RAT_VALUE', 'RAT_CH_TIPO', 'CAR_IN_PRIORIDADE', 'RFC_IN_CODIGO',
-                          'RAT_BO_GRUPO', 'CAR_BO_OBRIGATORIO', 'PAI_ST_DESCRICAO']
+                          'RAT_BO_GRUPO', 'CAR_BO_OBRIGATORIO', 'PAI_ST_DESCRICAO', 'RAT_CH_TIPOCONTEUDO']
 
 COLUNAS_MAQUINA = ['CTR_ST_ID', 'CMAQ_ST_ID', 'CTR_ST_NOME', 'CMAQ_ST_NOME', 'CMAQ_ST_CODIGO',
                    'MAQ_CH_APONTAMENTO', 'MAQ_CH_DEMANDA']
@@ -52,6 +51,18 @@ def ler_json(valor):
         except ValueError:
             return valor
     return valor
+
+
+def json_aninhado(texto, novo):
+    """AJUSTE 2026-11-11 (JPC): copiado do ZK -- True quando o gravado e texto JSON dentro de texto (padrao
+    antigo, ex.: '"[{...}]"') e o valor novo e lista/objeto: a sincronizacao regrava a coluna normalizada
+    mesmo com o conteudo igual."""
+    if not isinstance(texto, str) or not isinstance(novo, (list, dict)):
+        return False
+    try:
+        return isinstance(json.loads(texto), str)
+    except ValueError:
+        return False
 
 
 def referencia_padrao(valor):
@@ -92,10 +103,9 @@ def _valores(linha, colunas, colunas_json):
 
 # Gravar so o que estiver diferente (le, compara campo a campo e faz UPDATE so das colunas
 # diferentes), em vez de apagar e inserir. Nao pode haver linha duplicada: com mais de uma linha na
-# mesma chave, fica a 1a que a leitura devolve e as extras saem (OP/item: a mais nova; maquina e
-# operador: a de menor PK, como no NMV). PK local de cada tabela:
-PK_ORDEM, PK_ITEM, PK_CARACTERISTICA, PK_MAQUINA = ('TAB_IN_SEQUENCIA', 'TAB_IN_SEQUENCIA', 'CAR_ST_ID',
-                                                    'MAQ_IN_SEQUENCIA')
+# mesma chave, fica a 1a que a leitura devolve e as extras saem (maquina e operador: a de menor PK,
+# como no NMV). AJUSTE 2026-11-11 (JPC): PK de ordens/itens = ORD_ST_ID/PRO_ST_ID (migracoes 0047/0048).
+PK_ORDEM, PK_ITEM, PK_CARACTERISTICA, PK_MAQUINA = 'ORD_ST_ID', 'PRO_ST_ID', 'CAR_ST_ID', 'MAQ_IN_SEQUENCIA'
 CHAVE_MAQUINA = ('CMAQ_ST_ID', 'CTR_ST_ID')
 # Maquina: so os campos que vem do Mega sao comparados; MAQ_CH_APONTAMENTO/MAQ_CH_DEMANDA sao
 # configuracao local (so preenchidos na inclusao).
@@ -108,27 +118,18 @@ PK_OPERADOR = 'OPD_IN_CODIGO'
 
 
 # --------------------------------------------------------------------- leitura (comparar)
-def ordem_local(ord_st_id, org_in_codigo=None, ord_seq_in_codigo=None, ord_in_codigo=None):
-    """Linhas da ordem pela chave ORD_ST_ID, a mais nova primeiro (a 1a fica; as demais sao
-    duplicadas). AJUSTE 2026-10-20: linha antiga com ORD_ST_ID vazio entra pela chave da rotina
-    antiga (org + seq + ordem)."""
-    return _consultar("SELECT * FROM apt_pro_ordens WHERE ORD_ST_ID = %s "
-                      "OR ((ORD_ST_ID IS NULL OR TRIM(ORD_ST_ID) = '') AND ORG_IN_CODIGO = %s "
-                      "AND ORD_SEQ_IN_CODIGO = %s AND ORD_IN_CODIGO = %s) ORDER BY TAB_IN_SEQUENCIA DESC",
-                      [ord_st_id, org_in_codigo, ord_seq_in_codigo, ord_in_codigo])
+def ordem_local(ord_st_id):
+    """AJUSTE 2026-11-11 (JPC): pela PK ORD_ST_ID (antes tambem procurava linha antiga sem ID)."""
+    return _consultar('SELECT * FROM apt_pro_ordens WHERE ORD_ST_ID = %s', [ord_st_id])
 
 
-def itens_locais(pro_st_ids, pro_in_codigos=()):
-    """Itens pelo PRO_ST_ID, os mais novos primeiro. AJUSTE 2026-10-20: com pro_in_codigos, entram
-    tambem os itens antigos com PRO_ST_ID vazio desses produtos (quem chama agrupa pelo ID montado)."""
-    pro_st_ids, pro_in_codigos = list(pro_st_ids), list(pro_in_codigos)
+def itens_locais(pro_st_ids):
+    """AJUSTE 2026-11-11 (JPC): pela PK PRO_ST_ID (antes tambem procurava item antigo sem ID)."""
+    pro_st_ids = list(pro_st_ids)
     if not pro_st_ids:
         return []
-    sql = f'SELECT * FROM apt_itens_ordens WHERE PRO_ST_ID IN ({_marcas(len(pro_st_ids))})'
-    if pro_in_codigos:
-        sql += (f" OR ((PRO_ST_ID IS NULL OR TRIM(PRO_ST_ID) = '') "
-                f"AND PRO_IN_CODIGO IN ({_marcas(len(pro_in_codigos))}))")
-    return _consultar(sql + ' ORDER BY TAB_IN_SEQUENCIA DESC', pro_st_ids + pro_in_codigos)
+    return _consultar(f'SELECT * FROM apt_itens_ordens WHERE PRO_ST_ID IN ({_marcas(len(pro_st_ids))})',
+                      pro_st_ids)
 
 
 def caracteristicas_locais(car_st_ids):
@@ -175,3 +176,38 @@ def inserir_maquinas(cur, linhas):
         cur.executemany(f"INSERT INTO Apt_Pro_CadMaquinas ({', '.join(COLUNAS_MAQUINA)}) "
                         f"VALUES ({_marcas(len(COLUNAS_MAQUINA))})",
                         [_valores(l, COLUNAS_MAQUINA, set()) for l in linhas])
+
+
+# --------------------------------------------------------------------- AJUSTE 2026-11-11 (JPC): do ZK
+def itens_json_antigo():
+    """Itens com campo JSON fora do padrao novo (texto JSON dentro de texto, ou MVS_ST_REFERENCIA em texto cru).
+    Devolve [(PRO_ST_ID, {coluna: valor normalizado})] -- so o formato muda, o conteudo e o mesmo. Usado pela
+    sincronizacao nova para normalizar os itens existentes."""
+    saida = []
+    for linha in _consultar(f"SELECT PRO_ST_ID, {', '.join(sorted(JSON_ITEM))} FROM apt_itens_ordens"):
+        novos = {}
+        for c in JSON_ITEM:
+            bruto = linha.get(c)
+            if bruto is None:
+                continue
+            valor = ler_json(bruto)
+            if c == 'MVS_ST_REFERENCIA':
+                if not isinstance(valor, dict):
+                    novos[c] = referencia_json({'MVS_ST_REFERENCIA': valor})
+            elif json_aninhado(bruto, valor):
+                novos[c] = valor
+        if novos:
+            saida.append((linha['PRO_ST_ID'], novos))
+    return saida
+
+
+def referencias_locais():
+    """Referencias com caracteristica cadastrada no app (para ler o tipo no Mega)."""
+    return [r['RFC_IN_CODIGO'] for r in
+            _consultar('SELECT DISTINCT RFC_IN_CODIGO FROM Car_AtributosReferencia ORDER BY RFC_IN_CODIGO')]
+
+
+def tipos_locais():
+    """{CAR_ST_ID: RAT_CH_TIPOCONTEUDO} de todas as caracteristicas do app."""
+    return {r['CAR_ST_ID']: r['RAT_CH_TIPOCONTEUDO'] for r in
+            _consultar('SELECT CAR_ST_ID, RAT_CH_TIPOCONTEUDO FROM Car_AtributosReferencia')}

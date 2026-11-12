@@ -189,6 +189,42 @@ class ApontaOcorrenciaListView(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_409_CONFLICT)        
         
+def _id_da_ordem(dados):
+    """ORD_ST_ID enviado ou montado com as 7 colunas da chave (mesmo do validate do serializer)."""
+    if dados.get('ORD_ST_ID'):
+        return dados.get('ORD_ST_ID')
+    from app.models import monta_ord_st_id
+    return monta_ord_st_id(*(dados.get(c) for c in ('ORG_TAB_IN_CODIGO', 'ORG_PAD_IN_CODIGO', 'ORG_IN_CODIGO',
+                                                     'ORG_TAU_ST_CODIGO', 'ORD_TAB_IN_CODIGO', 'ORD_SEQ_IN_CODIGO',
+                                                     'ORD_IN_CODIGO')))
+
+
+def _id_do_item(dados):
+    """PRO_ST_ID enviado ou montado com PRO_TAB/PAD/IN (mesmo do validate do serializer)."""
+    if dados.get('PRO_ST_ID'):
+        return dados.get('PRO_ST_ID')
+    from app.models import monta_pro_st_id
+    return monta_pro_st_id(dados.get('PRO_TAB_IN_CODIGO'), dados.get('PRO_PAD_IN_CODIGO'), dados.get('PRO_IN_CODIGO'))
+
+
+def _gravar_ou_atualizar(serializer_class, dados, modelo, pk, montar_id):
+    """AJUSTE 2026-11-11 (JPC): POST da API local de ordens/itens -- novo = 201; ja existente (pela PK) = atualizado
+    com o que veio = 200; dados invalidos = 409 (como antes); qualquer outro erro = 409 com o motivo (nunca 500)."""
+    from django.db import transaction
+    try:
+        atual = modelo.objects.filter(**{pk: montar_id(dados)}).first()
+        serializer = serializer_class(atual, data=dados) if atual else serializer_class(data=dados)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_409_CONFLICT)
+        with transaction.atomic():
+            serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK if atual else status.HTTP_201_CREATED)
+    except Exception as e:
+        import traceback
+        print('ERRO GRAVAR/ATUALIZAR', modelo.__name__, traceback.format_exc())
+        return Response({'erro': str(e)}, status=status.HTTP_409_CONFLICT)
+
+
 class ManProOrdensListView(APIView):
     serializer_class = ManProOrdensSerializer
     def get(self, request, format=None):
@@ -205,12 +241,9 @@ class ManProOrdensListView(APIView):
         return Response(serializer.data)
 
     def post(self, request, format=None):
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_409_CONFLICT)
+        # AJUSTE 2026-11-11 (JPC): PK = ORD_ST_ID -- decisao do usuario: ordem que ja existe e ATUALIZADA com o que
+        # veio (antes: linha duplicada; com a PK nova seria recusada). Erro cercado: nunca 500.
+        return _gravar_ou_atualizar(self.serializer_class, request.data, apt_pro_ordens, 'ORD_ST_ID', _id_da_ordem)
     def put(self, request, format=None):
         v_data=request.GET
         v_ordem= v_data.get('ord_in_codigo')
@@ -238,13 +271,10 @@ class ManItensOrdens(APIView):
         return Response(serializer.data)
 
     def post(self, request, format=None):
-        serializer = self.serializer_class(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_409_CONFLICT)
-        
+        # AJUSTE 2026-11-11 (JPC): PK = PRO_ST_ID -- decisao do usuario: item que ja existe e ATUALIZADO com o que
+        # veio (antes: linha duplicada; com a PK nova seria recusado). Erro cercado: nunca 500.
+        return _gravar_ou_atualizar(self.serializer_class, request.data, apt_itens_ordens, 'PRO_ST_ID', _id_do_item)
+
     def put(self, request, format=None):
         v_data=request.GET
         pro_pad = v_data.get('pro_pad_in_codigo')

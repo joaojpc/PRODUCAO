@@ -138,7 +138,8 @@ class LeitoresTests(TestCase):
         self.assertEqual(ManItensOrdensSerializer(item).data['PRO_ST_CONVERSOR'], antigo)
 
     def test_post_do_baixar_ordens_grava_igual(self):
-        """A entrada do serializer (POST form do Baixar Ordens) nao muda."""
+        """AJUSTE 2026-11-11: POST form do Baixar Ordens -- texto JSON entra decodificado uma camada (gravacao
+        normalizada, JSONOuTexto do ZK); texto que nao e JSON ('Indefinido') entra como texto."""
         from django.http import QueryDict
         from app.serializer import ManItensOrdensSerializer
         q = QueryDict(mutable=True)
@@ -148,7 +149,8 @@ class LeitoresTests(TestCase):
                   'PRO_ST_CONVERSOR': json.dumps(json.dumps([{'CONVERSORES': None}]))})
         s = ManItensOrdensSerializer(data=q)
         self.assertTrue(s.is_valid(), s.errors)
-        self.assertEqual(s.validated_data['PRO_ST_CONVERSOR'], json.dumps(json.dumps([{'CONVERSORES': None}])))
+        self.assertEqual(s.validated_data['PRO_ST_CONVERSOR'], json.dumps([{'CONVERSORES': None}]))
+        self.assertEqual(s.validated_data['MVS_ST_REFERENCIA'], 'Indefinido')
 
 
 class MontarPlanoTests(_ComOracle):
@@ -267,14 +269,17 @@ class CompararGravarTests(_ComOracle):
         self.assertEqual((apt_pro_ordens.objects.count(), apt_itens_ordens.objects.count()), (1, 1))
         self.assertEqual((apt_pro_ordens.objects.get().pk, apt_itens_ordens.objects.get().pk), (pk_ordem, pk_item))
 
-    def test_formato_antigo_duplo_compara_igual(self):
-        """Item gravado como a rotina antiga (texto JSON dentro de texto) conta como igual."""
+    def test_formato_antigo_duplo_e_regravado_normalizado(self):
+        """AJUSTE 2026-11-11 (regra do ZK): item gravado como a rotina antiga (texto JSON dentro de texto) conta
+        como diferente para ser regravado normalizado; depois da gravacao fica igual."""
         self._ligar()
         plano = self._plano()
         item = plano['itens']['1000010002273']
         antigo = {c: (json.dumps(json.dumps(item[c])) if c in local.JSON_ITEM else item[c]) for c in local.COLUNAS_ITEM}
         with connection.cursor() as cur:
             local.inserir(cur, 'apt_itens_ordens', local.COLUNAS_ITEM, set(), antigo)
+        self.assertEqual(len(sync.comparar(plano)['itens']['diferentes']), 1)
+        sync.gravar(plano)
         self.assertEqual(sync.comparar(plano)['itens']['iguais'], 1)
 
     def test_mvs_texto_antigo_vira_json(self):
@@ -289,7 +294,7 @@ class CompararGravarTests(_ComOracle):
         sync.gravar(plano)
         mvs = apt_itens_ordens.objects.get().MVS_ST_REFERENCIA
         self.assertEqual(local.referencia_padrao(mvs), 'Indefinido')
-        self.assertIsInstance(json.loads(mvs), dict)
+        self.assertIsInstance(local.ler_json(mvs), dict)  # AJUSTE 2026-11-11: coluna JSONField (migracao 0046)
 
     def _sqls_gravados(self, plano):
         from django.test.utils import CaptureQueriesContext
@@ -317,41 +322,36 @@ class CompararGravarTests(_ComOracle):
         o = apt_pro_ordens.objects.get()
         self.assertEqual((o.pk, float(o.ORD_RE_QTDE_ORDEM)), (pk, 30.779))
 
-    def test_duplicadas_saem_fica_a_mais_nova(self):
-        # sem troca de PK (decisao do usuario): chave ORD_ST_ID/PRO_ST_ID; AJUSTE 2026-10-20: fica a
-        # mais nova (maior TAB_IN_SEQUENCIA), como a migracao 0044
-        self._ligar()
-        plano = self._plano()
-        with connection.cursor() as cur:
-            for _ in range(2):
-                local.inserir(cur, 'apt_pro_ordens', local.COLUNAS_ORDEM, local.JSON_ORDEM, plano['ordens'][0]['linha'])
-                local.inserir(cur, 'apt_itens_ordens', local.COLUNAS_ITEM, local.JSON_ITEM,
-                              plano['itens']['1000010002273'])
-        maior_ordem = apt_pro_ordens.objects.order_by('-pk').first().pk
-        maior_item = apt_itens_ordens.objects.order_by('-pk').first().pk
-        comp = sync.comparar(plano)
-        self.assertEqual((comp['ordens'][0]['duplicadas'], comp['itens']['duplicados']), (1, 1))
-        sync.gravar(plano)
-        self.assertEqual(list(apt_pro_ordens.objects.values_list('pk', flat=True)), [maior_ordem])
-        self.assertEqual(list(apt_itens_ordens.objects.values_list('pk', flat=True)), [maior_item])
-
-    def test_linha_antiga_sem_id_e_atualizada_nao_duplica(self):
-        # AJUSTE 2026-10-20: OP/item gravados sem ORD_ST_ID/PRO_ST_ID entram pela chave da rotina antiga
+    def test_existente_e_atualizado_pela_pk_sem_duplicar(self):
+        # AJUSTE 2026-11-11: PK = ORD_ST_ID/PRO_ST_ID (decisao do usuario) -- duplicada nao existe mais; a OP/item
+        # que ja existe e atualizada pela PK (itens ja existentes devem ser atualizados)
         self._ligar()
         plano = self._plano()
         with connection.cursor() as cur:
             local.inserir(cur, 'apt_pro_ordens', local.COLUNAS_ORDEM, local.JSON_ORDEM,
-                          dict(plano['ordens'][0]['linha'], ORD_ST_ID=None, ORD_RE_QTDE_ORDEM=1))
+                          dict(plano['ordens'][0]['linha'], ORD_RE_QTDE_ORDEM=1))
             local.inserir(cur, 'apt_itens_ordens', local.COLUNAS_ITEM, local.JSON_ITEM,
-                          dict(plano['itens']['1000010002273'], PRO_ST_ID=''))
-        pk_ordem, pk_item = apt_pro_ordens.objects.get().pk, apt_itens_ordens.objects.get().pk
+                          dict(plano['itens']['1000010002273'], PRO_ST_DESCRICAO='antiga'))
         comp = sync.comparar(plano)
         self.assertEqual(comp['ordens'][0]['situacao'], 'diferente')
-        self.assertEqual(comp['itens']['diferentes'][0]['campos'], ['PRO_ST_ID'])
+        self.assertEqual(comp['itens']['diferentes'][0]['campos'], ['PRO_ST_DESCRICAO'])
         sync.gravar(plano)
         o, i = apt_pro_ordens.objects.get(), apt_itens_ordens.objects.get()  # get: uma linha so
-        self.assertEqual((o.pk, o.ORD_ST_ID, float(o.ORD_RE_QTDE_ORDEM)), (pk_ordem, ORD_ST_ID, 10.0))
-        self.assertEqual((i.pk, i.PRO_ST_ID), (pk_item, '1000010002273'))
+        self.assertEqual((o.pk, float(o.ORD_RE_QTDE_ORDEM)), (ORD_ST_ID, 10.0))
+        self.assertEqual((i.pk, i.PRO_ST_DESCRICAO), ('1000010002273', 'Massaranduba Seca 25x80mm'))
+
+    def test_save_monta_o_id_vazio(self):
+        # AJUSTE 2026-11-11: ID nunca nulo -- o model monta pela chave (mesmo formato de monta_ordem/monta_produto)
+        o = apt_pro_ordens(ORG_TAB_IN_CODIGO=1, ORG_PAD_IN_CODIGO=1, ORG_IN_CODIGO=2, ORG_TAU_ST_CODIGO='G',
+                           ORD_TAB_IN_CODIGO=218, ORD_SEQ_IN_CODIGO=3, ORD_IN_CODIGO=900, PRO_TAB_IN_CODIGO=100,
+                           PRO_PAD_IN_CODIGO=1, PRO_IN_CODIGO=2273, ORD_RE_QTDE_ORDEM=1)
+        o.save()
+        self.assertEqual(o.ORD_ST_ID, '0010010000002' + '00G' + '218003' + '900'.zfill(20))
+        i = apt_itens_ordens(PRO_TAB_IN_CODIGO=100, PRO_PAD_IN_CODIGO=1, PRO_IN_CODIGO=2273, PRO_ST_DESCRICAO='x',
+                             UNI_ST_UNIDADE='M3', RFC_IN_CODIGO=0, PRO_ST_ATRIBUTOS=[], PRO_ST_REFERENCIA=[],
+                             PRO_ST_MEDIDAS=[], PRO_ST_CONVERSOR=[])
+        i.save()
+        self.assertEqual(i.PRO_ST_ID, '1000010002273')
 
     def test_caracteristica_diferente_atualizada(self):
         m = self._ligar()
@@ -465,7 +465,7 @@ class PadraoTests(TestCase):
                 patch.object(sync, 'sincronizar_ordens', return_value={'ordens': []}) as s:
             sync.sincronizar_ordem_login(3, 900)
         s.assert_called_once_with(2, 3, 900, 'N', conexao=con)
-        con.close.assert_called_once()
+        con.__exit__.assert_called_once()  # AJUSTE 2026-11-11: conexao fechada pelo with
 
     def test_conexao_testada_usa_timeout_curto(self):
         con = MagicMock()
@@ -493,9 +493,14 @@ class IsolamentoTests(TestCase):
                       if importa.search(p.read_text(encoding='utf-8', errors='ignore'))
                       and p.name not in ('sincronizacao.py', 'tests_sincronizacao.py')
                       and not {'prodenv', '.venv', 'venv'} & set(p.parts))
-        # api_view usa os leitores do padrao antigo e do novo (ler_json, referencia_padrao)
+        # api_view usa os leitores do padrao antigo e do novo (ler_json, referencia_padrao) e atualiza a
+        # caracteristica existente; AJUSTE 2026-11-11: o script de atualizacao em massa usa a rotina nova;
+        # models.py e a migracao 0046 so citam app.services em comentario
         self.assertEqual(usos, [str(pathlib.Path('apontamento/api_view.py')),
-                                str(pathlib.Path('apontamento/views.py'))])
+                                str(pathlib.Path('apontamento/views.py')),
+                                str(pathlib.Path('app/management/commands/atualizar_ordens_mega.py')),
+                                str(pathlib.Path('app/migrations/0046_alter_apt_itens_ordens_mvs_st_referencia.py')),
+                                str(pathlib.Path('app/models.py'))])
 
     def test_view_renderiza_resumo(self):
         sessao = self.client.session
