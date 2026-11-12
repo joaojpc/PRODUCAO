@@ -819,8 +819,10 @@ class prep_producao:
         for r_cr in c_rs:
             #print('Linha 768',r_cr)
             if self.retorno == 'descricao':
-                d2 = r_cr['PRO_ST_ITENS']
-                Produto = [item for item in d2 if item.get('tipo_item') == 'Produto']
+                from app.services import ler_json  # AJUSTE 2026-11-11: padrao antigo e novo de JSON (erro cercado)
+                d2 = ler_json(r_cr['PRO_ST_ITENS'])
+                d2 = d2 if isinstance(d2, list) else []
+                Produto = [item for item in d2 if isinstance(item, dict) and item.get('tipo_item') == 'Produto']
                 for rs_item in Produto:
                     self.pro_st_descricao = rs_item.get('pro_st_descricao').upper() if rs_item else None
                 return self.pro_st_descricao

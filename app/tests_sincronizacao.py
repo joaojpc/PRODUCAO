@@ -491,7 +491,7 @@ class IsolamentoTests(TestCase):
         importa = re.compile(r'app import sincronizacao|app\.sincronizacao|app import services|app\.services')
         usos = sorted(str(p.relative_to(base)) for p in base.rglob('*.py')
                       if importa.search(p.read_text(encoding='utf-8', errors='ignore'))
-                      and p.name not in ('sincronizacao.py', 'tests_sincronizacao.py')
+                      and p.name != 'sincronizacao.py' and not p.name.startswith('tests_')  # AJUSTE 2026-11-11
                       and not {'prodenv', '.venv', 'venv'} & set(p.parts))
         # api_view usa os leitores do padrao antigo e do novo (ler_json, referencia_padrao) e atualiza a
         # caracteristica existente; AJUSTE 2026-11-11: o script de atualizacao em massa usa a rotina nova;

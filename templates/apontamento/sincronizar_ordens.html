@@ -26,8 +26,12 @@
                 <tr><th class="table-light">Itens iguais</th><td>{{ resumo.itens.iguais|default:0 }}</td></tr>
                 <tr><th class="table-light">Itens novos</th><td>{{ resumo.itens.novos|default:0 }}</td></tr>
                 <tr><th class="table-light">Itens diferentes</th><td>{{ resumo.itens.diferentes|length }}</td></tr>
+                {# AJUSTE 2026-11-11 (JPC): do ZK -- itens existentes regravados no padrao novo de JSON #}
+                <tr><th class="table-light">Itens normalizados (JSON)</th><td>{{ resumo.itens_normalizados|default:0 }}</td></tr>
                 <tr><th class="table-light">Características novas</th><td>{{ resumo.caracteristicas_novas }}</td></tr>
                 <tr><th class="table-light">Características diferentes</th><td>{{ resumo.caracteristicas_diferentes|default:0 }}</td></tr>
+                {# AJUSTE 2026-11-11 (JPC): do ZK -- tipo (N numerico / S ou vazio texto) de todas as caracteristicas, do Mega #}
+                <tr><th class="table-light">{% if resumo.gravado %}Características com tipo atualizado{% else %}Características com tipo diferente do Mega{% endif %}</th><td>{{ resumo.caracteristicas_tipo|default:0 }}</td></tr>
                 <tr><th class="table-light">Máquinas novas</th><td>{{ resumo.maquinas_novas }}</td></tr>
                 <tr><th class="table-light">Operadores novos</th><td>{{ resumo.operadores_novos|default:0 }}</td></tr>
                 <tr><th class="table-light">Operadores com nome diferente</th><td>{{ resumo.operadores_diferentes|default:0 }}</td></tr>

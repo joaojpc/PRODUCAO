@@ -1,21 +1,31 @@
 {% extends 'apontamento/base.html' %}
+{% load bootstrap_icons %}
 {% block content %}
+<div class="container-fluid">
     <h3>Manutenção de integração de dados</h3>
-    {# AJUSTE 2026-10-20: Baixar Ordens usa a rotina nova de sincronizacao (copiada do NMV); a antiga foi descontinuada #}
-    <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url 'sincronizar_ordens_nova' %}">Baixar Ordens</a>
-<button type="button" class="btn btn-light" disabled></button>
-    <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="{% url "menu" %}?action=encerrar_get">Encerrar</a>
-<button type="button" class="btn btn-light" disabled></button>
-    <a class="btn btn-primary btn-lg active" style="width:150" role="button" aria-pressed="true" href="?action=integrarProducao">Integrar</a>
-<button type="button" class="btn btn-light" disabled></button>
-    {# AJUSTE 2026-10-20: Efetivar Apontamento (gravacao direta no Oracle) -- 1o clique grava, 2o efetiva #}
-    <form method="post" action="{% url 'efetivar_apontamento_oracle' %}" style="display:inline; margin:0;"
-          onsubmit="return confirm('Gravar no Oracle os lotes e demandas pendentes deste controle?');">
-        {% csrf_token %}
-        <button type="submit" class="btn btn-primary btn-lg active" style="width:150">Efetivar Apontamento</button>
-    </form>
-<!--button type="button" class="btn btn-light" disabled></button-->
+    {# AJUSTE 2026-11-11 (JPC): layout do NMV/ZK -- botoes lado a lado com espaco (no lugar dos botoes disabled #}
+    {# usados como espaco) e icones. Decisao do usuario: NENHUM botao novo -- os mesmos 4 de antes. #}
+    <div style="display:flex; flex-wrap:wrap; gap:12px 6px;">
+        {# AJUSTE 2026-10-20: Baixar Ordens usa a rotina nova de sincronizacao (copiada do NMV); a antiga foi descontinuada #}
+        <a class="btn btn-primary btn-lg" style="min-width:150px" role="button" href="{% url 'sincronizar_ordens_nova' %}">
+            {% bs_icon 'download' %} Baixar Ordens
+        </a>
+        <a class="btn btn-primary btn-lg" style="min-width:150px" role="button" href="{% url "menu" %}?action=encerrar_get">
+            {% bs_icon 'x-circle' %} Encerrar
+        </a>
+        <a class="btn btn-primary btn-lg" style="min-width:150px" role="button" href="?action=integrarProducao">
+            {% bs_icon 'arrow-repeat' %} Integrar
+        </a>
+        {# AJUSTE 2026-10-20: Efetivar Apontamento (gravacao direta no Oracle). AJUSTE 2026-11-11: o botao so abre a #}
+        {# tela "Efetivar no Mega" (quem grava e efetiva e o botao de la, com a propria confirmacao) -- sem o confirm. #}
+        <form method="post" action="{% url 'efetivar_apontamento_oracle' %}" style="display:inline; margin:0;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary btn-lg" style="min-width:150px">
+                {% bs_icon 'check2-circle' %} Efetivar Apontamento
+            </button>
+        </form>
+    </div>
     <!--a class="btn btn-primary btn-lg active" style="width:200" role="button" aria-pressed="true" href="?action=get_tipoordens">Baixar Tipo de Ordens</a-->
-<!--button type="button" class="btn btn-light" disabled></button>
     <!--a class="btn btn-primary btn-lg active" style="width:200" role="button" aria-pressed="true" href="?action=get_atribref">Baixar Características</a-->
+</div>
 {% endblock  %}

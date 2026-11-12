@@ -1,4 +1,7 @@
 {% block js %}
+    {# AJUSTE 2026-11-11 (JPC): do NMV/ZK -- lista de itens da OP entregue como JSON padrao (json_script); antes a #}
+    {# lista Python ia colada no script e None/True quebravam a tela #}
+    {{ lista|default_if_none:''|json_script:"itens-ordem" }}
     <script>
         // AJUSTE 2026-06-24: IP dinâmico por SO. Mantém regra original
         var v_ip = '192.168.0.24';
@@ -119,7 +122,13 @@
         var sel_key;
         var sel_value;
         var var_input;
-        litens = {{lista | safe}};
+        // AJUSTE 2026-11-11 (JPC): do NMV/ZK -- le o JSON do bloco itens-ordem; texto JSON dentro de texto (padrao
+        // antigo) e lido de novo; qualquer erro = lista vazia (a tela abre, sem quebrar o script)
+        try { litens = JSON.parse(document.getElementById('itens-ordem').textContent); } catch (e) { litens = []; }
+        for (var n = 0; n < 3 && typeof litens === 'string'; n++) {
+            try { litens = litens.trim() ? JSON.parse(litens) : []; } catch (e) { litens = []; }
+        }
+        if (!Array.isArray(litens)) litens = [];
         ordem = {{ord_in_codigo | safe}};
         $("#id_ord_in_codigo").val(ordem);
         $("#id_fil_in_codigo").val(filial);
@@ -181,7 +190,8 @@
                 for (var i = 0, len = v_referencia.length; i < len; ++i) {
                     v_descricaoRef = v_referencia[i].RAT_ST_DESCRICAO.replaceAll(' ', '_');
                     if (v_referencia[i].RAT_CH_TIPO == 'L') {
-                        criainput(v_descricaoRef, v_referencia[i].RAT_VALUE);
+                        // AJUSTE 2026-11-11 (JPC): leva o tipo do Mega (RAT_CH_TIPOCONTEUDO) para o teclado numerico
+                        criainput(v_descricaoRef, v_referencia[i].RAT_VALUE, null, v_referencia[i].RAT_CH_TIPOCONTEUDO);
                     }
                     else
                     {
@@ -254,7 +264,7 @@
             $("#caracteristica").append(div);
         };
 
-        function criainput(nome, valor,atributo) {
+        function criainput(nome, valor,atributo, tipo) {
             var_nome = 'id_'+nome
             var html = '<p><label for=\"name\">'+nome+'</label>';
             html += '<input type="hidden" id="hiddenField" value='+valor+' class="hiddenField"/> '
@@ -262,15 +272,18 @@
             html += '<button class="btn btn-default" id="id_'+nome+'-btn" type="button"><i class="glyphicon glyphicon-th"></i></button>';
             html += '</span></p>';
             $("#referencias").append(html)
-                if (var_nome=='id_Largura') {
-                    $('#id_Largura-btn').numpad({
-                        target: $('#id_Largura')
-                    });
-                }
-                if (var_nome=='id_ComprImento') {
-                    $('#id_ComprImento-btn').numpad({
-                        target: $('#id_ComprImento')
-                    });
+                // AJUSTE 2026-11-11 (JPC): do ZK -- tipo 'N' (RAT_CH_TIPOCONTEUDO do Mega) = numerico: teclado numerico
+                // no tablet (inputmode) e numpad no botao. Decisao (nao afetar o operador): sem tipo gravado ainda,
+                // as medidas seguem numericas como hoje; tipo 'S' explicito = texto. Antes: 'id_ComprImento' nunca
+                // casava. getElementById: o id vem da descricao e pode ter caractere que quebra seletor jQuery.
+                var medida = (var_nome=='id_Largura' || var_nome=='id_Comprimento' || var_nome=='id_ComprImento' || var_nome=='id_Altura');
+                if (tipo == 'N' || (!tipo && medida)) {
+                    try {
+                        $(document.getElementById(var_nome)).attr('inputmode', 'decimal');
+                        $(document.getElementById(var_nome+'-btn')).numpad({
+                            target: $(document.getElementById(var_nome))
+                        });
+                    } catch (e) { console.log('teclado numerico', var_nome, e); }
                 }
         };
 
