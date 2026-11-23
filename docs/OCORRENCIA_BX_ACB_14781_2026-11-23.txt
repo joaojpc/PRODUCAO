@@ -239,6 +239,16 @@ e kardex = saldo (script do acerto: acerto_sem_lote.py, rodado no servidor).
     apontando para os movimentos excluidos -- todas valor 0, com erro "Saldo insuficiente para saida
     de Quantidade". Sem valor contabil. Limpar reprocessando o custo de outubro da filial 3 (regera a
     tabela a partir do estoque; a baixa de 27/10 entra). A 14827 nao chegou ao custo.
+    CORRECAO: 42 dessas linhas estavam valorizadas em CSC_MOVIMENTOVALORIZADO_C (42 un. a ~60,98 =
+    R$ 2.561,13 de material nacional) -- havia valor no custo.
+  - ACERTO NO CUSTO (23/11, regra do usuario: um unico registro de custo para a requisicao):
+    mantido o csc_in_codigo 11270980 (um dos valorizados) com chave atualizada para o movimento
+    novo (mvt_in_lancam / csc_in_lancam / mvt_in_vinculo = 2698652) e data 27/10/2026
+    (csc_dt_movimento e csc_dt_documento); excluidos os outros 1.309 (CSC_MOVIMENTO_C) e as 41
+    valorizacoes deles (CSC_MOVIMENTOVALORIZADO_C). Resultado: 14781/3790 com 1 registro de custo,
+    qtd 1, movimento existente, valorizacao 1 un. R$ 60,98. Backup completo das 1.310 + 42 linhas:
+    docs/backup/custo_csc_14781_3790_antes_2026-11-23.csv
+    14827/15128: nenhum registro no custo (encerrada sem movimento) -- nada a acertar.
   - Encerrado tudo anterior a 01/11/2026 ainda pendente (todas as filiais): 44 requisicoes 'L'
     (filial 31, out) e 89 itens 'A' (fil 3: 31, fil 31: 56, fil 302: 1, fil 312: 1) -> 'C'.
     Lista: docs/backup/encerradas_outubro_2026-11-23.csv
