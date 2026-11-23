@@ -1,0 +1,256 @@
+OCORRENCIA 2026-11-23 -- BAIXA DE REQUISICAO "BX ACB: 14781" (ITEM 3790 - PAPEL HIGIENICO)
+Assinatura: JPC - João Castro
+Ponto de restauracao: MP/apt_intprod2.sql no commit c91520f (arquivo sem alteracao antes deste ajuste).
+
+==========================================================================================
+1. ORIGEM
+==========================================================================================
+Diferenca de estoque reportada em outubro/2026. Kardex do item 3790 (01/10 a 31/10/2026):
+saldo 1.336 -> 10 (saida de 1.326). A baixa 14781 aparece centenas de vezes, todas de 1 unidade
+com data 07/10/2026, tipo "SD-Requisicao Matl. Consumo".
+Conferido no Mega: geraram EST_MOVIMENTO e NAO geraram EST_LOTESMOVIMENTO ("movimento manco").
+
+==========================================================================================
+2. CAUSA (pacote IDP.APT_INTPROD2, procedure p_Gera_BaixaRequisicao)
+==========================================================================================
+O documento "BX ACB: <BXA_IN_SEQUENCIA>" nasce em p_Gera_BaixaRequisicao, chamada pelo app em
+toda rodada da integracao do almoxarifado (almoxarifado/integracao.py, apt_geraBaixaRequisicao).
+
+  a) p_GeraMovimentoEstoque_New grava o EST_MOVIMENTO e da erro na parte dos lotes.
+  b) O "exception when others" so grava o erro em APT_PRO_ITENSREQUISICAO.BXI_CL_LOG; nao desfaz
+     o movimento que ja entrou, e o COMMIT do fim da procedure confirma o movimento sem lote.
+  c) O item segue com BXI_CH_BAIXA = 'N'. Na rodada seguinte gera outro movimento de 1 e falha de
+     novo -- um movimento novo a cada rodada, sempre com a data do apontamento (07/10).
+  d) A rotina de limpeza p_ConsisteMovimento (exclui movimento sem lote e reabre o item) esta
+     comentada no fim de p_Gera_BaixaRequisicao e so cobre as filiais 3 e 503.
+O mesmo risco existe no espelho da baixa na outra filial (P_SincronizarBaixas).
+
+A confirmar com o resultado do item 4.1: o erro gravado em BXI_CL_LOG (motivo do lote nao gerar)
+e por que parou com saldo 10 (encerramento do periodo ou saldo da localizacao).
+
+==========================================================================================
+3. CORRECAO NO PACOTE (MP/apt_intprod2.sql) -- regra de negocio nao muda
+==========================================================================================
+  - "savepoint sp_baixa_item" antes de p_GeraMovimentoEstoque_New; no erro, "rollback to
+    sp_baixa_item" e depois grava o log como antes. O item com erro fica com baixa 'N' e o log,
+    mas SEM movimento pela metade; a proxima rodada tenta de novo sem acumular saida.
+  - O mesmo para o espelho na outra filial ("savepoint sp_sinc_item" / P_SincronizarBaixas);
+    o rollback desfaz so o espelho, a baixa da origem fica.
+  - O rollback esta num bloco proprio: se o savepoint nao existir (ex.: alguma rotina do Mega
+    fizer commit no meio), segue exatamente como antes (so grava o log).
+
+APLICADO NO MEGA EM 23/11/2026 16:00 (pelo servidor 192.168.0.24, usuario suporte, conexao do app):
+  - O pacote compilado no Mega (DDL 03/11/2026) era MAIS NOVO que MP/apt_intprod2.sql (104 linhas
+    diferentes no apontamento/demandas). Por isso NAO foi compilado o arquivo do MP: as 4 alteracoes
+    foram aplicadas sobre o fonte do Mega. p_Gera_BaixaRequisicao era identica nos dois.
+  - Backup do fonte anterior: docs/backup/APT_INTPROD2_body_mega_antes_2026-11-23.sql
+    (para voltar: "CREATE OR REPLACE " + conteudo do arquivo).
+  - Resultado: PACKAGE e PACKAGE BODY VALID, 2 savepoints no fonte, nenhum objeto invalido.
+  - Conferido antes: ADM_PCK_MOVIMENTOESTOQUE / ADM_PCK_ESTOQUE nao fazem commit no meio (o unico
+    commit e de uma transacao autonoma de formatar data), entao o savepoint vale.
+Nada muda no app Python.
+
+DIAGNOSTICO (rodado em 23/11/2026):
+  - App: requisicao 14781 (filial 3, 07/10/2026) pediu 1 unidade do item 3790.
+  - Mega (req 14742): item 3790 com BXI_CH_STATUS 'A', BAIXA 'N', SINC 'S'; requisicao 'C'
+    (periodo de outubro encerrado em 31/10 -- foi isso que parou a repeticao).
+  - Erro gravado: ORA-20005 ADM_PCK_ESTOQUE.P_TestaSaldoRetroativo -- a saida geraria estoque
+    negativo no dia 20/10/2026 (item 3790, almox 1, localizacao 1, DP, lote *), pelo gatilho
+    EST_TRA_VALIDASALDORETROATIVO (AFTER STATEMENT em EST_LOTESMOVIMENTO).
+  - Filial 3: 1.310 EST_MOVIMENTO de 1 sem lote, incluidos de 28/10 09:10 a 06/11 11:30
+    (um por rodada do cron, ~10 min). Filial 503 (espelho): 1 movimento correto, com lote.
+  - Por que passou na conferencia do pacote: a requisicao de 07/10 so foi processada em 28/10; o
+    pacote confere o saldo so no dia seguinte (08/10), o gatilho confere todos os dias ate hoje.
+  - Efeito: kardex/financeiro baixou 1.310 a mais (~R$ 78,8 mil a 60,1657); o saldo por lote
+    (EST_MOVSUMARIZADO/EST_LOTESMOVIMENTO) nao baixou -- e a diferenca vista em outubro.
+  - Outro caso igual: BX ACB: 14827, item 15128, 1 movimento de 54 sem lote (28/10 09:00).
+
+==========================================================================================
+4. DADOS (rodar no Mega; a limpeza so depois de conferir o diagnostico)
+==========================================================================================
+4.1 Item da requisicao e o erro gravado
+  select r.fil_in_codigo, r.req_in_sequencia, r.bxa_dt_apontamento, r.bxa_ch_status,
+         i.rei_in_sequencia, i.bxi_in_sequencia, i.bxi_id_produto, i.bxi_re_quantidade,
+         i.bxi_ch_status, i.bxi_ch_baixa, i.bxi_ch_sinc, i.mvt_in_lancam,
+         dbms_lob.substr(i.bxi_cl_log, 400, 1) as erro
+    from idp.apt_pro_requisicao r
+    join idp.apt_pro_itensrequisicao i
+      on i.fil_in_codigo = r.fil_in_codigo and i.req_in_sequencia = r.req_in_sequencia
+   where r.bxa_in_sequencia = 14781;
+
+4.2 Movimentos gerados, quantos sem lote, e se ainda estao sendo gerados (ultima inclusao)
+  select m.org_in_codigo, m.fil_in_codigo, count(*) qtd_mov, sum(m.mvt_re_quantidade) qtd,
+         sum(case when l.mvt_in_lancam is null then 1 else 0 end) mancos,
+         min(m.mvt_dt_inclusao) primeira, max(m.mvt_dt_inclusao) ultima
+    from est_movimento m
+    left join (select distinct org_in_codigo, ser_in_sequencia, mvt_in_lancam
+                 from est_lotesmovimento) l
+      on l.org_in_codigo = m.org_in_codigo and l.ser_in_sequencia = m.ser_in_sequencia
+     and l.mvt_in_lancam = m.mvt_in_lancam
+   where m.mvt_st_numdoc = 'BX ACB: 14781' and m.pro_in_codigo = 3790
+   group by m.org_in_codigo, m.fil_in_codigo;
+
+4.3 App (sqlite do servidor, ~/prod/producao.db): quanto o operador realmente pediu
+  select BXI_CH_STATUS, count(*), sum(BXI_RE_QUANTIDADE)
+    from bxi_AlmoxaBaixaItens
+   where BXA_IN_SEQUENCIA = 14781 and BXI_ID_PRODUTO like '%0003790'
+   group by BXI_CH_STATUS;
+
+4.4 Limpeza dos movimentos sem lote (mesma rotina que o p_ConsisteMovimento usa)
+  Antes: periodo do materiais de outubro precisa estar aberto para a filial (GLO_ENCERRASISTEMA,
+  sis_in_codigo = 31) e o pacote corrigido (item 3) ja compilado -- senao a proxima rodada gera
+  outro movimento sem lote.
+  O item fica como esta (baixa 'N'): a proxima rodada tenta de novo. Se o motivo do erro (4.1)
+  continuar, so grava o log, sem movimento. Corrigido o motivo, sai UM movimento certo, com lote.
+
+  begin
+     for m in (select mv.org_in_codigo, mv.ser_in_sequencia, mv.mvt_in_lancam
+                 from est_movimento mv
+                where mv.mvt_st_numdoc = 'BX ACB: 14781'
+                  and mv.pro_in_codigo = 3790
+                  and not exists (select 1 from est_lotesmovimento l
+                                   where l.org_tab_in_codigo = mv.org_tab_in_codigo
+                                     and l.org_pad_in_codigo = mv.org_pad_in_codigo
+                                     and l.org_in_codigo     = mv.org_in_codigo
+                                     and l.org_tau_st_codigo = mv.org_tau_st_codigo
+                                     and l.ser_tab_in_codigo = mv.ser_tab_in_codigo
+                                     and l.ser_in_sequencia  = mv.ser_in_sequencia
+                                     and l.mvt_in_lancam     = mv.mvt_in_lancam))
+     loop
+        idp.adm_pck_movimentoestoque.Excluirmovimento(m.org_in_codigo, m.ser_in_sequencia,
+                                                      m.mvt_in_lancam);
+     end loop;
+     -- conferir a contagem (4.2 deve mostrar mancos = 0) antes do commit
+  end;
+  /
+  -- commit;   (ou rollback; se a contagem nao bater)
+
+  Depois: refazer o kardex do item 3790 (outubro) e conferir o saldo.
+
+  ATENCAO (decisao 23/11): o acerto dos 1.310 (e do 1 da 14827) e' NA DATA EM QUE OCORREU (07/10
+  e 14/10), nao em novembro. Os movimentos sem lote baixaram o saldo inteiro do item (f_saldo_qtde
+  1.323 em 07/10 -> 13 em 08/10; EST_MOVSUMARIZADO = 13), o estoque fisico nao saiu.
+  Exige reabrir outubro (materiais, sis 31) da filial 3 antes do script 4.4.
+
+==========================================================================================
+5. REGRA NOVA: REQUISICAO TUDO OU NADA (compilada no Mega em 23/11/2026 16:14)
+==========================================================================================
+Pedido: "baixa manca nunca; ou tudo ou nada; sem saldo na data recusa a requisicao inteira; a
+rotina que deve prever". Vale para TODOS os projetos (PRODUCAO, MP, NMV, ZK) e todas as filiais
+(3, 31, 302, 312): todos chamam o mesmo IDP.APT_INTPROD2.p_Gera_BaixaRequisicao. (O pacote antigo
+APT_INTPROD so' aparece em almoxarifado/api_almoxa_oracle.py::apt_gerarBaixa, que ninguem chama.)
+
+p_Gera_BaixaRequisicao, por requisicao:
+  1. savepoint sp_baixa_req.
+  2. Consistencia na data ANTES de gravar: ADM_PCK_ESTOQUE.F_SALDO_QTDE(org, filial, padrao,
+     produto, data do apontamento + 1) -- saldo no fim do dia -- contra a soma pedida do produto.
+     Faltou em algum produto: nada e' gravado, motivo em BXI_CL_LOG de cada produto sem saldo.
+  3. Gravacao: qualquer falha (erro do Mega -- inclusive o gatilho EST_TRA_VALIDASALDORETROATIVO,
+     que confere os dias seguintes ate hoje --, sem saldo na localizacao/lote DP, espelho na outra
+     filial sem saldo ou com erro) -> rollback to sp_baixa_req (requisicao inteira, origem e espelho)
+     e motivo no item (p_RecusaRequisicao). O P_TestaSaldoRetroativo nao e' chamado de novo: o
+     gatilho ja o executa em cada lote e o erro dele vira recusa sem deixar nada gravado.
+  4. Trava final: movimento 'BX ACB: <n>' desta rodada sem EST_LOTESMOVIMENTO -> recusa tudo.
+  5. Recusada fica 'L' na mesma data e e' conferida de novo a cada rodada; com o saldo acertado
+     baixa inteira sozinha. Mes encerrado -> 'C' (regra que ja existia).
+  Filial 31 continua sem espelho (como antes). Mensagem no log: "Requisição recusada, nada foi
+  baixado: <motivo>".
+Fontes: docs/backup/APT_INTPROD2_body_mega_antes_2026-11-23.sql (antes, para voltar) e
+        docs/backup/APT_INTPROD2_body_mega_depois_2026-11-23.sql (compilado).
+MP/apt_intprod2.sql atualizado para o fonte do Mega (estava desatualizado desde antes de 03/11).
+Conferido em 23/11 apos compilar: nenhum movimento BX ACB sem lote gerado no dia.
+
+==========================================================================================
+6. ENCERRAMENTO DO QUE ESTAVA PARADO ANTES DE 01/10/2026 (23/11/2026, todas as filiais)
+==========================================================================================
+  - Mega APT_PRO_REQUISICAO: 318 requisicoes da filial 3 com status 'A' (10/2022 a 02/2024)
+    -> 'C'. Lista: docs/backup/requisicoes_encerradas_2026-11-23.csv
+  - Mega APT_PRO_ITENSREQUISICAO: 1.371 itens 'A' de requisicoes ja 'B'/'C' (filiais 3, 31, 302,
+    312) -> 'C' (status novo de item; a rotina so' processa 'A'). Lista:
+    docs/backup/mega_itens_encerrados_2026-11-23.csv
+  - App (producao.db): 51 requisicoes 'A' nunca enviadas (filial 3, 09/2023 a 09/2026) e 2 itens
+    -> 'C'. Lista: docs/backup/app_requisicoes_encerradas_2026-11-23.csv
+  Para voltar: update ... set status = <anterior> pelas chaves de cada lista.
+  Nenhuma requisicao 'L' anterior a 01/10 existia.
+
+==========================================================================================
+7. CONFRONTO APP x MEGA (filial 3, requisicoes desde 01/10/2026) -- 23/11/2026
+==========================================================================================
+Arquivo: docs/backup/confronto_app_mega_2026-11-23.csv (requisicao x produto: qtd app, item no
+Mega, saidas geradas na filial 3, sem lote, espelho na 503, situacao, log).
+  - 739 linhas: 702 OK, 35 nao baixadas, 2 com saida sem lote (14781/3790 e 14827/15128).
+    Nada no Mega que nao exista no app; 3 requisicoes do app sem item (14957, 14975, 14977).
+  - Nao baixadas de outubro (requisicao ja 'C'): 23 linhas, quase todas "Saldo insuficiente". O app
+    mostra 'B', mas o estoque nao saiu no Mega. Entre elas o 3790 em 14877 (1), 14899 (1) e
+    14910 (3) -- sem saldo justamente por causa dos 1.310 sem lote.
+  - Novembro: 12 linhas em 10 requisicoes recusadas pela regra nova (sem saldo na data), pendentes 'L'.
+  - 15002 / 17908: Mega diz baixado (lancamento 2695600), mas o movimento nao existe mais
+    (excluido depois no Mega?). Conferir.
+Tem saldo para pagar as duas que deram erro? (P_TestaSaldoRetroativo do Mega, simulado com rollback)
+  - Hoje, com os movimentos sem lote no saldo: NAO (3790 negativo em 20/10; 15128 em 15/10) -- os
+    proprios movimentos sem lote derrubaram o saldo do lote (13 em vez de 1.323; 322 em vez de 376).
+  - Depois de excluir os sem lote: SIM, as duas. 3790: menor saldo do periodo 1.310 (sobra para as
+    outras 5 un. de outubro); 15128: menor saldo 54 em 11/11 -- paga exato (fica 0 nesse dia).
+
+CORRECAO DA ANALISE ACIMA (23/11, depois de abrir outubro): o saldo do lote (EST_MOVSUMARIZADO)
+NUNCA foi afetado pelos movimentos sem lote. Sem eles, o kardex do 3790 (2.539 movimentos desde
+2009) soma 13 = saldo dos lotes. O "1.336 em 01/10" do kardex era artefato: o saldo anterior e'
+calculado de tras para frente (saldo de hoje menos o periodo) e os 1.310 sem lote o inflaram.
+Saldo real em 01/10: 26. Logo NAO havia saldo para as duas: 3790 chega a 0 em 20/10 (a saida de
+07/10 deixa -1) e 15128 fica -12 em 15/10 -- o gatilho estava certo. A simulacao "+1.310 no lote"
+do item 7 partiu de premissa errada.
+
+==========================================================================================
+8. ACERTO EXECUTADO (23/11/2026, outubro da filial 3 reaberto pelo usuario)
+==========================================================================================
+Ordem: 1) excluir (adm_pck_movimentoestoque.Excluirmovimento) => 2) refazer saldo
+(p_refazsaldoestoquefil(3, 1, produto, 'N')) => 3) efetivar novamente a requisicao.
+1 e 2 numa transacao por produto; commit so' com zero sem lote, saldo do lote igual ao de antes
+e kardex = saldo (script do acerto: acerto_sem_lote.py, rodado no servidor).
+  - 14827 / 15128: 1 excluido; saldo loc1 322, loc2 308,068; kardex = saldo = 630,068. COMMIT.
+  - 14781 / 3790: 1.310 excluidos (34 s); saldo 13; kardex = saldo = 13. COMMIT.
+  - 3) 16:43: req 14742 (BX 14781) 'C' -> 'L' (item 3 ja 'A'/N/S, log limpo); req 14671
+    (BX 14827) 'B' -> 'L' e item 1 (15128) 'B' -> 'A' (nunca tinha sido baixado), log limpo.
+    A rotina (cron) efetiva com a regra nova: sem saldo no periodo -> recusa tudo, nada gravado.
+  - 16:44 rotina forcada (sem outra execucao em paralelo): 14781 e 14827 RECUSADAS inteiras pelo
+    gatilho (3790 negativo em 20/10; 15128 negativo em 15/10); nada gravado, zero sem lote no dia.
+  - Quantidade original no app da 14781: 1804=20, 1801=5, 3783=1 (baixados com lote) e 3790=1
+    (nao baixado). So' a quantidade original (1) deve ser baixada.
+  - Teste do 3790 (P_TestaSaldoRetroativo, so' leitura): 1 un. NAO cabe de 07/10 a 20/10; cabe de
+    27/10 a 31/10 (gatilho e consistencia na data). 6 un. (14781 + 14877 + 14899 + 14910) nao cabem
+    em nenhuma data de outubro (negativo em 10/11) -- sugerida contagem fisica do item.
+  - Filial 503: NAO mexer (decisao do usuario). A copia de 1 un. do 3790 (lancamento 3010870, com
+    lote) fica; o espelho da 14781 segue 'S', a rotina nao grava outra copia.
+  - PROCESSADO (23/11): data da requisicao 14781 (req 14742, filial 3) 07/10 -> 27/10/2026 e rotina
+    forcada. Item 3790 baixado: 1 un., SD em 27/10/2026, lancamento 2698652, com lote (1).
+    Requisicao e item 'B'. Filial 3 / 3790: saldo lotes 12 = kardex 12. Zero sem lote no dia.
+    (A mensagem "Requisição recusada" da rodada e' de outra requisicao 'L' da mesma rodada.)
+    O app continua com a data original 07/10 na requisicao 14781.
+  - 14827 / 15128 (transferencia loc 1 -> loc 2 de 54 kg em 14/10): a loc 1 tinha 65 em 14/10,
+    mas ficaria -12 em 15/10 (A151025, -23) e -54 em 11/11 (A111126). A transferencia manual
+    A111126 (usuario 249, 11/11) levou os 111 kg da loc 1 para a loc 2, incluindo os 54 da 14827;
+    transferir de novo seria duplicidade. ENCERRADA (23/11, a pedido do usuario): item 15128 'A' ->
+    'C' (motivo no BXI_CL_LOG) e requisicao 'L' -> 'C'; os outros 4 itens seguem 'B'.
+  - Orfaos (23/11, todas as filiais, BX ACB desde 01/2026): 0 sem lote, 0 lote sem movimento,
+    0 transferencia sem par, 0 sem requisicao. 2 alteracoes manuais no Mega (nao orfaos):
+    BX ACB 14109 (fil 3, jul: usuario 249 incluiu 17546 40 e 16770 ficou 20) e BX ACB 780 (fil
+    312: movimento do item 18 trocado para o 19).
+  - CUSTO: CSC_MOVIMENTO_C (modulo Custos, periodo 203 = out/2026) tem 1.310 linhas da BX ACB 14781
+    apontando para os movimentos excluidos -- todas valor 0, com erro "Saldo insuficiente para saida
+    de Quantidade". Sem valor contabil. Limpar reprocessando o custo de outubro da filial 3 (regera a
+    tabela a partir do estoque; a baixa de 27/10 entra). A 14827 nao chegou ao custo.
+  - Encerrado tudo anterior a 01/11/2026 ainda pendente (todas as filiais): 44 requisicoes 'L'
+    (filial 31, out) e 89 itens 'A' (fil 3: 31, fil 31: 56, fil 302: 1, fil 312: 1) -> 'C'.
+    Lista: docs/backup/encerradas_outubro_2026-11-23.csv
+Falta: encerrar outubro de novo e reprocessar custo medio/contabilizacao de outubro da filial 3.
+Observacao: filial 31 nao tem espelho; o item fica com sinc 'N' e a requisicao nunca fecha 'B'
+(pendente desde sempre) -- avaliar marcar sinc 'S' na 31 quando nao ha espelho.
+
+==========================================================================================
+9. PENDENCIAS
+==========================================================================================
+  - Acerto dos movimentos sem lote NA DATA (07/10 e 14/10): reabrir outubro da filial 3, rodar 4.4
+    (filtro tambem para 'BX ACB: 14827' / item 15128), conferir saldo e encerrar outubro de novo.
+    Depois, o item 3790 da 14742 (1 unidade real, nunca baixada na filial 3; espelho na 503 ja
+    feito) pode voltar a 'L' para a rotina nova baixar com lote.
+  - Conferir se p_efetivaapontamento (mesmo pacote) tem o mesmo risco de movimento sem lote.
